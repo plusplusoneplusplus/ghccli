@@ -32,13 +32,14 @@ export function getCachedEncodingForBuffer(buffer: Buffer): string {
     cachedSystemEncoding = getSystemEncoding();
   }
 
-  // If we have a cached system encoding, use it
+  // If we have a cached system encoding, use it (with TextDecoder compatibility)
   if (cachedSystemEncoding) {
-    return cachedSystemEncoding;
+    return getTextDecoderCompatibleEncoding(cachedSystemEncoding);
   }
 
   // Otherwise, detect from this specific buffer (don't cache this result)
-  return detectEncodingFromBuffer(buffer) || 'utf-8';
+  const detected = detectEncodingFromBuffer(buffer);
+  return getTextDecoderCompatibleEncoding(detected || 'utf-8');
 }
 
 /**
@@ -143,6 +144,46 @@ export function windowsCodePageToEncoding(cp: number): string | null {
 
   console.warn(`Unable to determine encoding for windows code page ${cp}.`);
   return null; // Return null if no mapping found
+}
+
+/**
+ * Maps encoding names to Node.js TextDecoder compatible encodings.
+ * Many legacy encodings are not supported by TextDecoder, so this function
+ * provides fallback mappings to supported encodings that are close enough.
+ * @param encoding The encoding name to map
+ * @returns A TextDecoder-compatible encoding name
+ */
+export function getTextDecoderCompatibleEncoding(encoding: string): string {
+  // Normalize encoding name to lowercase for consistent matching
+  const normalized = encoding.toLowerCase();
+  
+  // Map of unsupported encodings to supported fallbacks
+  const fallbackMap: { [key: string]: string } = {
+    // DOS/IBM code pages - fallback to latin1 which can handle most single-byte encodings
+    'cp437': 'latin1',
+    'cp850': 'latin1', 
+    'cp852': 'latin1',
+    'cp866': 'latin1',
+    
+    // Other legacy encodings
+    'gb2312': 'utf-8', // Chinese - utf-8 is safer fallback
+    'euc-kr': 'utf-8', // Korean - utf-8 is safer fallback
+    'big5': 'utf-8',   // Traditional Chinese - utf-8 is safer fallback
+    
+    // Normalize common encoding name variations to supported ones
+    'utf8': 'utf-8',
+    'utf16': 'utf-16le',
+    'ucs2': 'utf-16le',
+    'ascii': 'utf-8', // utf-8 is ASCII compatible
+  };
+
+  // Check if we need a fallback
+  if (fallbackMap[normalized]) {
+    return fallbackMap[normalized];
+  }
+
+  // Return original encoding if no fallback needed
+  return encoding;
 }
 
 /**
