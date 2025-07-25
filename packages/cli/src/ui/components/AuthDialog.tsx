@@ -11,6 +11,7 @@ import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
 import { LoadedSettings, SettingScope } from '../../config/settings.js';
 import { AuthType } from '@google/gemini-cli-core';
 import { validateAuthMethod } from '../../config/auth.js';
+import { GitHubCopilotAuthDialog } from './GitHubCopilotAuthDialog.js';
 
 interface AuthDialogProps {
   onSelect: (authMethod: AuthType | undefined, scope: SettingScope) => void;
@@ -35,6 +36,7 @@ export function AuthDialog({
   settings,
   initialErrorMessage,
 }: AuthDialogProps): React.JSX.Element {
+  const [showGitHubCopilotDialog, setShowGitHubCopilotDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(() => {
     if (initialErrorMessage) {
       return initialErrorMessage;
@@ -77,6 +79,7 @@ export function AuthDialog({
       value: AuthType.USE_GEMINI,
     },
     { label: 'Vertex AI', value: AuthType.USE_VERTEX_AI },
+    { label: 'GitHub Copilot', value: AuthType.GITHUB_COPILOT },
   ];
 
   const initialAuthIndex = items.findIndex((item) => {
@@ -99,6 +102,11 @@ export function AuthDialog({
   });
 
   const handleAuthSelect = (authMethod: AuthType) => {
+    if (authMethod === AuthType.GITHUB_COPILOT) {
+      setShowGitHubCopilotDialog(true);
+      return;
+    }
+    
     const error = validateAuthMethod(authMethod);
     if (error) {
       setErrorMessage(error);
@@ -108,8 +116,30 @@ export function AuthDialog({
     }
   };
 
+  const handleGitHubCopilotSuccess = (token: string) => {
+    // Token is already saved by the GitHubCopilotTokenManager
+    setShowGitHubCopilotDialog(false);
+    setErrorMessage(null);
+    onSelect(AuthType.GITHUB_COPILOT, SettingScope.User);
+  };
+
+  const handleGitHubCopilotCancel = () => {
+    setShowGitHubCopilotDialog(false);
+  };
+
+  const handleGitHubCopilotError = (error: string) => {
+    setShowGitHubCopilotDialog(false);
+    setErrorMessage(`GitHub Copilot authentication failed: ${error}`);
+  };
+
   useInput((_input, key) => {
     if (key.escape) {
+      // If GitHub Copilot dialog is showing, close it first
+      if (showGitHubCopilotDialog) {
+        setShowGitHubCopilotDialog(false);
+        return;
+      }
+      
       // Prevent exit if there is an error message.
       // This means they user is not authenticated yet.
       if (errorMessage) {
@@ -125,6 +155,17 @@ export function AuthDialog({
       onSelect(undefined, SettingScope.User);
     }
   });
+
+  // Show GitHub Copilot dialog if requested
+  if (showGitHubCopilotDialog) {
+    return (
+      <GitHubCopilotAuthDialog
+        onSuccess={handleGitHubCopilotSuccess}
+        onCancel={handleGitHubCopilotCancel}
+        onError={handleGitHubCopilotError}
+      />
+    );
+  }
 
   return (
     <Box

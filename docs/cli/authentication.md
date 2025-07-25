@@ -1,6 +1,6 @@
 # Authentication Setup
 
-The Gemini CLI requires you to authenticate with Google's AI services. On initial startup you'll need to configure **one** of the following authentication methods:
+The Gemini CLI requires you to authenticate with AI services. On initial startup you'll need to configure **one** of the following authentication methods:
 
 1.  **Login with Google (Gemini Code Assist):**
     - Use this option to log in with your google account.
@@ -85,6 +85,19 @@ The Gemini CLI requires you to authenticate with Google's AI services. On initia
     - It automatically uses the credentials of the logged-in user in the Cloud Shell environment.
     - This is the default authentication method when running in Cloud Shell and no other method is configured.
 
+5.  **<a id="github-copilot"></a>GitHub Copilot:**
+    - Use this option to authenticate with GitHub Copilot's AI models.
+    - This method provides access to GitHub Copilot's GPT-4 and other models through your GitHub account.
+    - **Requirements:** You need an active GitHub Copilot subscription (individual, business, or enterprise).
+    
+    **Authentication:**
+    
+    During initial startup, the CLI will guide you through GitHub's OAuth device flow:
+    1. The CLI will display a device code and verification URL
+    2. Visit the URL in your browser and enter the code
+    3. Authorize the application in GitHub
+    4. Your token will be saved locally for future use
+
           :warning: Be advised that when you export your API key inside your shell configuration file, any other process executed from the shell can read it.
 
 ### Persisting Environment Variables with `.env` Files
@@ -139,5 +152,9 @@ following authentication methods if available:
     - **Using Application Default Credentials (ADC):**
       - Run `gcloud auth application-default login` in your environment to configure ADC.
       - Ensure the `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION` environment variables are set.
+
+3.  **GitHub Copilot:**
+    - GitHub Copilot authentication in non-interactive mode requires that you have previously authenticated interactively and have a valid token file at `~/.gemini/.github_token`.
+    - The CLI will use this saved token to authenticate with GitHub Copilot's API.
 
 If none of these environment variables are set in a non-interactive session, the CLI will exit with an error.

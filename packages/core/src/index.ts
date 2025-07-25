@@ -75,6 +75,10 @@ export type {
 } from './mcp/oauth-utils.js';
 export { OAuthUtils } from './mcp/oauth-utils.js';
 
+// Export GitHub Copilot integration
+export * from './github-copilot/github-copilot-auth.js';
+export * from './github-copilot/github-copilot-content-generator.js';
+
 // Export telemetry functions
 export * from './telemetry/index.js';
 export { sessionId } from './utils/session.js';

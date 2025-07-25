@@ -91,6 +91,17 @@ The Vertex AI API provides a [free tier](https://cloud.google.com/vertex-ai/gene
 
 3. (Optionally) Add a billing account on your project to get access to [higher usage limits](https://cloud.google.com/vertex-ai/generative-ai/docs/quotas)
 
+### Use GitHub Copilot:
+
+The GitHub Copilot integration provides access to GPT-4 and other models through your GitHub Copilot subscription:
+
+1. **Prerequisites:** You need an active [GitHub Copilot subscription](https://github.com/features/copilot) (individual, business, or enterprise).
+2. **Authentication:** The CLI will guide you through GitHub's OAuth flow:
+
+   - Just select "GitHub Copilot" in the authentication menu
+   - The CLI will display a device code and verification URL
+   - Visit the URL and enter the code to authorize
+
 For other authentication methods, including Google Workspace accounts, see the [authentication](./docs/cli/authentication.md) guide.
 
 ## Examples
