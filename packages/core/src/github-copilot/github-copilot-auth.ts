@@ -79,8 +79,8 @@ export class GitHubCopilotTokenManager {
   constructor(config: GitHubConfig) {
     this.config = {
       baseUrl: 'https://api.github.com',
-      editorName: 'gemini-cli',
-      editorVersion: '1.0.0',
+      editorName: 'vscode',
+      editorVersion: '1.103.0',
       pluginName: 'copilot-chat',
       pluginVersion: '1.7.21',
       ...config,

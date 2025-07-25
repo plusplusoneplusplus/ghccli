@@ -97,6 +97,25 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
     private readonly model: string = DEFAULT_GEMINI_MODEL,
   ) {}
 
+  /**
+   * Creates common headers for GitHub Copilot API requests
+   */
+  private createHeaders(token: string, isStreaming: boolean = false): Record<string, string> {
+    const headers: Record<string, string> = {
+      "authorization": `Bearer ${token}`,
+      "editor-version": `${this.tokenManager['config'].editorName}/${this.tokenManager['config'].editorVersion}`,
+      "content-type": "application/json",
+    };
+
+    if (isStreaming) {
+      headers["accept"] = "text/event-stream";
+    } else {
+      headers["Accept"] = "application/json";
+    }
+
+    return headers;
+  }
+
   async generateContent(
     request: GenerateContentParameters,
   ): Promise<GenerateContentResponse> {
@@ -124,12 +143,7 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
 
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        "authorization": `Bearer ${tokenInfo.token}`,
-        "Editor-Version": `${this.tokenManager['config'].editorName}/${this.tokenManager['config'].editorVersion}`,
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      },
+      headers: this.createHeaders(tokenInfo.token, false),
       body: JSON.stringify(requestBody),
       signal: request.config?.abortSignal,
     });
@@ -191,12 +205,7 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
 
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        "authorization": `Bearer ${tokenInfo.token}`,
-        "Editor-Version": `${this.tokenManager['config'].editorName}/${this.tokenManager['config'].editorVersion}`,
-        "Content-Type": "application/json",
-        "Accept": "text/event-stream",
-      },
+      headers: this.createHeaders(tokenInfo.token, true),
       body: JSON.stringify(requestBody),
       signal: request.config?.abortSignal,
     });
