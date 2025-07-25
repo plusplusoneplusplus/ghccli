@@ -20,20 +20,30 @@ vi.mock('@google/genai');
 const mockConfig = {} as unknown as Config;
 
 describe('createContentGenerator', () => {
-  it('should create a CodeAssistContentGenerator', async () => {
-    const mockGenerator = {} as unknown;
-    vi.mocked(createCodeAssistContentGenerator).mockResolvedValue(
-      mockGenerator as never,
+  it('should throw error for disabled CodeAssist authentication methods', async () => {
+    await expect(
+      createContentGenerator(
+        {
+          model: 'test-model',
+          authType: AuthType.LOGIN_WITH_GOOGLE,
+        },
+        mockConfig,
+      ),
+    ).rejects.toThrow(
+      'LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, or GITHUB_COPILOT instead.',
     );
-    const generator = await createContentGenerator(
-      {
-        model: 'test-model',
-        authType: AuthType.LOGIN_WITH_GOOGLE,
-      },
-      mockConfig,
+
+    await expect(
+      createContentGenerator(
+        {
+          model: 'test-model',
+          authType: AuthType.CLOUD_SHELL,
+        },
+        mockConfig,
+      ),
+    ).rejects.toThrow(
+      'LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, or GITHUB_COPILOT instead.',
     );
-    expect(createCodeAssistContentGenerator).toHaveBeenCalled();
-    expect(generator).toBe(mockGenerator);
   });
 
   it('should create a GoogleGenAI content generator', async () => {

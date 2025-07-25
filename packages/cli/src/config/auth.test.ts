@@ -24,12 +24,16 @@ describe('validateAuthMethod', () => {
     process.env = originalEnv;
   });
 
-  it('should return null for LOGIN_WITH_GOOGLE', () => {
-    expect(validateAuthMethod(AuthType.LOGIN_WITH_GOOGLE)).toBeNull();
+  it('should return error for disabled LOGIN_WITH_GOOGLE', () => {
+    expect(validateAuthMethod(AuthType.LOGIN_WITH_GOOGLE)).toBe(
+      'This authentication method has been disabled for privacy reasons. Please use Gemini API Key, Vertex AI, or GitHub Copilot instead.',
+    );
   });
 
-  it('should return null for CLOUD_SHELL', () => {
-    expect(validateAuthMethod(AuthType.CLOUD_SHELL)).toBeNull();
+  it('should return error for disabled CLOUD_SHELL', () => {
+    expect(validateAuthMethod(AuthType.CLOUD_SHELL)).toBe(
+      'This authentication method has been disabled for privacy reasons. Please use Gemini API Key, Vertex AI, or GitHub Copilot instead.',
+    );
   });
 
   describe('USE_GEMINI', () => {

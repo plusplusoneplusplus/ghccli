@@ -162,7 +162,7 @@ describe('AuthDialog', () => {
 
   describe('GEMINI_DEFAULT_AUTH_TYPE environment variable', () => {
     it('should select the auth type specified by GEMINI_DEFAULT_AUTH_TYPE', () => {
-      process.env.GEMINI_DEFAULT_AUTH_TYPE = AuthType.LOGIN_WITH_GOOGLE;
+      process.env.GEMINI_DEFAULT_AUTH_TYPE = AuthType.USE_GEMINI;
 
       const settings: LoadedSettings = new LoadedSettings(
         {
@@ -189,7 +189,7 @@ describe('AuthDialog', () => {
       );
 
       // This is a bit brittle, but it's the best way to check which item is selected.
-      expect(lastFrame()).toContain('● 1. Login with Google');
+      expect(lastFrame()).toContain('● 1. Use Gemini API Key');
     });
 
     it('should fall back to default if GEMINI_DEFAULT_AUTH_TYPE is not set', () => {
@@ -217,8 +217,8 @@ describe('AuthDialog', () => {
         <AuthDialog onSelect={() => {}} settings={settings} />,
       );
 
-      // Default is LOGIN_WITH_GOOGLE
-      expect(lastFrame()).toContain('● 1. Login with Google');
+      // Default is USE_GEMINI
+      expect(lastFrame()).toContain('● 1. Use Gemini API Key');
     });
 
     it('should show an error and fall back to default if GEMINI_DEFAULT_AUTH_TYPE is invalid', () => {
@@ -252,8 +252,8 @@ describe('AuthDialog', () => {
         'Invalid value for GEMINI_DEFAULT_AUTH_TYPE: "invalid-auth-type"',
       );
 
-      // Default is LOGIN_WITH_GOOGLE
-      expect(lastFrame()).toContain('● 1. Login with Google');
+      // Default is USE_GEMINI
+      expect(lastFrame()).toContain('● 1. Use Gemini API Key');
     });
   });
 

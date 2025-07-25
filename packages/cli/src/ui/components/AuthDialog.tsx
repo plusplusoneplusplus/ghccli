@@ -63,18 +63,6 @@ export function AuthDialog({
   });
   const items = [
     {
-      label: 'Login with Google',
-      value: AuthType.LOGIN_WITH_GOOGLE,
-    },
-    ...(process.env.CLOUD_SHELL === 'true'
-      ? [
-          {
-            label: 'Use Cloud Shell user credentials',
-            value: AuthType.CLOUD_SHELL,
-          },
-        ]
-      : []),
-    {
       label: 'Use Gemini API Key',
       value: AuthType.USE_GEMINI,
     },
@@ -98,7 +86,7 @@ export function AuthDialog({
       return item.value === AuthType.USE_GEMINI;
     }
 
-    return item.value === AuthType.LOGIN_WITH_GOOGLE;
+    return item.value === AuthType.GITHUB_COPILOT;
   });
 
   const handleAuthSelect = (authMethod: AuthType) => {

@@ -70,6 +70,14 @@ export async function getOauthClient(
   authType: AuthType,
   config: Config,
 ): Promise<OAuth2Client> {
+  // Check if the authentication type is disabled for privacy reasons
+  if (
+    authType === AuthType.LOGIN_WITH_GOOGLE ||
+    authType === AuthType.CLOUD_SHELL
+  ) {
+    throw new Error('LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, or GITHUB_COPILOT instead.');
+  }
+
   const client = new OAuth2Client({
     clientId: OAUTH_CLIENT_ID,
     clientSecret: OAUTH_CLIENT_SECRET,
@@ -97,83 +105,9 @@ export async function getOauthClient(
     return client;
   }
 
-  // In Google Cloud Shell, we can use Application Default Credentials (ADC)
-  // provided via its metadata server to authenticate non-interactively using
-  // the identity of the user logged into Cloud Shell.
-  if (authType === AuthType.CLOUD_SHELL) {
-    try {
-      console.log("Attempting to authenticate via Cloud Shell VM's ADC.");
-      const computeClient = new Compute({
-        // We can leave this empty, since the metadata server will provide
-        // the service account email.
-      });
-      await computeClient.getAccessToken();
-      console.log('Authentication successful.');
-
-      // Do not cache creds in this case; note that Compute client will handle its own refresh
-      return computeClient;
-    } catch (e) {
-      throw new Error(
-        `Could not authenticate using Cloud Shell credentials. Please select a different authentication method or ensure you are in a properly configured environment. Error: ${getErrorMessage(
-          e,
-        )}`,
-      );
-    }
-  }
-
-  if (config.isBrowserLaunchSuppressed()) {
-    let success = false;
-    const maxRetries = 2;
-    for (let i = 0; !success && i < maxRetries; i++) {
-      success = await authWithUserCode(client);
-      if (!success) {
-        console.error(
-          '\nFailed to authenticate with user code.',
-          i === maxRetries - 1 ? '' : 'Retrying...\n',
-        );
-      }
-    }
-    if (!success) {
-      process.exit(1);
-    }
-  } else {
-    const webLogin = await authWithWeb(client);
-
-    console.log(
-      `\n\nCode Assist login required.\n` +
-        `Attempting to open authentication page in your browser.\n` +
-        `Otherwise navigate to:\n\n${webLogin.authUrl}\n\n`,
-    );
-    try {
-      // Attempt to open the authentication URL in the default browser.
-      // We do not use the `wait` option here because the main script's execution
-      // is already paused by `loginCompletePromise`, which awaits the server callback.
-      const childProcess = await open(webLogin.authUrl);
-
-      // IMPORTANT: Attach an error handler to the returned child process.
-      // Without this, if `open` fails to spawn a process (e.g., `xdg-open` is not found
-      // in a minimal Docker container), it will emit an unhandled 'error' event,
-      // causing the entire Node.js process to crash.
-      childProcess.on('error', (_) => {
-        console.error(
-          'Failed to open browser automatically. Please try running again with NO_BROWSER=true set.',
-        );
-        process.exit(1);
-      });
-    } catch (err) {
-      console.error(
-        'An unexpected error occurred while trying to open the browser:',
-        err,
-        '\nPlease try running again with NO_BROWSER=true set.',
-      );
-      process.exit(1);
-    }
-    console.log('Waiting for authentication...');
-
-    await webLogin.loginCompletePromise;
-  }
-
-  return client;
+  // Since LOGIN_WITH_GOOGLE and CLOUD_SHELL are disabled, 
+  // we should never reach this point
+  throw new Error('Unsupported authentication type reached in getOauthClient');
 }
 
 async function authWithUserCode(client: OAuth2Client): Promise<boolean> {

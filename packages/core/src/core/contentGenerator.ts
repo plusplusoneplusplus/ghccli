@@ -73,12 +73,16 @@ export function createContentGeneratorConfig(
     proxy: config?.getProxy(),
   };
 
-  // If we are using Google auth, Cloud Shell, or GitHub Copilot, there is nothing else to validate for now
+  // If we are using Google auth or Cloud Shell, these are now disabled for privacy reasons
   if (
     authType === AuthType.LOGIN_WITH_GOOGLE ||
-    authType === AuthType.CLOUD_SHELL ||
-    authType === AuthType.GITHUB_COPILOT
+    authType === AuthType.CLOUD_SHELL
   ) {
+    throw new Error('LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, or GITHUB_COPILOT instead.');
+  }
+
+  // If we are using GitHub Copilot, there is nothing else to validate for now
+  if (authType === AuthType.GITHUB_COPILOT) {
     return contentGeneratorConfig;
   }
 
@@ -122,12 +126,7 @@ export async function createContentGenerator(
     config.authType === AuthType.LOGIN_WITH_GOOGLE ||
     config.authType === AuthType.CLOUD_SHELL
   ) {
-    return createCodeAssistContentGenerator(
-      httpOptions,
-      config.authType,
-      gcConfig,
-      sessionId,
-    );
+    throw new Error('LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, or GITHUB_COPILOT instead.');
   }
 
   if (config.authType === AuthType.GITHUB_COPILOT) {

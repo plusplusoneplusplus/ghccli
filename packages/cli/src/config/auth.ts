@@ -13,7 +13,7 @@ export const validateAuthMethod = (authMethod: string): string | null => {
     authMethod === AuthType.LOGIN_WITH_GOOGLE ||
     authMethod === AuthType.CLOUD_SHELL
   ) {
-    return null;
+    return 'This authentication method has been disabled for privacy reasons. Please use Gemini API Key, Vertex AI, or GitHub Copilot instead.';
   }
 
   if (authMethod === AuthType.USE_GEMINI) {
