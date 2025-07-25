@@ -50,7 +50,7 @@
     "clean": "node scripts/clean.js"
   },
   "bin": {
-    "gemini": "bundle/gemini.js"
+    "vscli": "bundle/vscli.js"
   },
   "files": [
     "bundle/",
