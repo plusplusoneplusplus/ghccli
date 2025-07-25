@@ -458,7 +458,19 @@ export class GeminiClient {
         throw error;
       }
       try {
-        return JSON.parse(text);
+        // Handle cases where the API returns JSON wrapped in markdown code blocks
+        let jsonText = text.trim();
+        
+        // Check if the response is wrapped in markdown code blocks
+        if (jsonText.startsWith('```json') || jsonText.startsWith('```')) {
+          // Remove opening code block marker
+          jsonText = jsonText.replace(/^```(?:json)?\s*\n?/, '');
+          // Remove closing code block marker
+          jsonText = jsonText.replace(/\n?\s*```\s*$/, '');
+          jsonText = jsonText.trim();
+        }
+        
+        return JSON.parse(jsonText);
       } catch (parseError) {
         await reportError(
           parseError,

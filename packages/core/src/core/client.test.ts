@@ -425,6 +425,84 @@ describe('Gemini Client (client.ts)', () => {
         contents,
       });
     });
+
+    it('should handle markdown-wrapped JSON responses', async () => {
+      const contents = [{ role: 'user', parts: [{ text: 'hello' }] }];
+      const schema = { type: 'object', properties: { key: { type: 'string' } } };
+      const abortSignal = new AbortController().signal;
+
+      // Mock a response with JSON wrapped in markdown code blocks
+      const mockResponse = {
+        candidates: [{
+          content: {
+            parts: [{ text: '```json\n{"key": "value"}\n```' }],
+            role: 'model',
+          },
+        }],
+      } as unknown as GenerateContentResponse;
+
+      const mockGenerator: Partial<ContentGenerator> = {
+        countTokens: vi.fn().mockResolvedValue({ totalTokens: 1 }),
+        generateContent: vi.fn().mockResolvedValue(mockResponse),
+      };
+      client['contentGenerator'] = mockGenerator as ContentGenerator;
+
+      const result = await client.generateJson(contents, schema, abortSignal);
+
+      expect(result).toEqual({ key: 'value' });
+    });
+
+    it('should handle JSON responses with just ``` prefix', async () => {
+      const contents = [{ role: 'user', parts: [{ text: 'hello' }] }];
+      const schema = { type: 'object', properties: { test: { type: 'boolean' } } };
+      const abortSignal = new AbortController().signal;
+
+      // Mock a response with JSON wrapped in generic code blocks
+      const mockResponse = {
+        candidates: [{
+          content: {
+            parts: [{ text: '```\n{"test": true}\n```' }],
+            role: 'model',
+          },
+        }],
+      } as unknown as GenerateContentResponse;
+
+      const mockGenerator: Partial<ContentGenerator> = {
+        countTokens: vi.fn().mockResolvedValue({ totalTokens: 1 }),
+        generateContent: vi.fn().mockResolvedValue(mockResponse),
+      };
+      client['contentGenerator'] = mockGenerator as ContentGenerator;
+
+      const result = await client.generateJson(contents, schema, abortSignal);
+
+      expect(result).toEqual({ test: true });
+    });
+
+    it('should handle plain JSON responses without markdown', async () => {
+      const contents = [{ role: 'user', parts: [{ text: 'hello' }] }];
+      const schema = { type: 'object', properties: { plain: { type: 'string' } } };
+      const abortSignal = new AbortController().signal;
+
+      // Mock a response with plain JSON (no markdown wrapping)
+      const mockResponse = {
+        candidates: [{
+          content: {
+            parts: [{ text: '{"plain": "json"}' }],
+            role: 'model',
+          },
+        }],
+      } as unknown as GenerateContentResponse;
+
+      const mockGenerator: Partial<ContentGenerator> = {
+        countTokens: vi.fn().mockResolvedValue({ totalTokens: 1 }),
+        generateContent: vi.fn().mockResolvedValue(mockResponse),
+      };
+      client['contentGenerator'] = mockGenerator as ContentGenerator;
+
+      const result = await client.generateJson(contents, schema, abortSignal);
+
+      expect(result).toEqual({ plain: 'json' });
+    });
   });
 
   describe('addHistory', () => {
