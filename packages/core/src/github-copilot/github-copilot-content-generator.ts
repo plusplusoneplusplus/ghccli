@@ -680,7 +680,7 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
  * to access the GitHub Copilot chat completions API with Gemini 2.5 Pro as the model
  */
 export async function createGitHubCopilotContentGenerator(
-  model: string = DEFAULT_GEMINI_MODEL
+  model: string
 ): Promise<ContentGenerator> {
   // Get GitHub token using the device flow or from file/env
   const githubToken = await GitHubCopilotTokenManager.getGitHubToken(true);
