@@ -523,6 +523,7 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
     const decoder = new TextDecoder();
     let buffer = '';
     let accumulatedContent = '';
+    let finalUsageMetadata: any = null;
 
     try {
       while (true) {
@@ -545,6 +546,11 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
               const choice = jsonData.choices?.[0];
               const delta = choice?.delta;
               
+              // Check for usage metadata in the streaming chunk
+              if (jsonData.usage) {
+                finalUsageMetadata = jsonData.usage;
+              }
+
               if (!delta) continue;
 
               const parts: Part[] = [];
@@ -610,23 +616,34 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
                 this.streamingToolCalls.clear();
               }
               
-              if (parts.length > 0) {
+              if (parts.length > 0 || finalUsageMetadata) {
                 const geminiResponse = new GenerateContentResponse();
-                geminiResponse.candidates = [{
-                  content: {
-                    parts,
-                    role: 'model'
-                  },
-                  finishReason: choice?.finish_reason 
-                    ? (choice.finish_reason === 'tool_calls' ? FinishReason.FINISH_REASON_UNSPECIFIED : FinishReason.STOP)
-                    : undefined,
-                  index: 0
-                }];
-                geminiResponse.usageMetadata = {
-                  promptTokenCount: 0,
-                  candidatesTokenCount: Math.ceil(content.length / 4),
-                  totalTokenCount: Math.ceil(content.length / 4)
-                };
+
+                if (parts.length > 0) {
+                  geminiResponse.candidates = [{
+                    content: {
+                      parts,
+                      role: 'model'
+                    },
+                    finishReason: choice?.finish_reason
+                      ? (choice.finish_reason === 'tool_calls' ? FinishReason.FINISH_REASON_UNSPECIFIED : FinishReason.STOP)
+                      : undefined,
+                    index: 0
+                  }];
+                }
+
+                // Only include usage metadata when we have real data from the API
+                // This typically comes in the final chunk and contains complete totals
+                if (finalUsageMetadata) {
+                  geminiResponse.usageMetadata = {
+                    promptTokenCount: finalUsageMetadata.prompt_tokens || 0,
+                    candidatesTokenCount: finalUsageMetadata.completion_tokens || 0,
+                    totalTokenCount: finalUsageMetadata.total_tokens || 0
+                  };
+                }
+                // For intermediate chunks, usageMetadata remains undefined
+                // The consuming code (like getFinalUsageMetadata) will extract it from
+                // the chunk that has it after streaming is complete
 
                 yield geminiResponse;
               }

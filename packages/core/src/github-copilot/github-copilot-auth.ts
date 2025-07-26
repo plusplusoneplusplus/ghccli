@@ -186,7 +186,7 @@ export class GitHubCopilotTokenManager {
     const currentTime = this.nowSeconds();
 
     // Check if we have a cached token that's still valid
-    if (this.cachedToken && this.cachedToken.expires_at > currentTime + 30) { // 30 second buffer
+    if (this.cachedToken && this.cachedToken.expires_at > currentTime + 15 * 60) { // 15 min
       logger.debug('Using cached token');
       return this.cachedToken;
     }
