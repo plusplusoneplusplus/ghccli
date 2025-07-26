@@ -10,19 +10,11 @@ import {
   CommandContext,
   CommandKind,
 } from './types.js';
-
-// Available models - Gemini, GPT, and Claude models
-const AVAILABLE_MODELS = [
-  'gemini-2.5-pro',
-  'gpt4.1',
-  'gpt-4o',
-  'claude-sonnet-4',
-  'claude-opus-4',
-];
+import { AVAILABLE_MODELS } from '../constants/models.js';
 
 export const modelCommand: SlashCommand = {
   name: 'model',
-  description: 'switch between AI models (Gemini, GPT, Claude) or show current model',
+  description: 'switch AI models interactively (/model) or directly (/model <name>)',
   kind: CommandKind.BUILT_IN,
   action: async (
     context: CommandContext,
@@ -39,26 +31,16 @@ export const modelCommand: SlashCommand = {
 
     const trimmedArgs = args.trim();
 
-    // If no arguments, show current model and available models
+    // If no arguments, show interactive model selector dialog
     if (!trimmedArgs) {
-      const currentModel = config.getModel();
-      let message = `🤖 Current model: ${currentModel}\n\n`;
-      message += '📋 Available models:\n';
-      AVAILABLE_MODELS.forEach((model) => {
-        const indicator = model === currentModel ? '▶️ ' : '   ';
-        message += `${indicator}${model}\n`;
-      });
-      message += '\n💡 Usage: /model <model_name>';
-
       return {
-        type: 'message',
-        messageType: 'info',
-        content: message,
+        type: 'dialog',
+        dialog: 'model',
       };
     }
 
     // Check if the requested model is available
-    if (!AVAILABLE_MODELS.includes(trimmedArgs)) {
+    if (!AVAILABLE_MODELS.includes(trimmedArgs as any)) {
       let message = `❌ Unknown model: ${trimmedArgs}\n\n`;
       message += '📋 Available models:\n';
       AVAILABLE_MODELS.forEach((model) => {
@@ -99,3 +81,4 @@ export const modelCommand: SlashCommand = {
     );
   },
 };
+

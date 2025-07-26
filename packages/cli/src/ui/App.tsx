@@ -23,6 +23,7 @@ import { useLoadingIndicator } from './hooks/useLoadingIndicator.js';
 import { useThemeCommand } from './hooks/useThemeCommand.js';
 import { useAuthCommand } from './hooks/useAuthCommand.js';
 import { useEditorSettings } from './hooks/useEditorSettings.js';
+import { useModelCommand } from './hooks/useModelCommand.js';
 import { useSlashCommandProcessor } from './hooks/slashCommandProcessor.js';
 import { useAutoAcceptIndicator } from './hooks/useAutoAcceptIndicator.js';
 import { useConsoleMessages } from './hooks/useConsoleMessages.js';
@@ -36,6 +37,8 @@ import { ThemeDialog } from './components/ThemeDialog.js';
 import { AuthDialog } from './components/AuthDialog.js';
 import { AuthInProgress } from './components/AuthInProgress.js';
 import { EditorSettingsDialog } from './components/EditorSettingsDialog.js';
+import { ModelDialog } from './components/ModelDialog.js';
+import { AVAILABLE_MODELS } from './constants/models.js';
 import { Colors } from './colors.js';
 import { Help } from './components/Help.js';
 import { loadHierarchicalGeminiMemory } from '../config/config.js';
@@ -219,6 +222,12 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     exitEditorDialog,
   } = useEditorSettings(settings, setEditorError, addItem);
 
+  const {
+    isModelDialogOpen,
+    openModelDialog,
+    handleModelSelect,
+  } = useModelCommand(config, addItem);
+
   const toggleCorgiMode = useCallback(() => {
     setCorgiMode((prev) => !prev);
   }, []);
@@ -388,6 +397,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     openThemeDialog,
     openAuthDialog,
     openEditorDialog,
+    openModelDialog,
     toggleCorgiMode,
     setQuittingMessages,
     openPrivacyNotice,
@@ -652,6 +662,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
       !isAuthDialogOpen &&
       !isThemeDialogOpen &&
       !isEditorDialogOpen &&
+      !isModelDialogOpen &&
       !showPrivacyNotice &&
       geminiClient?.isInitialized?.()
     ) {
@@ -665,6 +676,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     isAuthDialogOpen,
     isThemeDialogOpen,
     isEditorDialogOpen,
+    isModelDialogOpen,
     showPrivacyNotice,
     geminiClient,
   ]);
@@ -838,6 +850,16 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
                 onSelect={handleEditorSelect}
                 settings={settings}
                 onExit={exitEditorDialog}
+              />
+            </Box>
+          ) : isModelDialogOpen ? (
+            <Box flexDirection="column">
+              <ModelDialog
+                isOpen={isModelDialogOpen}
+                onExit={() => {}} // Will be closed by handleModelSelect
+                models={[...AVAILABLE_MODELS]}
+                currentModel={config?.getModel() || 'gemini-2.5-pro'}
+                onModelSelect={handleModelSelect}
               />
             </Box>
           ) : showPrivacyNotice ? (
