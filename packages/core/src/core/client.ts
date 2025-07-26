@@ -188,7 +188,6 @@ export class GeminiClient {
   Today's date is ${today}.
   My operating system is: ${platform}
   I'm currently working in the directory: ${cwd}
-  ${folderStructure}
           `.trim();
 
     const initialParts: Part[] = [{ text: context }];

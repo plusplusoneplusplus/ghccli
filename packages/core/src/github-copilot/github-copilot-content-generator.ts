@@ -17,7 +17,11 @@ import {
   ContentUnion,
   Part,
   PartUnion,
-  FinishReason
+  FinishReason,
+  Tool,
+  ToolListUnion,
+  FunctionDeclaration,
+  FunctionCall
 } from '@google/genai';
 import { ContentGenerator } from '../core/contentGenerator.js';
 import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
@@ -68,23 +72,148 @@ function toPart(part: PartUnion): Part {
 /**
  * Convert Gemini request format to OpenAI chat messages format
  */
-function convertToOpenAIMessages(contents: Content[]): Array<{ role: string; content: string }> {
-  return contents.map(content => {
+function convertToOpenAIMessages(contents: Content[]): Array<any> {
+  const messages: Array<any> = [];
+  const toolCallIdMap = new Map<string, string>(); // Track tool call IDs by function name
+  
+  for (const content of contents) {
     const role = content.role === 'user' ? 'user' : 'assistant';
-    let text = '';
     
-    if (content.parts) {
-      text = content.parts
-        .map((part: Part) => {
-          if (typeof part === 'string') return part;
-          if (part && typeof part === 'object' && 'text' in part) return part.text;
-          return '';
-        })
-        .join(' ');
+    if (!content.parts || content.parts.length === 0) {
+      messages.push({ role, content: '' });
+      continue;
     }
     
-    return { role, content: text };
-  });
+    // Separate text parts from function calls and function responses
+    const textParts: string[] = [];
+    const functionCalls: any[] = [];
+    const functionResponses: any[] = [];
+    
+    for (const part of content.parts) {
+      if (typeof part === 'string') {
+        textParts.push(part);
+      } else if (part && typeof part === 'object') {
+        if ('text' in part && part.text) {
+          textParts.push(part.text);
+        } else if ('functionCall' in part && part.functionCall) {
+          // Convert Gemini function call to OpenAI tool call format
+          const toolCallId = `call_${Math.random().toString(36).substr(2, 9)}`;
+          const functionName = part.functionCall.name;
+          if (functionName) {
+            toolCallIdMap.set(functionName, toolCallId);
+          }
+          
+          functionCalls.push({
+            id: toolCallId,
+            type: 'function',
+            function: {
+              name: functionName,
+              arguments: JSON.stringify(part.functionCall.args || {})
+            }
+          });
+        } else if ('functionResponse' in part && part.functionResponse) {
+          // Function responses will be converted to separate tool messages
+          functionResponses.push(part.functionResponse);
+        }
+      }
+    }
+    
+    // Create the main message
+    const textContent = textParts.join(' ').trim();
+    
+    if (role === 'assistant' && functionCalls.length > 0) {
+      // Assistant message with tool calls
+      messages.push({
+        role: 'assistant',
+        content: textContent || null,
+        tool_calls: functionCalls
+      });
+    } else if (textContent) {
+      // Regular message with text content
+      messages.push({ role, content: textContent });
+    }
+    
+    // Add function responses as separate tool messages
+    for (const functionResponse of functionResponses) {
+      const functionName = functionResponse.name;
+      if (functionName) {
+        const toolCallId = toolCallIdMap.get(functionName) || `call_${functionName}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        messages.push({
+          role: 'tool',
+          content: JSON.stringify(functionResponse.response || {}),
+          tool_call_id: toolCallId,
+          name: functionName
+        });
+      }
+    }
+  }
+  
+  return messages;
+}
+
+/**
+ * Convert Gemini tools to OpenAI tools format based on the model
+ */
+function convertGeminiToolsToOpenAI(tools?: ToolListUnion, model?: string): any[] | undefined {
+  if (!tools) {
+    return undefined;
+  }
+
+  // Check if we should use Gemini-style tools (for Gemini models) or OpenAI-style tools
+  const isGeminiModel = model?.includes('gemini') || model?.includes('pro') || model?.includes('flash');
+
+  // Convert ToolListUnion to array of tools
+  const toolArray = Array.isArray(tools) ? tools : [tools];
+
+  // For non-Gemini models, convert to OpenAI tools format
+  const openAITools: any[] = [];
+
+  for (const tool of toolArray) {
+    if (tool && typeof tool === 'object' && 'functionDeclarations' in tool && tool.functionDeclarations) {
+      for (const funcDecl of tool.functionDeclarations) {
+        openAITools.push({
+            type: "function",
+            function : {
+              name: funcDecl.name,
+              description: funcDecl.description,
+              parameters: funcDecl.parameters
+            }
+        });
+      }
+    }
+  }
+
+  return openAITools.length > 0 ? openAITools : undefined;
+}
+
+/**
+ * Convert OpenAI tool calls to Gemini function calls
+ */
+function convertOpenAIToolCallsToGemini(toolCalls: any[]): Part[] {
+  const parts: Part[] = [];
+  
+  for (const toolCall of toolCalls) {
+    if (toolCall.type === 'function' && toolCall.function) {
+      let args: Record<string, unknown> = {};
+      if (toolCall.function.arguments) {
+        try {
+          args = JSON.parse(toolCall.function.arguments);
+        } catch (error) {
+          console.error('Failed to parse tool call arguments:', error);
+        }
+      }
+      
+      parts.push({
+        functionCall: {
+          name: toolCall.function.name,
+          args
+        } as FunctionCall
+      });
+    }
+  }
+  
+  return parts;
 }
 
 /**
@@ -92,6 +221,9 @@ function convertToOpenAIMessages(contents: Content[]): Array<{ role: string; con
  * to authenticate with the GitHub Copilot chat completions API using Gemini 2.5 Pro
  */
 export class GitHubCopilotGeminiServer implements ContentGenerator {
+  private streamingToolCalls = new Map<number, { id?: string; name?: string; arguments: string }>();
+  private toolCallIdMap = new Map<string, string>(); // Maps OpenAI tool call IDs to function names
+
   constructor(
     private readonly tokenManager: GitHubCopilotTokenManager,
     private readonly model: string = DEFAULT_GEMINI_MODEL,
@@ -131,6 +263,9 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
     const contents = toContents(request.contents || []);
     const messages = convertToOpenAIMessages(contents);
 
+    // Convert tools based on the model
+    const openAITools = convertGeminiToolsToOpenAI(request.config?.tools, this.model);
+
     const requestBody = {
       intent: false,
       model: this.model, // Use Gemini 2.5 Pro as the model
@@ -139,6 +274,7 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
       n: 1,
       stream: false, // Non-streaming for generateContent
       messages,
+      ...(openAITools && { tools: openAITools }),
     };
 
     const response = await fetch(endpoint, {
@@ -159,14 +295,27 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
     const openAIResponse = responseData;
     const choice = openAIResponse.choices?.[0];
     const content = choice?.message?.content || '';
+    const toolCalls = choice?.message?.tool_calls;
 
     const geminiResponse = new GenerateContentResponse();
+    const parts: Part[] = [];
+    
+    // Add text content if present
+    if (content) {
+      parts.push({ text: content });
+    }
+    
+    // Add tool calls if present
+    if (toolCalls && toolCalls.length > 0) {
+      parts.push(...convertOpenAIToolCallsToGemini(toolCalls));
+    }
+
     geminiResponse.candidates = [{
       content: {
-        parts: [{ text: content }],
+        parts: parts.length > 0 ? parts : [{ text: '' }],
         role: 'model'
       },
-      finishReason: FinishReason.STOP,
+      finishReason: choice?.finish_reason === 'tool_calls' ? FinishReason.FINISH_REASON_UNSPECIFIED : FinishReason.STOP,
       index: 0
     }];
     geminiResponse.usageMetadata = {
@@ -193,6 +342,9 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
     const contents = toContents(request.contents || []);
     const messages = convertToOpenAIMessages(contents);
 
+    // Convert tools based on the model
+    const openAITools = convertGeminiToolsToOpenAI(request.config?.tools, this.model);
+
     const requestBody = {
       intent: false,
       model: this.model, // Use Gemini 2.5 Pro as the model
@@ -201,12 +353,15 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
       n: 1,
       stream: true, // Streaming for generateContentStream
       messages,
+      tools: openAITools,
     };
+
+    const body = JSON.stringify(requestBody);
 
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: this.createHeaders(tokenInfo.token, true),
-      body: JSON.stringify(requestBody),
+      body: body,
       signal: request.config?.abortSignal,
     });
 
@@ -215,7 +370,8 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
       throw new Error(`GitHub Copilot streaming request failed: ${response.status} ${errorText}`);
     }
 
-    return this.parseStreamingResponse(response);
+    const finalResponse = this.parseStreamingResponse(response);
+    return finalResponse;
   }
 
   private async *parseStreamingResponse(response: Response): AsyncGenerator<GenerateContentResponse> {
@@ -226,7 +382,7 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
 
     const decoder = new TextDecoder();
     let buffer = '';
-    let _accumulatedContent = '';
+    let accumulatedContent = '';
 
     try {
       while (true) {
@@ -246,19 +402,84 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
 
             try {
               const jsonData = JSON.parse(data);
-              const delta = jsonData.choices?.[0]?.delta;
-              const content = delta?.content || '';
+              const choice = jsonData.choices?.[0];
+              const delta = choice?.delta;
               
+              if (!delta) continue;
+
+              const parts: Part[] = [];
+              
+              // Handle text content
+              const content = delta?.content || '';
               if (content) {
-                _accumulatedContent += content;
-                
+                accumulatedContent += content;
+                parts.push({ text: content });
+              }
+
+              // Handle tool calls
+              if (delta?.tool_calls) {
+                for (const toolCall of delta.tool_calls) {
+                  const index = toolCall.index ?? 0;
+                  
+                  // Get or create the tool call accumulator for this index
+                  let accumulatedCall = this.streamingToolCalls.get(index);
+                  if (!accumulatedCall) {
+                    accumulatedCall = { arguments: '' };
+                    this.streamingToolCalls.set(index, accumulatedCall);
+                  }
+
+                  // Update accumulated data
+                  if (toolCall.id) {
+                    accumulatedCall.id = toolCall.id;
+                  }
+                  if (toolCall.function?.name) {
+                    accumulatedCall.name = toolCall.function.name;
+                    // Store the mapping for later use with tool responses
+                    if (toolCall.id) {
+                      this.toolCallIdMap.set(toolCall.function.name, toolCall.id);
+                    }
+                  }
+                  if (toolCall.function?.arguments) {
+                    accumulatedCall.arguments += toolCall.function.arguments;
+                  }
+                }
+              }
+
+              // Only emit function calls when streaming is complete (finish_reason is present)
+              if (choice?.finish_reason) {
+                for (const [, accumulatedCall] of this.streamingToolCalls) {
+                  if (accumulatedCall.name) {
+                    let args: Record<string, unknown> = {};
+                    if (accumulatedCall.arguments) {
+                      try {
+                        args = JSON.parse(accumulatedCall.arguments);
+                      } catch (error) {
+                        console.error('Failed to parse final tool call arguments:', error);
+                      }
+                    }
+                    
+                    parts.push({
+                      functionCall: {
+                        name: accumulatedCall.name,
+                        args
+                      } as FunctionCall
+                    });
+                  }
+                }
+                // Clear all accumulated tool calls
+                this.streamingToolCalls.clear();
+              }
+              
+              if (parts.length > 0) {
                 const geminiResponse = new GenerateContentResponse();
                 geminiResponse.candidates = [{
                   content: {
-                    parts: [{ text: content }],
+                    parts,
                     role: 'model'
                   },
-                  finishReason: delta.finish_reason === 'stop' ? FinishReason.STOP : undefined,
+                  finishReason: choice?.finish_reason 
+                    ? (choice.finish_reason === 'tool_calls' ? FinishReason.FINISH_REASON_UNSPECIFIED : FinishReason.STOP)
+                    : undefined,
                   index: 0
                 }];
                 geminiResponse.usageMetadata = {
