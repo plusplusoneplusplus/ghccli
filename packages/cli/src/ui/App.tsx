@@ -229,7 +229,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     isModelDialogOpen,
     openModelDialog,
     handleModelSelect,
-  } = useModelCommand(config, addItem);
+  } = useModelCommand(config, settings, addItem);
 
   const toggleCorgiMode = useCallback(() => {
     setCorgiMode((prev) => !prev);

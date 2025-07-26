@@ -7,6 +7,7 @@
 import { useState, useCallback } from 'react';
 import { Config } from '@google/gemini-cli-core';
 import { type HistoryItem, MessageType } from '../types.js';
+import { LoadedSettings, SettingScope } from '../../config/settings.js';
 
 interface UseModelCommandReturn {
   isModelDialogOpen: boolean;
@@ -16,6 +17,7 @@ interface UseModelCommandReturn {
 
 export const useModelCommand = (
   config: Config | null,
+  settings: LoadedSettings,
   addItem: (item: Omit<HistoryItem, 'id'>, timestamp: number) => void,
 ): UseModelCommandReturn => {
   const [isModelDialogOpen, setIsModelDialogOpen] = useState(false);
@@ -32,6 +34,9 @@ export const useModelCommand = (
 
       const previousModel = config.getModel();
       config.setModel(selectedModel);
+      
+      // Save the selected model to user settings
+      settings.setValue(SettingScope.User, 'selectedModel', selectedModel);
 
       // Update the Gemini client with the new model
       const geminiClient = config.getGeminiClient();
@@ -57,7 +62,7 @@ export const useModelCommand = (
         Date.now(),
       );
     },
-    [config, addItem],
+    [config, settings, addItem],
   );
 
   return {
