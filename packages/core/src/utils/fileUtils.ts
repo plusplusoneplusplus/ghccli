@@ -36,8 +36,8 @@ export function isWithinRoot(
   pathToCheck: string,
   rootDirectory: string,
 ): boolean {
-  // Allow bypassing the check for advanced use cases
-  if (process.env.GEMINI_BYPASS_PATH_VALIDATION === 'true') {
+  // Enable path validation only when explicitly requested
+  if (process.env.GEMINI_ENABLE_PATH_VALIDATION !== 'true') {
     return true;
   }
 
