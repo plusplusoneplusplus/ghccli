@@ -25,7 +25,16 @@ export function tokenLimit(model: Model): TokenCount {
       return 1_048_576;
     case 'gemini-2.0-flash-preview-image-generation':
       return 32_000;
+    // update for vscode copilot limit
+    case 'gpt4.1':
+    case 'gpt-4o':
+    case 'claude-sonnet-4':
+      return 111_000;
+    case ' claude-opus-4':
+      return 67_000;
+    case 'gemini-2.5-pro':
+      return 108_000;
     default:
-      return DEFAULT_TOKEN_LIMIT;
+      return 64_000; // Default token limit for unspecified models
   }
 }
