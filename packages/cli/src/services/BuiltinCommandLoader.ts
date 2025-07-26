@@ -48,7 +48,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
     const allDefinitions: Array<SlashCommand | null> = [
       aboutCommand,
       authCommand,
-      bugCommand,
+      // bugCommand,
       chatCommand,
       clearCommand,
       compressCommand,
