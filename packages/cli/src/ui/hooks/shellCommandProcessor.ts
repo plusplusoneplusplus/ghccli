@@ -5,6 +5,7 @@
  */
 
 import { spawn } from 'child_process';
+import { execa } from 'execa';
 import { TextDecoder } from 'util';
 import {
   HistoryItemWithoutId,
@@ -63,15 +64,144 @@ function executeShellCommand(
 ): Promise<ShellExecutionResult> {
   return new Promise((resolve) => {
     const isWindows = os.platform() === 'win32';
-    const shell = isWindows ? 'cmd.exe' : 'bash';
-    const shellArgs = isWindows
-      ? ['/c', commandToExecute]
-      : ['-c', commandToExecute];
+    
+    if (isWindows) {
+      // Use execa for Windows
+      const childPromise = execa('cmd.exe', ['/c', commandToExecute], {
+        cwd,
+        env: {
+          ...process.env,
+          GEMINI_CLI: '1',
+        },
+        stdout: ['pipe'],
+        stderr: ['pipe'],
+        cancelSignal: abortSignal,
+      });
+
+      // Use decoders to handle multi-byte characters safely (for streaming output).
+      let stdoutDecoder: TextDecoder | null = null;
+      let stderrDecoder: TextDecoder | null = null;
+
+      let stdout = '';
+      let stderr = '';
+      const outputChunks: Buffer[] = [];
+      let error: Error | null = null;
+      let exited = false;
+
+      let streamToUi = true;
+      const MAX_SNIFF_SIZE = 4096;
+      let sniffedBytes = 0;
+
+      const handleOutput = (data: Buffer, stream: 'stdout' | 'stderr') => {
+        if (!stdoutDecoder || !stderrDecoder) {
+          const encoding = getCachedEncodingForBuffer(data);
+          stdoutDecoder = new TextDecoder(encoding);
+          stderrDecoder = new TextDecoder(encoding);
+        }
+
+        outputChunks.push(data);
+
+        if (streamToUi && sniffedBytes < MAX_SNIFF_SIZE) {
+          // Use a limited-size buffer for the check to avoid performance issues.
+          const sniffBuffer = Buffer.concat(outputChunks.slice(0, 20));
+          sniffedBytes = sniffBuffer.length;
+
+          if (isBinary(sniffBuffer)) {
+            streamToUi = false;
+            // Overwrite any garbled text that may have streamed with a clear message.
+            onOutputChunk('[Binary output detected. Halting stream...]');
+          }
+        }
+
+        const decodedChunk =
+          stream === 'stdout'
+            ? stdoutDecoder.decode(data, { stream: true })
+            : stderrDecoder.decode(data, { stream: true });
+        if (stream === 'stdout') {
+          stdout += stripAnsi(decodedChunk.replace(/\r\n/g, '\n'));
+        } else {
+          stderr += stripAnsi(decodedChunk.replace(/\r\n/g, '\n'));
+        }
+
+        if (!exited && streamToUi) {
+          // Send only the new chunk to avoid re-rendering the whole output.
+          const combinedOutput = stdout + (stderr ? `\n${stderr}` : '');
+          onOutputChunk(combinedOutput);
+        } else if (!exited && !streamToUi) {
+          // Send progress updates for the binary stream
+          const totalBytes = outputChunks.reduce(
+            (sum, chunk) => sum + chunk.length,
+            0,
+          );
+          onOutputChunk(
+            `[Receiving binary output... ${formatMemoryUsage(totalBytes)} received]`,
+          );
+        }
+      };
+
+      // Handle streaming output from execa
+      childPromise.stdout?.on('data', (data) => handleOutput(data, 'stdout'));
+      childPromise.stderr?.on('data', (data) => handleOutput(data, 'stderr'));
+
+      // Wait for completion
+      childPromise
+        .then((result) => {
+          exited = true;
+          
+          // Handle any final bytes lingering in the decoders
+          if (stdoutDecoder) {
+            stdout += stdoutDecoder.decode().replace(/\r\n/g, '\n');
+          }
+          if (stderrDecoder) {
+            stderr += stderrDecoder.decode().replace(/\r\n/g, '\n');
+          }
+
+          const finalBuffer = Buffer.concat(outputChunks);
+
+          resolve({
+            rawOutput: finalBuffer,
+            output: stdout + (stderr ? `\n${stderr}` : ''),
+            exitCode: result.exitCode ?? null,
+            signal: null,
+            error: null,
+            aborted: abortSignal.aborted,
+          });
+        })
+        .catch((err) => {
+          exited = true;
+          error = err;
+          
+          // Handle any final bytes lingering in the decoders
+          if (stdoutDecoder) {
+            stdout += stdoutDecoder.decode().replace(/\r\n/g, '\n');
+          }
+          if (stderrDecoder) {
+            stderr += stderrDecoder.decode().replace(/\r\n/g, '\n');
+          }
+
+          const finalBuffer = Buffer.concat(outputChunks);
+
+          resolve({
+            rawOutput: finalBuffer,
+            output: stdout + (stderr ? `\n${stderr}` : ''),
+            exitCode: (err.exitCode as number) || null,
+            signal: (err.signal as NodeJS.Signals) || null,
+            error,
+            aborted: abortSignal.aborted,
+          });
+        });
+
+      return;
+    }
+
+    // Non-Windows implementation using spawn
+    const shell = 'bash';
+    const shellArgs = ['-c', commandToExecute];
 
     const child = spawn(shell, shellArgs, {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
-      detached: !isWindows, // Use process groups on non-Windows for robust killing
+      detached: true, // Use process groups on non-Windows for robust killing
       env: {
         ...process.env,
         GEMINI_CLI: '1',

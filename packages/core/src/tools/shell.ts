@@ -33,6 +33,7 @@ export interface ShellToolParams {
   directory?: string;
 }
 import { spawn } from 'child_process';
+import { execa } from 'execa';
 import { summarizeToolOutput } from '../utils/summarizer.js';
 
 const OUTPUT_UPDATE_INTERVAL_MS = 1000;
@@ -207,25 +208,33 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
         })();
 
     // spawn command in specified directory (or project root if not specified)
-    const shell = isWindows
-      ? spawn('cmd.exe', ['/c', commandToExecute], {
-          stdio: ['ignore', 'pipe', 'pipe'],
-          // detached: true, // ensure subprocess starts its own process group (esp. in Linux)
-          cwd: path.resolve(this.config.getTargetDir(), params.directory || ''),
-          env: {
-            ...process.env,
-            GEMINI_CLI: '1',
-          },
-        })
-      : spawn('bash', ['-c', commandToExecute], {
-          stdio: ['ignore', 'pipe', 'pipe'],
-          detached: true, // ensure subprocess starts its own process group (esp. in Linux)
-          cwd: path.resolve(this.config.getTargetDir(), params.directory || ''),
-          env: {
-            ...process.env,
-            GEMINI_CLI: '1',
-          },
-        });
+    const cwd = path.resolve(this.config.getTargetDir(), params.directory || '');
+    const env = {
+      ...process.env,
+      GEMINI_CLI: '1',
+    };
+
+    let shell: any;
+    
+    if (isWindows) {
+      // Use execa for Windows
+      shell = execa('cmd.exe', ['/c', commandToExecute], {
+        cwd,
+        env,
+        stdout: ['pipe'],
+        stderr: ['pipe'],
+        // buffer: false, // Stream output
+        cancelSignal: signal,
+      });
+    } else {
+      // Use spawn for non-Windows (existing implementation)
+      shell = spawn('bash', ['-c', commandToExecute], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: true, // ensure subprocess starts its own process group (esp. in Linux)
+        cwd,
+        env,
+      });
+    }
 
     let exited = false;
     let stdout = '';
@@ -243,6 +252,122 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
       }
     };
 
+    if (isWindows) {
+      // Handle execa output
+      shell.stdout?.on('data', (data: Buffer) => {
+        if (!exited) {
+          const str = stripAnsi(data.toString());
+          stdout += str;
+          appendOutput(str);
+        }
+      });
+
+      let stderr = '';
+      shell.stderr?.on('data', (data: Buffer) => {
+        if (!exited) {
+          const str = stripAnsi(data.toString());
+          stderr += str;
+          appendOutput(str);
+        }
+      });
+
+      let error: Error | null = null;
+      let code: number | null = null;
+      let processSignal: NodeJS.Signals | null = null;
+
+      // Wait for process completion
+      try {
+        const result = await shell;
+        exited = true;
+        code = result.exitCode;
+        
+        // Merge stderr into the output handling
+        if (result.stderr) {
+          stderr += result.stderr;
+          appendOutput(result.stderr);
+        }
+      } catch (err: any) {
+        exited = true;
+        error = err;
+        code = err.exitCode || null;
+        processSignal = err.signal || null;
+        
+        // Handle stderr from error
+        if (err.stderr) {
+          stderr += err.stderr;
+          appendOutput(err.stderr);
+        }
+      }
+
+      // parse pids (not available on Windows)
+      const backgroundPIDs: number[] = [];
+
+      let llmContent = '';
+      if (signal.aborted) {
+        llmContent = 'Command was cancelled by user before it could complete.';
+        if (output.trim()) {
+          llmContent += ` Below is the output (on stdout and stderr) before it was cancelled:\n${output}`;
+        } else {
+          llmContent += ' There was no output before it was cancelled.';
+        }
+      } else {
+        llmContent = [
+          `Command: ${params.command}`,
+          `Directory: ${params.directory || '(root)'}`,
+          `Stdout: ${stdout || '(empty)'}`,
+          `Stderr: ${stderr || '(empty)'}`,
+          `Error: ${error ?? '(none)'}`,
+          `Exit Code: ${code ?? '(none)'}`,
+          `Signal: ${processSignal ?? '(none)'}`,
+          `Background PIDs: (none)`, // Not supported on Windows
+          `Process Group PGID: (none)`, // Not supported on Windows  
+        ].join('\n');
+      }
+
+      let returnDisplayMessage = '';
+      if (this.config.getDebugMode()) {
+        returnDisplayMessage = llmContent;
+      } else {
+        if (output.trim()) {
+          returnDisplayMessage = output;
+        } else {
+          // Output is empty, let's provide a reason if the command failed or was cancelled
+          if (signal.aborted) {
+            returnDisplayMessage = 'Command cancelled by user.';
+          } else if (processSignal) {
+            returnDisplayMessage = `Command terminated by signal: ${processSignal}`;
+          } else if (error) {
+            // If error is not null, it's an Error object (or other truthy value)
+            returnDisplayMessage = `Command failed: ${getErrorMessage(error)}`;
+          } else if (code !== null && code !== 0) {
+            returnDisplayMessage = `Command exited with code: ${code}`;
+          }
+          // If output is empty and command succeeded (code 0, no error/signal/abort),
+          // returnDisplayMessage will remain empty, which is fine.
+        }
+      }
+
+      const summarizeConfig = this.config.getSummarizeToolOutputConfig();
+      if (summarizeConfig && summarizeConfig[this.name]) {
+        const summary = await summarizeToolOutput(
+          llmContent,
+          this.config.getGeminiClient(),
+          signal,
+          summarizeConfig[this.name].tokenBudget,
+        );
+        return {
+          llmContent: summary,
+          returnDisplay: returnDisplayMessage,
+        };
+      }
+
+      return {
+        llmContent,
+        returnDisplay: returnDisplayMessage,
+      };
+    }
+
+    // Non-Windows implementation (existing spawn-based code)
     shell.stdout.on('data', (data: Buffer) => {
       // continue to consume post-exit for background processes
       // removing listeners can overflow OS buffer and block subprocesses
@@ -284,27 +409,22 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
 
     const abortHandler = async () => {
       if (shell.pid && !exited) {
-        if (os.platform() === 'win32') {
-          // For Windows, use taskkill to kill the process tree
-          spawn('taskkill', ['/pid', shell.pid.toString(), '/f', '/t']);
-        } else {
+        try {
+          // attempt to SIGTERM process group (negative PID)
+          // fall back to SIGKILL (to group) after 200ms
+          process.kill(-shell.pid, 'SIGTERM');
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          if (shell.pid && !exited) {
+            process.kill(-shell.pid, 'SIGKILL');
+          }
+        } catch (_e) {
+          // if group kill fails, fall back to killing just the main process
           try {
-            // attempt to SIGTERM process group (negative PID)
-            // fall back to SIGKILL (to group) after 200ms
-            process.kill(-shell.pid, 'SIGTERM');
-            await new Promise((resolve) => setTimeout(resolve, 200));
-            if (shell.pid && !exited) {
-              process.kill(-shell.pid, 'SIGKILL');
+            if (shell.pid) {
+              shell.kill('SIGKILL');
             }
           } catch (_e) {
-            // if group kill fails, fall back to killing just the main process
-            try {
-              if (shell.pid) {
-                shell.kill('SIGKILL');
-              }
-            } catch (_e) {
-              console.error(`failed to kill shell process ${shell.pid}: ${_e}`);
-            }
+            console.error(`failed to kill shell process ${shell.pid}: ${_e}`);
           }
         }
       }
@@ -320,27 +440,25 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
 
     // parse pids (pgrep output) from temporary file and remove it
     const backgroundPIDs: number[] = [];
-    if (os.platform() !== 'win32') {
-      if (fs.existsSync(tempFilePath)) {
-        const pgrepLines = fs
-          .readFileSync(tempFilePath, 'utf8')
-          .split('\n')
-          .filter(Boolean);
-        for (const line of pgrepLines) {
-          if (!/^\d+$/.test(line)) {
-            console.error(`pgrep: ${line}`);
-          }
-          const pid = Number(line);
-          // exclude the shell subprocess pid
-          if (pid !== shell.pid) {
-            backgroundPIDs.push(pid);
-          }
+    if (fs.existsSync(tempFilePath)) {
+      const pgrepLines = fs
+        .readFileSync(tempFilePath, 'utf8')
+        .split('\n')
+        .filter(Boolean);
+      for (const line of pgrepLines) {
+        if (!/^\d+$/.test(line)) {
+          console.error(`pgrep: ${line}`);
         }
-        fs.unlinkSync(tempFilePath);
-      } else {
-        if (!signal.aborted) {
-          console.error('missing pgrep output');
+        const pid = Number(line);
+        // exclude the shell subprocess pid
+        if (pid !== shell.pid) {
+          backgroundPIDs.push(pid);
         }
+      }
+      fs.unlinkSync(tempFilePath);
+    } else {
+      if (!signal.aborted) {
+        console.error('missing pgrep output');
       }
     }
 
