@@ -14,7 +14,7 @@ export function tokenLimit(model: Model): TokenCount {
   // Pulled from https://ai.google.dev/gemini-api/docs/models
   switch (model) {
     // update for vscode copilot limit
-    case 'gpt4.1':
+    case 'gpt-4.1':
     case 'gpt-4o':
     case 'claude-sonnet-4':
       return 111_000;

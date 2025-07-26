@@ -130,7 +130,7 @@ export async function createContentGenerator(
   }
 
   if (config.authType === AuthType.GITHUB_COPILOT) {
-    const copilotModels = await createGitHubCopilotContentGenerator(config.model);
+    const copilotModels = await createGitHubCopilotContentGenerator(gcConfig);
     return copilotModels;
   }
 

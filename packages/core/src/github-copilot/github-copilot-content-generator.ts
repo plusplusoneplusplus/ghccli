@@ -25,6 +25,7 @@ import {
 } from '@google/genai';
 import { ContentGenerator } from '../core/contentGenerator.js';
 import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
+import { Config } from '../config/config.js';
 
 /**
  * Type guard to check if content is a Content object (has parts property)
@@ -277,7 +278,7 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
 
   constructor(
     private readonly tokenManager: GitHubCopilotTokenManager,
-    private readonly model: string = DEFAULT_GEMINI_MODEL,
+    private readonly config: Config,
   ) {}
 
   /**
@@ -388,15 +389,16 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
     }
 
     // Convert tools based on the model
+    const modelToUse = this.config.getModel() || DEFAULT_GEMINI_MODEL;
     const openAITools = convertGeminiToolsToOpenAI(
       request.config?.tools, 
-      this.model, 
+      modelToUse, 
       this.convertGeminiParametersToOpenAI.bind(this)
     );
 
     const requestBody = {
       intent: false,
-      model: this.model, // Use Gemini 2.5 Pro as the model
+      model: modelToUse, // Use current model from config
       temperature: request.config?.temperature || 0,
       top_p: request.config?.topP || 1,
       n: 1,
@@ -476,15 +478,16 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
     }
 
     // Convert tools based on the model
+    const modelToUse = this.config.getModel() || DEFAULT_GEMINI_MODEL;
     const openAITools = convertGeminiToolsToOpenAI(
       request.config?.tools, 
-      this.model, 
+      modelToUse, 
       this.convertGeminiParametersToOpenAI.bind(this)
     );
 
     const requestBody = {
       intent: false,
-      model: this.model, // Use Gemini 2.5 Pro as the model
+      model: modelToUse, // Use current model from config
       temperature: request.config?.temperature || 0,
       top_p: request.config?.topP || 1,
       n: 1,
@@ -680,7 +683,7 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
  * to access the GitHub Copilot chat completions API with Gemini 2.5 Pro as the model
  */
 export async function createGitHubCopilotContentGenerator(
-  model: string
+  config: Config
 ): Promise<ContentGenerator> {
   // Get GitHub token using the device flow or from file/env
   const githubToken = await GitHubCopilotTokenManager.getGitHubToken(true);
@@ -703,6 +706,7 @@ export async function createGitHubCopilotContentGenerator(
     throw new Error('Failed to obtain Copilot bearer token');
   }
 
-  console.log(`GitHub Copilot content generator initialized successfully with model: ${model}`);
-  return new GitHubCopilotGeminiServer(tokenManager, model);
+  const currentModel = config.getModel() || DEFAULT_GEMINI_MODEL;
+  console.log(`GitHub Copilot content generator initialized successfully with model: ${currentModel}`);
+  return new GitHubCopilotGeminiServer(tokenManager, config);
 } 
