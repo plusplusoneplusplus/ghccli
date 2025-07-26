@@ -222,6 +222,52 @@ function convertOpenAIToolCallsToGemini(toolCalls: any[]): Part[] {
 }
 
 /**
+ * Handle system instruction from config and add it to the messages array
+ */
+function handleSystemInstruction(messages: any[], systemInstruction: any): void {
+  let systemText = '';
+
+  if (Array.isArray(systemInstruction)) {
+    systemText = systemInstruction
+      .map((content) => {
+        if (typeof content === 'string') return content;
+        if ('parts' in content) {
+          const contentObj = content as Content;
+          return (
+            contentObj.parts
+              ?.map((p: Part) =>
+                typeof p === 'string' ? p : 'text' in p ? p.text : '',
+              )
+              .join('\n') || ''
+          );
+        }
+        return '';
+      })
+      .join('\n');
+  } else if (typeof systemInstruction === 'string') {
+    systemText = systemInstruction;
+  } else if (
+    typeof systemInstruction === 'object' &&
+    'parts' in systemInstruction
+  ) {
+    const systemContent = systemInstruction as Content;
+    systemText =
+      systemContent.parts
+        ?.map((p: Part) =>
+          typeof p === 'string' ? p : 'text' in p ? p.text : '',
+        )
+        .join('\n') || '';
+  }
+
+  if (systemText) {
+    messages.unshift({
+      role: 'system' as const,
+      content: systemText,
+    });
+  }
+}
+
+/**
  * A ContentGenerator implementation that uses GitHub Copilot bearer tokens
  * to authenticate with the GitHub Copilot chat completions API using Gemini 2.5 Pro
  */
@@ -336,6 +382,11 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
     const contents = toContents(request.contents || []);
     const messages = convertToOpenAIMessages(contents);
 
+    // Handle system instruction from config
+    if (request.config?.systemInstruction) {
+      handleSystemInstruction(messages, request.config.systemInstruction);
+    }
+
     // Convert tools based on the model
     const openAITools = convertGeminiToolsToOpenAI(
       request.config?.tools, 
@@ -418,6 +469,11 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
     // Convert Gemini format to OpenAI chat messages format
     const contents = toContents(request.contents || []);
     const messages = convertToOpenAIMessages(contents);
+
+    // Handle system instruction from config
+    if (request.config?.systemInstruction) {
+      handleSystemInstruction(messages, request.config.systemInstruction);
+    }
 
     // Convert tools based on the model
     const openAITools = convertGeminiToolsToOpenAI(
