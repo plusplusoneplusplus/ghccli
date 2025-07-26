@@ -30,7 +30,7 @@ export function tokenLimit(model: Model): TokenCount {
     case 'gpt-4o':
     case 'claude-sonnet-4':
       return 111_000;
-    case ' claude-opus-4':
+    case 'claude-opus-4':
       return 67_000;
     case 'gemini-2.5-pro':
       return 108_000;

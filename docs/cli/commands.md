@@ -64,6 +64,22 @@ Slash commands provide meta-level control over the CLI itself.
       - **Description:** Reload the hierarchical instructional memory from all `GEMINI.md` files found in the configured locations (global, project/ancestors, and sub-directories). This command updates the model with the latest `GEMINI.md` content.
     - **Note:** For more details on how `GEMINI.md` files contribute to hierarchical memory, see the [CLI Configuration documentation](./configuration.md#4-geminimd-files-hierarchical-instructional-context).
 
+- **`/model`**
+  - **Description:** Switch between AI models (Gemini, GPT, Claude) or show the current model. When run without arguments, displays the current model and lists all available models. When run with a model name, switches to that model for the current session.
+  - **Usage:** 
+    - `/model` (shows current model and available options)
+    - `/model <model_name>` (switches to the specified model)
+  - **Available Models:**
+    - `gemini-2.5-pro` (default)
+    - `gpt4.1`
+    - `gpt-4o`
+    - `claude-sonnet-4`
+    - `claude-opus-4`
+  - **Examples:**
+    - `/model` (show current model)
+    - `/model gpt-4o` (switch to GPT-4o model)
+    - `/model claude-sonnet-4` (switch to Claude Sonnet model)
+
 - **`/restore`**
   - **Description:** Restores the project files to the state they were in just before a tool was executed. This is particularly useful for undoing file edits made by a tool. If run without a tool call ID, it will list available checkpoints to restore from.
   - **Usage:** `/restore [tool_call_id]`
