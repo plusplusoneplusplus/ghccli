@@ -155,7 +155,7 @@ function convertToOpenAIMessages(contents: Content[]): Array<any> {
 /**
  * Convert Gemini tools to OpenAI tools format based on the model
  */
-function convertGeminiToolsToOpenAI(tools?: ToolListUnion, model?: string): any[] | undefined {
+function convertGeminiToolsToOpenAI(tools?: ToolListUnion, model?: string, parameterConverter?: (params: Record<string, unknown>) => Record<string, unknown> | undefined): any[] | undefined {
   if (!tools) {
     return undefined;
   }
@@ -172,12 +172,17 @@ function convertGeminiToolsToOpenAI(tools?: ToolListUnion, model?: string): any[
   for (const tool of toolArray) {
     if (tool && typeof tool === 'object' && 'functionDeclarations' in tool && tool.functionDeclarations) {
       for (const funcDecl of tool.functionDeclarations) {
+        // Convert parameters using the provided converter function
+        const convertedParameters = parameterConverter && funcDecl.parameters 
+          ? parameterConverter(funcDecl.parameters as Record<string, unknown>)
+          : funcDecl.parameters;
+
         openAITools.push({
             type: "function",
             function : {
               name: funcDecl.name,
               description: funcDecl.description,
-              parameters: funcDecl.parameters
+              parameters: convertedParameters
             }
         });
       }
@@ -248,6 +253,74 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
     return headers;
   }
 
+  /**
+   * Convert Gemini function parameters to OpenAI JSON Schema format with proper type conversion
+   */
+  private convertGeminiParametersToOpenAI(
+    parameters: Record<string, unknown>,
+  ): Record<string, unknown> | undefined {
+    if (!parameters || typeof parameters !== 'object') {
+      return parameters;
+    }
+
+    const converted = JSON.parse(JSON.stringify(parameters));
+
+    const convertTypes = (obj: unknown): unknown => {
+      if (typeof obj !== 'object' || obj === null) {
+        return obj;
+      }
+
+      if (Array.isArray(obj)) {
+        return obj.map(convertTypes);
+      }
+
+      const result: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (key === 'type' && typeof value === 'string') {
+          // Convert Gemini types to OpenAI JSON Schema types
+          const lowerValue = value.toLowerCase();
+          if (lowerValue === 'integer') {
+            result[key] = 'integer';
+          } else if (lowerValue === 'number') {
+            result[key] = 'number';
+          } else {
+            result[key] = lowerValue;
+          }
+        } else if (
+          key === 'minimum' ||
+          key === 'maximum' ||
+          key === 'multipleOf'
+        ) {
+          // Ensure numeric constraints are actual numbers, not strings
+          if (typeof value === 'string' && !isNaN(Number(value))) {
+            result[key] = Number(value);
+          } else {
+            result[key] = value;
+          }
+        } else if (
+          key === 'minLength' ||
+          key === 'maxLength' ||
+          key === 'minItems' ||
+          key === 'maxItems'
+        ) {
+          // Ensure length constraints are integers, not strings
+          if (typeof value === 'string' && !isNaN(Number(value))) {
+            result[key] = parseInt(value, 10);
+          } else {
+            result[key] = value;
+          }
+        } else if (typeof value === 'object') {
+          result[key] = convertTypes(value);
+        } else {
+          result[key] = value;
+        }
+      }
+      return result;
+    };
+
+    return convertTypes(converted) as Record<string, unknown> | undefined;
+  }
+
   async generateContent(
     request: GenerateContentParameters,
   ): Promise<GenerateContentResponse> {
@@ -264,7 +337,11 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
     const messages = convertToOpenAIMessages(contents);
 
     // Convert tools based on the model
-    const openAITools = convertGeminiToolsToOpenAI(request.config?.tools, this.model);
+    const openAITools = convertGeminiToolsToOpenAI(
+      request.config?.tools, 
+      this.model, 
+      this.convertGeminiParametersToOpenAI.bind(this)
+    );
 
     const requestBody = {
       intent: false,
@@ -274,7 +351,7 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
       n: 1,
       stream: false, // Non-streaming for generateContent
       messages,
-      ...(openAITools && { tools: openAITools }),
+      tools: openAITools
     };
 
     const response = await fetch(endpoint, {
@@ -343,7 +420,11 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
     const messages = convertToOpenAIMessages(contents);
 
     // Convert tools based on the model
-    const openAITools = convertGeminiToolsToOpenAI(request.config?.tools, this.model);
+    const openAITools = convertGeminiToolsToOpenAI(
+      request.config?.tools, 
+      this.model, 
+      this.convertGeminiParametersToOpenAI.bind(this)
+    );
 
     const requestBody = {
       intent: false,
@@ -353,7 +434,7 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
       n: 1,
       stream: true, // Streaming for generateContentStream
       messages,
-      tools: openAITools,
+      tools: openAITools
     };
 
     const body = JSON.stringify(requestBody);
