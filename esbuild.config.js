@@ -18,7 +18,7 @@ esbuild
   .build({
     entryPoints: ['packages/cli/index.ts'],
     bundle: true,
-    outfile: 'bundle/vscli.js',
+    outfile: 'bundle/ghccli.js',
     platform: 'node',
     format: 'esm',
     external: [],
