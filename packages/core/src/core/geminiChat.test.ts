@@ -45,6 +45,7 @@ describe('GeminiChat', () => {
       setModel: vi.fn(),
       getQuotaErrorOccurred: vi.fn().mockReturnValue(false),
       setQuotaErrorOccurred: vi.fn(),
+      getUserMemory: vi.fn().mockReturnValue(''),
       flashFallbackHandler: undefined,
     } as unknown as Config;
 
@@ -82,7 +83,9 @@ describe('GeminiChat', () => {
       expect(mockModelsModule.generateContent).toHaveBeenCalledWith({
         model: 'gemini-pro',
         contents: [{ role: 'user', parts: [{ text: 'hello' }] }],
-        config: {},
+        config: expect.objectContaining({
+          systemInstruction: expect.any(String),
+        }),
       });
     });
   });
@@ -114,7 +117,9 @@ describe('GeminiChat', () => {
       expect(mockModelsModule.generateContentStream).toHaveBeenCalledWith({
         model: 'gemini-pro',
         contents: [{ role: 'user', parts: [{ text: 'hello' }] }],
-        config: {},
+        config: expect.objectContaining({
+          systemInstruction: expect.any(String),
+        }),
       });
     });
   });

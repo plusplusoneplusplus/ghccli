@@ -137,6 +137,8 @@ export class GeminiChat {
     private history: Content[] = [],
   ) {
     validateHistory(history);
+
+    this.config = config;
     const systemInstruction = this.generateSystemPrompt();
     if (systemInstruction) {
       this.generationConfig.systemInstruction = systemInstruction;
