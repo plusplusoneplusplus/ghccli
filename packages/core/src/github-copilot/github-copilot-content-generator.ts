@@ -27,6 +27,8 @@ import { ContentGenerator } from '../core/contentGenerator.js';
 import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
 import { Config } from '../config/config.js';
 import { tokenLimit } from '../core/tokenLimits.js';
+import { logApiResponse } from '../telemetry/loggers.js';
+import { ApiResponseEvent } from '../telemetry/types.js';
 
 /**
  * Type guard to check if content is a Content object (has parts property)
@@ -714,6 +716,16 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
                     candidatesTokenCount: finalUsageMetadata.completion_tokens || 0,
                     totalTokenCount: finalUsageMetadata.total_tokens || 0
                   };
+
+                  // Log API response event for UI telemetry
+                  const responseEvent = new ApiResponseEvent(
+                    this.config.getModel(),
+                    Date.now(),
+                    `openai-stream-${Date.now()}`, // Generate a prompt ID
+                    'github-copilot', // Use string literal instead of AuthType.GITHUB_COPILOT
+                    finalUsageMetadata,
+                  );
+                  logApiResponse(this.config, responseEvent);
                 }
                 // For intermediate chunks, usageMetadata remains undefined
                 // The consuming code (like getFinalUsageMetadata) will extract it from
