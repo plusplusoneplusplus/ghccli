@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ReadFileTool, ReadFileToolParams } from './read-file.js';
 import path from 'path';
 import os from 'os';
@@ -63,6 +63,7 @@ describe('ReadFileTool', () => {
     });
 
     it('should return error for path outside root', () => {
+      vi.stubEnv('GEMINI_ENABLE_PATH_VALIDATION', 'true');
       const outsidePath = path.resolve(os.tmpdir(), 'outside-root.txt');
       const params: ReadFileToolParams = { absolute_path: outsidePath };
       expect(tool.validateToolParams(params)).toMatch(
