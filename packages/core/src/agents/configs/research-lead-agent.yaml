@@ -1,0 +1,40 @@
+# Research Agent Configuration
+name: research-lead-agent
+description: Specialized research agent with comprehensive investigation capabilities and customized research prompts
+methods: [] # No methods - agent will use default behavior via empty string method
+
+# Available agents that this agent can invoke
+availableAgents:
+  - research-sub-agent
+
+metadata:
+  supportsStreaming: false
+  supportsTools: true
+  requiresWorkspace: false
+  supportsPromptSelection: false
+  
+  languageModel:
+    preferred: gemini-2.5-pro
+  
+  promptSupport:
+    supportsPrompts: true
+    supportsTsxMessages: false
+    promptParameterName: prompt
+    variableResolution: false
+  
+  toolPreferences:
+    allowedToolRegex:
+      - ".*invoke_agents.*"     # Matches any tool with "invoke_agents" in name
+      - ".*web.*"              # Matches any tool with "web" in name (web search, etc.)
+  
+  specialization: research
+  
+  executionConfig:
+    maxRounds: 10      # Default max rounds for research tasks
+    maxContextTokens: 32000  # Default max context tokens for research tasks
+
+# System prompt for the research agent
+# Can be either a string content or a file path (relative to configs directory)
+systemPrompt:
+  type: file  # Options: 'content' for direct string, 'file' for file path
+  value: research-lead-agent-prompt.md  # The content string or relative file path

@@ -1,0 +1,41 @@
+# Research Sub-Agent Configuration
+name: research-sub-agent
+description: Specialized research sub-agent for focused research tasks with comprehensive investigation capabilities
+methods: [] # No methods - agent will use default behavior via empty string method
+
+metadata:
+  supportsStreaming: false
+  supportsTools: true
+  requiresWorkspace: false
+  supportsPromptSelection: false
+  
+  languageModel:
+    preferred: claude-sonnet-4
+  
+  promptSupport:
+    supportsPrompts: true
+    supportsTsxMessages: false
+    promptParameterName: prompt
+    variableResolution: false
+  
+  toolPreferences:
+    allowedToolRegex:
+      - ".*invoke_agents.*"     # Matches any tool with "invoke_agents" in name
+      - ".*web.*"              # Matches any tool with "web" in name (web search, etc.)
+    
+    blockedToolsRegex:
+      - '^evaluate_source_quality$'    # Explicitly blocked as broken
+      - ".*copilot_completion_signal"
+  
+  specialization: research-subagent
+  
+  executionConfig:
+    maxRounds: 5      # Max rounds for sub-agent research tasks (matches prompt limit)
+    maxContextTokens: 32000  # Max context tokens for research tasks
+    maxToolCalls: 10   # Maximum tool calls per session (matches prompt guidance)
+
+# System prompt for the research sub-agent
+# Can be either a string content or a file path (relative to configs directory)
+systemPrompt:
+  type: file  # Options: 'content' for direct string, 'file' for file path
+  value: research-sub-agent-prompt.md  # The content string or relative file path
