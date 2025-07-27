@@ -156,6 +156,57 @@ describe('GlobTool', () => {
       expect(filesListed[0]).toContain(path.join(tempRootDir, 'newer.sortme'));
       expect(filesListed[1]).toContain(path.join(tempRootDir, 'older.sortme'));
     });
+
+    it('should apply default limit of 30 files', async () => {
+      // Create more than 30 files to test the limit
+      for (let i = 0; i < 35; i++) {
+        await fs.writeFile(path.join(tempRootDir, `test${i}.limit`), `content${i}`);
+      }
+
+      const params: GlobToolParams = { pattern: '*.limit' };
+      const result = await globTool.execute(params, abortSignal);
+      const llmContent = partListUnionToString(result.llmContent);
+
+      expect(llmContent).toContain('Found 35 file(s)');
+      expect(llmContent).toContain('showing first 30 files');
+      expect(llmContent).toContain('[Results truncated: showing 30 of 35 total files. Use the \'limit\' parameter to see more files.]');
+      expect(result.returnDisplay).toBe('Found 35 file(s) (showing 30)');
+
+      // Count actual files shown in output
+      const fileLines = llmContent.split('\n').filter(line => line.includes('test') && line.includes('.limit'));
+      expect(fileLines).toHaveLength(30);
+    });
+
+    it('should respect custom limit parameter', async () => {
+      // Create 10 files
+      for (let i = 0; i < 10; i++) {
+        await fs.writeFile(path.join(tempRootDir, `custom${i}.test`), `content${i}`);
+      }
+
+      const params: GlobToolParams = { pattern: '*.test', limit: 5 };
+      const result = await globTool.execute(params, abortSignal);
+      const llmContent = partListUnionToString(result.llmContent);
+
+      expect(llmContent).toContain('Found 10 file(s)');
+      expect(llmContent).toContain('showing first 5 files');
+      expect(llmContent).toContain('[Results truncated: showing 5 of 10 total files. Use the \'limit\' parameter to see more files.]');
+      expect(result.returnDisplay).toBe('Found 10 file(s) (showing 5)');
+
+      // Count actual files shown in output
+      const fileLines = llmContent.split('\n').filter(line => line.includes('custom') && line.includes('.test'));
+      expect(fileLines).toHaveLength(5);
+    });
+
+    it('should not show truncation message when results are within limit', async () => {
+      const params: GlobToolParams = { pattern: '*.txt', limit: 5 };
+      const result = await globTool.execute(params, abortSignal);
+      const llmContent = partListUnionToString(result.llmContent);
+
+      expect(llmContent).toContain('Found 2 file(s)');
+      expect(llmContent).not.toContain('showing first');
+      expect(llmContent).not.toContain('[Results truncated');
+      expect(result.returnDisplay).toBe('Found 2 matching file(s)');
+    });
   });
 
   describe('validateToolParams', () => {
@@ -254,6 +305,40 @@ describe('GlobTool', () => {
       expect(globTool.validateToolParams(params)).toContain(
         'Search path is not a directory',
       );
+    });
+
+    it('should return error for non-positive limit', () => {
+      const paramsZero: GlobToolParams = { pattern: '*.txt', limit: 0 };
+      expect(globTool.validateToolParams(paramsZero)).toBe(
+        'Limit must be a positive number.',
+      );
+
+      const paramsNegative: GlobToolParams = { pattern: '*.txt', limit: -5 };
+      expect(globTool.validateToolParams(paramsNegative)).toBe(
+        'Limit must be a positive number.',
+      );
+    });
+
+    it('should return null for valid limit parameter', () => {
+      const params: GlobToolParams = { pattern: '*.txt', limit: 10 };
+      expect(globTool.validateToolParams(params)).toBeNull();
+    });
+
+    it('should return error for limit exceeding hard maximum of 500', () => {
+      const params: GlobToolParams = { pattern: '*.txt', limit: 501 };
+      expect(globTool.validateToolParams(params)).toBe(
+        'Limit cannot exceed 500 files to prevent overwhelming output.',
+      );
+
+      const paramsWayTooHigh: GlobToolParams = { pattern: '*.txt', limit: 10000 };
+      expect(globTool.validateToolParams(paramsWayTooHigh)).toBe(
+        'Limit cannot exceed 500 files to prevent overwhelming output.',
+      );
+    });
+
+    it('should accept limit at the hard maximum of 500', () => {
+      const params: GlobToolParams = { pattern: '*.txt', limit: 500 };
+      expect(globTool.validateToolParams(params)).toBeNull();
     });
   });
 });

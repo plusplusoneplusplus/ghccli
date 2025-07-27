@@ -73,6 +73,11 @@ export interface GlobToolParams {
    * Whether to respect .gitignore patterns (optional, defaults to true)
    */
   respect_git_ignore?: boolean;
+
+  /**
+   * Maximum number of files to return (optional, defaults to 30)
+   */
+  limit?: number;
 }
 
 /**
@@ -108,6 +113,11 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
             description:
               'Optional: Whether to respect .gitignore patterns when finding files. Only available in git repositories. Defaults to true.',
             type: Type.BOOLEAN,
+          },
+          limit: {
+            description:
+              'Optional: Maximum number of files to return. Defaults to 30 to prevent overwhelming output. Maximum allowed is 500.',
+            type: Type.NUMBER,
           },
         },
         required: ['pattern'],
@@ -152,6 +162,14 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
       params.pattern.trim() === ''
     ) {
       return "The 'pattern' parameter cannot be empty.";
+    }
+
+    if (params.limit !== undefined && params.limit <= 0) {
+      return 'Limit must be a positive number.';
+    }
+
+    if (params.limit !== undefined && params.limit > 500) {
+      return 'Limit cannot exceed 500 files to prevent overwhelming output.';
     }
 
     return null;
@@ -260,18 +278,34 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
       const sortedAbsolutePaths = sortedEntries.map((entry) =>
         entry.fullpath(),
       );
-      const fileListDescription = sortedAbsolutePaths.join('\n');
-      const fileCount = sortedAbsolutePaths.length;
 
-      let resultMessage = `Found ${fileCount} file(s) matching "${params.pattern}" within ${searchDirAbsolute}`;
+      // Apply limit (default to 30)
+      const limit = params.limit ?? 30;
+      const totalFileCount = sortedAbsolutePaths.length;
+      const isLimited = totalFileCount > limit;
+      const displayPaths = isLimited ? sortedAbsolutePaths.slice(0, limit) : sortedAbsolutePaths;
+      
+      const fileListDescription = displayPaths.join('\n');
+      const displayFileCount = displayPaths.length;
+
+      let resultMessage = `Found ${totalFileCount} file(s) matching "${params.pattern}" within ${searchDirAbsolute}`;
       if (gitIgnoredCount > 0) {
         resultMessage += ` (${gitIgnoredCount} additional files were git-ignored)`;
       }
+      
+      if (isLimited) {
+        resultMessage += `, showing first ${displayFileCount} files`;
+      }
+      
       resultMessage += `, sorted by modification time (newest first):\n${fileListDescription}`;
+
+      if (isLimited) {
+        resultMessage += `\n\n[Results truncated: showing ${displayFileCount} of ${totalFileCount} total files. Use the 'limit' parameter to see more files.]`;
+      }
 
       return {
         llmContent: resultMessage,
-        returnDisplay: `Found ${fileCount} matching file(s)`,
+        returnDisplay: isLimited ? `Found ${totalFileCount} file(s) (showing ${displayFileCount})` : `Found ${displayFileCount} matching file(s)`,
       };
     } catch (error) {
       const errorMessage =
