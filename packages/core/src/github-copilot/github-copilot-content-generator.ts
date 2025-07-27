@@ -26,6 +26,7 @@ import {
 import { ContentGenerator } from '../core/contentGenerator.js';
 import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
 import { Config } from '../config/config.js';
+import { tokenLimit } from '../core/tokenLimits.js';
 
 /**
  * Type guard to check if content is a Content object (has parts property)
@@ -368,6 +369,73 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
     return convertTypes(converted) as Record<string, unknown> | undefined;
   }
 
+  /**
+   * Estimate tokens for the complete request including messages and tools
+   */
+  private estimateRequestTokens(messages: any[], tools?: any[]): number {
+    // Estimate tokens for messages
+    let messageTokens = 0;
+    for (const message of messages) {
+      if (message.content) {
+        // Rough estimation: 1 token ≈ 4 characters for English text
+        messageTokens += Math.ceil(message.content.length / 4);
+      }
+      // Account for tool calls in messages
+      if (message.tool_calls) {
+        for (const toolCall of message.tool_calls) {
+          if (toolCall.function) {
+            messageTokens += Math.ceil((toolCall.function.name || '').length / 4);
+            messageTokens += Math.ceil((toolCall.function.arguments || '').length / 4);
+          }
+        }
+      }
+    }
+
+    // Estimate tokens for tools (function definitions)
+    let toolTokens = 0;
+    if (tools && tools.length > 0) {
+      for (const tool of tools) {
+        if (tool.function) {
+          // Function name and description
+          toolTokens += Math.ceil((tool.function.name || '').length / 4);
+          toolTokens += Math.ceil((tool.function.description || '').length / 4);
+          
+          // Function parameters (schema)
+          if (tool.function.parameters) {
+            const parameterJson = JSON.stringify(tool.function.parameters);
+            toolTokens += Math.ceil(parameterJson.length / 4);
+          }
+        }
+      }
+    }
+
+    // Add some overhead for request structure and formatting
+    const overhead = Math.ceil((messageTokens + toolTokens) * 0.1);
+    
+    return messageTokens + toolTokens + overhead;
+  }
+
+  /**
+   * Validate that the request doesn't exceed token limits
+   */
+  private validateTokenLimits(messages: any[], tools?: any[], model?: string): void {
+    const currentModel = model || this.config.getModel() || DEFAULT_GEMINI_MODEL;
+    const maxTokens = tokenLimit(currentModel);
+    const estimatedTokens = this.estimateRequestTokens(messages, tools);
+
+    // Use 90% of the limit as a safety margin to account for estimation inaccuracies
+    const safetyThreshold = Math.floor(maxTokens * 0.9);
+
+    if (estimatedTokens > safetyThreshold) {
+      throw new Error(
+        `Request would exceed token limit for model '${currentModel}'. ` +
+        `Estimated tokens: ${estimatedTokens}, ` +
+        `Safe limit: ${safetyThreshold} (90% of ${maxTokens}). ` +
+        `Please reduce the message history or tool count before retrying.`
+      );
+    }
+  }
+
   async generateContent(
     request: GenerateContentParameters,
   ): Promise<GenerateContentResponse> {
@@ -395,6 +463,9 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
       modelToUse, 
       this.convertGeminiParametersToOpenAI.bind(this)
     );
+
+    // Validate token limits
+    this.validateTokenLimits(messages, openAITools, modelToUse);
 
     const requestBody = {
       intent: false,
@@ -484,6 +555,9 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
       modelToUse, 
       this.convertGeminiParametersToOpenAI.bind(this)
     );
+
+    // Validate token limits
+    this.validateTokenLimits(messages, openAITools, modelToUse);
 
     const requestBody = {
       intent: false,
@@ -660,28 +734,19 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
   }
 
   async countTokens(request: CountTokensParameters): Promise<CountTokensResponse> {
-    // Convert contents to text for rough token estimation
-    let text = '';
-    if (request.contents && Array.isArray(request.contents)) {
-      text = request.contents
-        .map(content => {
-          if (typeof content === 'string') return content;
-          if (isContent(content) && content.parts) {
-            return content.parts
-              .map((part: Part) => {
-                if (typeof part === 'string') return part;
-                if (part && typeof part === 'object' && 'text' in part) return part.text;
-                return '';
-              })
-              .join(' ');
-          }
-          return '';
-        })
-        .join(' ');
-    }
+    // Convert Gemini format to OpenAI messages for accurate estimation
+    const contents = toContents(request.contents || []);
+    const messages = convertToOpenAIMessages(contents);
 
-    // Rough token estimation (1 token ≈ 4 characters for English text)
-    const tokenCount = Math.ceil(text.length / 4);
+    // Account for tools if present in the request config
+    const tools = request.config?.tools ? convertGeminiToolsToOpenAI(
+      request.config.tools,
+      request.model || this.config.getModel() || DEFAULT_GEMINI_MODEL,
+      this.convertGeminiParametersToOpenAI.bind(this)
+    ) : undefined;
+
+    // Use the same estimation logic as our token limit validation
+    const tokenCount = this.estimateRequestTokens(messages, tools);
     
     return {
       totalTokens: tokenCount
