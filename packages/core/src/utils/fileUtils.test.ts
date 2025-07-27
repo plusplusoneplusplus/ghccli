@@ -86,6 +86,7 @@ describe('fileUtils', () => {
     });
 
     it('should return false for paths outside the root', () => {
+      vi.stubEnv('GEMINI_ENABLE_PATH_VALIDATION', 'true');
       expect(
         isWithinRoot(path.resolve('/project/other', 'file.txt'), root),
       ).toBe(false);
@@ -95,6 +96,7 @@ describe('fileUtils', () => {
     });
 
     it('should return false for paths that only partially match the root prefix', () => {
+      vi.stubEnv('GEMINI_ENABLE_PATH_VALIDATION', 'true');
       expect(
         isWithinRoot(
           path.resolve('/project/root-but-actually-different'),
@@ -111,6 +113,7 @@ describe('fileUtils', () => {
     });
 
     it('should handle different path separators (POSIX vs Windows)', () => {
+      vi.stubEnv('GEMINI_ENABLE_PATH_VALIDATION', 'true');
       const posixRoot = '/project/root';
       const posixPathInside = '/project/root/file.txt';
       const posixPathOutside = '/project/other/file.txt';
@@ -119,6 +122,7 @@ describe('fileUtils', () => {
     });
 
     it('should return false for a root path that is a sub-path of the path to check', () => {
+      vi.stubEnv('GEMINI_ENABLE_PATH_VALIDATION', 'true');
       const pathToCheck = path.resolve('/project/root/sub');
       const rootSub = path.resolve('/project/root');
       expect(isWithinRoot(pathToCheck, rootSub)).toBe(true);
