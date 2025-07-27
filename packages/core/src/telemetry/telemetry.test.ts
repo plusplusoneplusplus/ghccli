@@ -15,6 +15,12 @@ import { NodeSDK } from '@opentelemetry/sdk-node';
 
 vi.mock('@opentelemetry/sdk-node');
 vi.mock('../config/config.js');
+vi.mock('./uiTelemetry.js', () => ({
+  uiTelemetryService: {
+    emit: vi.fn(),
+  },
+  UiEvent: {},
+}));
 
 describe('telemetry', () => {
   let mockConfig: Config;
