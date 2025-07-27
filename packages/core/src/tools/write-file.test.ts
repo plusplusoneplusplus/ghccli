@@ -172,6 +172,7 @@ describe('WriteFileTool', () => {
     });
 
     it('should return error for path outside root', () => {
+      vi.stubEnv('GEMINI_ENABLE_PATH_VALIDATION', 'true');
       const outsidePath = path.resolve(tempDir, 'outside-root.txt');
       const params = {
         file_path: outsidePath,
@@ -310,6 +311,7 @@ describe('WriteFileTool', () => {
     });
 
     it('should return false if params are invalid (outside root)', async () => {
+      vi.stubEnv('GEMINI_ENABLE_PATH_VALIDATION', 'true');
       const outsidePath = path.resolve(tempDir, 'outside-root.txt');
       const params = { file_path: outsidePath, content: 'test' };
       const confirmation = await tool.shouldConfirmExecute(params, abortSignal);
@@ -423,6 +425,7 @@ describe('WriteFileTool', () => {
     });
 
     it('should return error if params are invalid (path outside root)', async () => {
+      vi.stubEnv('GEMINI_ENABLE_PATH_VALIDATION', 'true');
       const outsidePath = path.resolve(tempDir, 'outside-root.txt');
       const params = { file_path: outsidePath, content: 'test' };
       const result = await tool.execute(params, abortSignal);
