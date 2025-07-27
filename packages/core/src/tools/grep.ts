@@ -66,7 +66,7 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
     super(
       GrepTool.Name,
       'SearchText',
-      'Searches for a regular expression pattern within the content of files in a specified directory (or current working directory). Can filter files by a glob pattern. Returns the lines containing matches, along with their file paths and line numbers.',
+      'Searches for a regular expression pattern within the content of files in a specified directory or within a single file. Can filter files by a glob pattern when searching directories. Returns the lines containing matches, along with their file paths and line numbers.',
       Icon.Regex,
       {
         properties: {
@@ -77,12 +77,12 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
           },
           path: {
             description:
-              'Optional: The absolute path to the directory to search within. If omitted, searches the current working directory.',
+              'Optional: The absolute path to the directory to search within, or the path to a specific file to search. If omitted, searches the current working directory.',
             type: Type.STRING,
           },
           include: {
             description:
-              "Optional: A glob pattern to filter which files are searched (e.g., '*.js', '*.{ts,tsx}', 'src/**'). If omitted, searches all files (respecting potential global ignores).",
+              "Optional: A glob pattern to filter which files are searched (e.g., '*.js', '*.{ts,tsx}', 'src/**'). Only used when searching directories. Ignored when searching a single file.",
             type: Type.STRING,
           },
           limit: {
@@ -103,7 +103,7 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
    * Checks if a path is within the root directory and resolves it.
    * @param relativePath Path relative to the root directory (or undefined for root).
    * @returns The absolute path if valid and exists.
-   * @throws {Error} If path is outside root, doesn't exist, or isn't a directory.
+   * @throws {Error} If path is outside root or doesn't exist.
    */
   private resolveAndValidatePath(relativePath?: string): string {
     const targetPath = path.resolve(
@@ -121,14 +121,14 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
       );
     }
 
-    // Check existence and type after resolving
+    // Check existence (can be either file or directory)
     try {
       const stats = fs.statSync(targetPath);
-      if (!stats.isDirectory()) {
-        throw new Error(`Path is not a directory: ${targetPath}`);
+      if (!stats.isFile() && !stats.isDirectory()) {
+        throw new Error(`Path is neither a file nor a directory: ${targetPath}`);
       }
     } catch (error: unknown) {
-      if (isNodeError(error) && error.code !== 'ENOENT') {
+      if (isNodeError(error) && error.code === 'ENOENT') {
         throw new Error(`Path does not exist: ${targetPath}`);
       }
       throw new Error(
@@ -397,12 +397,21 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
    */
   private async performGrepSearch(options: {
     pattern: string;
-    path: string; // Expects absolute path
+    path: string; // Expects absolute path (can be file or directory)
     include?: string;
     signal: AbortSignal;
   }): Promise<GrepMatch[]> {
     const { pattern, path: absolutePath, include } = options;
     let strategyUsed = 'none';
+
+    // Check if the path is a file or directory
+    const stats = fs.statSync(absolutePath);
+    const isFile = stats.isFile();
+
+    // If it's a single file, handle it directly
+    if (isFile) {
+      return this.searchInSingleFile(absolutePath, pattern);
+    }
 
     try {
       // --- Strategy 1: git grep ---
@@ -458,45 +467,34 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
       }
 
       // --- Strategy 2: System grep ---
-      const grepAvailable = await this.isCommandAvailable('grep');
-      if (grepAvailable) {
+      if (await this.isCommandAvailable('grep')) {
         strategyUsed = 'system grep';
-        const grepArgs = ['-r', '-n', '-H', '-E'];
-        const commonExcludes = ['.git', 'node_modules', 'bower_components'];
-        commonExcludes.forEach((dir) => grepArgs.push(`--exclude-dir=${dir}`));
-        if (include) {
-          grepArgs.push(`--include=${include}`);
-        }
-        grepArgs.push(pattern);
-        grepArgs.push('.');
-
         try {
           const output = await new Promise<string>((resolve, reject) => {
+            const grepArgs = ['-r', '-n', '-E', '-i', pattern];
+            if (include) {
+              grepArgs.push('--include', include);
+            }
+            grepArgs.push(absolutePath);
+
             const child = spawn('grep', grepArgs, {
-              cwd: absolutePath,
               windowsHide: true,
             });
-            const stdoutChunks: Buffer[] = [];
-            const stderrChunks: Buffer[] = [];
+            let stdoutData = '';
+            let stderrData = '';
 
-            const onData = (chunk: Buffer) => stdoutChunks.push(chunk);
-            const onStderr = (chunk: Buffer) => {
-              const stderrStr = chunk.toString();
-              // Suppress common harmless stderr messages
-              if (
-                !stderrStr.includes('Permission denied') &&
-                !/grep:.*: Is a directory/i.test(stderrStr)
-              ) {
-                stderrChunks.push(chunk);
-              }
+            const onData = (data: Buffer) => {
+              stdoutData += data.toString('utf8');
             };
-            const onError = (err: Error) => {
+            const onStderr = (data: Buffer) => {
+              stderrData += data.toString('utf8');
+            };
+            const onError = (error: Error) => {
               cleanup();
-              reject(new Error(`Failed to start system grep: ${err.message}`));
+              reject(new Error(`Failed to start system grep: ${error.message}`));
             };
             const onClose = (code: number | null) => {
-              const stdoutData = Buffer.concat(stdoutChunks).toString('utf8');
-              const stderrData = Buffer.concat(stderrChunks)
+              stdoutData = Buffer.from(stdoutData, 'utf8')
                 .toString('utf8')
                 .trim();
               cleanup();
@@ -595,6 +593,38 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
         `GrepLogic: Error in performGrepSearch (Strategy: ${strategyUsed}): ${getErrorMessage(error)}`,
       );
       throw error; // Re-throw
+    }
+  }
+
+  /**
+   * Searches for a pattern within a single file.
+   * @param filePath Absolute path to the file
+   * @param pattern Regular expression pattern to search for
+   * @returns Array of matches found in the file
+   */
+  private async searchInSingleFile(filePath: string, pattern: string): Promise<GrepMatch[]> {
+    try {
+      const content = await fsPromises.readFile(filePath, 'utf8');
+      const regex = new RegExp(pattern, 'i');
+      const matches: GrepMatch[] = [];
+      const lines = content.split(/\r?\n/);
+      
+      lines.forEach((line, index) => {
+        if (regex.test(line)) {
+          matches.push({
+            filePath: path.basename(filePath),
+            lineNumber: index + 1,
+            line,
+          });
+        }
+      });
+
+      return matches;
+    } catch (error: unknown) {
+      console.error(
+        `GrepLogic: Error reading file ${filePath}: ${getErrorMessage(error)}`,
+      );
+      throw error;
     }
   }
 }
