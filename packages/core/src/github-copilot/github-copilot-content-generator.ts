@@ -276,7 +276,7 @@ function handleSystemInstruction(messages: any[], systemInstruction: any): void 
  * to authenticate with the GitHub Copilot chat completions API using Gemini 2.5 Pro
  */
 export class GitHubCopilotGeminiServer implements ContentGenerator {
-  private streamingToolCalls = new Map<number, { id?: string; name?: string; arguments: string }>();
+  private streamingToolCalls = new Map<number, { id?: string; name?: string; arguments: string; functionCallComplete?: boolean }>();
   private toolCallIdMap = new Map<string, string>(); // Maps OpenAI tool call IDs to function names
 
   constructor(
@@ -646,7 +646,7 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
                   // Get or create the tool call accumulator for this index
                   let accumulatedCall = this.streamingToolCalls.get(index);
                   if (!accumulatedCall) {
-                    accumulatedCall = { arguments: '' };
+                    accumulatedCall = { arguments: '', functionCallComplete: false };
                     this.streamingToolCalls.set(index, accumulatedCall);
                   }
 
@@ -674,9 +674,65 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
                     let args: Record<string, unknown> = {};
                     if (accumulatedCall.arguments) {
                       try {
-                        args = JSON.parse(accumulatedCall.arguments);
+                        // Trim whitespace and validate JSON structure
+                        const trimmedArgs = accumulatedCall.arguments.trim();
+                        if (trimmedArgs && (trimmedArgs.startsWith('{') || trimmedArgs.startsWith('['))) {
+                          // Check if we have multiple JSON objects concatenated together
+                          // This can happen when streaming multiple tool calls
+                          if (trimmedArgs.includes('}{') || trimmedArgs.includes('][')) {
+                            // Find the first complete JSON object
+                            let depth = 0;
+                            let firstObjectEnd = -1;
+                            let inString = false;
+                            let escapeNext = false;
+                            
+                            for (let i = 0; i < trimmedArgs.length; i++) {
+                              const char = trimmedArgs[i];
+                              
+                              if (escapeNext) {
+                                escapeNext = false;
+                                continue;
+                              }
+                              
+                              if (char === '\\') {
+                                escapeNext = true;
+                                continue;
+                              }
+                              
+                              if (char === '"') {
+                                inString = !inString;
+                                continue;
+                              }
+                              
+                              if (!inString) {
+                                if (char === '{' || char === '[') {
+                                  depth++;
+                                } else if (char === '}' || char === ']') {
+                                  depth--;
+                                  if (depth === 0) {
+                                    firstObjectEnd = i;
+                                    break;
+                                  }
+                                }
+                              }
+                            }
+                            
+                            if (firstObjectEnd !== -1) {
+                              const firstJsonObject = trimmedArgs.substring(0, firstObjectEnd + 1);
+                              args = JSON.parse(firstJsonObject);
+                              console.warn('Multiple JSON objects detected in tool call arguments, using first object only');
+                            } else {
+                              console.warn('Could not find complete JSON object in concatenated arguments:', trimmedArgs);
+                            }
+                          } else {
+                            args = JSON.parse(trimmedArgs);
+                          }
+                        } else {
+                          console.warn('Invalid JSON structure in tool call arguments:', trimmedArgs);
+                        }
                       } catch (error) {
                         console.error('Failed to parse final tool call arguments:', error);
+                        console.error('Raw arguments string:', JSON.stringify(accumulatedCall.arguments));
                       }
                     }
                     
