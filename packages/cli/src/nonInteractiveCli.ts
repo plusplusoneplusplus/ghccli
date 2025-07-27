@@ -57,7 +57,7 @@ export async function runNonInteractive(
     }
   });
 
-  const geminiClient = config.getGeminiClient();
+  const geminiClient = await config.createAgentClient();
   const toolRegistry: ToolRegistry = await config.getToolRegistry();
 
   const chat = await geminiClient.getChat();

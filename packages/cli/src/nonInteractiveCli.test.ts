@@ -52,6 +52,7 @@ describe('runNonInteractive', () => {
     mockConfig = {
       getToolRegistry: vi.fn().mockReturnValue(mockToolRegistry),
       getGeminiClient: vi.fn().mockReturnValue(mockGeminiClient),
+      createAgentClient: vi.fn().mockResolvedValue(mockGeminiClient),
       getContentGeneratorConfig: vi.fn().mockReturnValue({}),
       getMaxSessionTurns: vi.fn().mockReturnValue(10),
       initialize: vi.fn(),

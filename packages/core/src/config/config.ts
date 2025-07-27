@@ -182,6 +182,7 @@ export interface ConfigParameters {
   summarizeToolOutput?: Record<string, SummarizeToolOutputSettings>;
   ideMode?: boolean;
   ideClient?: IdeClient;
+  agent?: string;
 }
 
 export class Config {
@@ -237,6 +238,7 @@ export class Config {
   private readonly summarizeToolOutput:
     | Record<string, SummarizeToolOutputSettings>
     | undefined;
+  private readonly agent: string;
   private readonly experimentalAcp: boolean = false;
 
   constructor(params: ConfigParameters) {
@@ -290,6 +292,7 @@ export class Config {
     this.summarizeToolOutput = params.summarizeToolOutput;
     this.ideMode = params.ideMode ?? false;
     this.ideClient = params.ideClient;
+    this.agent = params.agent ?? 'default';
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -487,6 +490,18 @@ export class Config {
     return this.geminiClient;
   }
 
+  async createAgentClient(): Promise<GeminiClient> {
+    if (this.agent === 'default') {
+      return this.geminiClient;
+    }
+    
+    // For other agents, we need to create an AgentChat client
+    // This would require loading the agent configuration and creating an AgentChat instance
+    // For now, fallback to the default client
+    console.log(`Agent selection '${this.agent}' not yet implemented, using default client`);
+    return this.geminiClient;
+  }
+
   getGeminiDir(): string {
     return path.join(this.targetDir, GEMINI_DIR);
   }
@@ -519,6 +534,10 @@ export class Config {
 
   getProxy(): string | undefined {
     return this.proxy;
+  }
+
+  getAgent(): string {
+    return this.agent;
   }
 
   getWorkingDir(): string {
