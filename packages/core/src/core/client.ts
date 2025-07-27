@@ -123,7 +123,8 @@ export class GeminiClient {
       this.config,
       this.config.getSessionId(),
     );
-    this.chat = await this.startChat();
+    this.chat = await this.startChat(undefined, this.config.getAgent());
+    console.debug('chat initialized with agent', this.config.getAgent());
   }
 
   getContentGenerator(): ContentGenerator {
@@ -168,7 +169,7 @@ export class GeminiClient {
   }
 
   async resetChat(): Promise<void> {
-    this.chat = await this.startChat();
+    this.chat = await this.startChat(undefined, this.config.getAgent());
   }
 
   private async getEnvironment(): Promise<Part[]> {
@@ -234,7 +235,7 @@ export class GeminiClient {
     return initialParts;
   }
 
-  async startChat(extraHistory?: Content[]): Promise<GeminiChat> {
+  async startChat(extraHistory?: Content[], agentName?: string): Promise<GeminiChat> {
     const envParts = await this.getEnvironment();
     const toolRegistry = await this.config.getToolRegistry();
     const toolDeclarations = toolRegistry.getFunctionDeclarations();
@@ -261,6 +262,30 @@ export class GeminiClient {
             },
           }
         : this.generateContentConfig;
+
+      // If an agent is specified and it's not 'default', create an AgentChat
+      if (agentName && agentName !== 'default') {
+        try {
+          // Dynamic import to avoid circular dependency
+          const { AgentChat } = await import('../agents/agentChat.js');
+          return await AgentChat.fromAgentConfig(
+            this.config,
+            this.getContentGenerator(),
+            agentName,
+            this.config.getAgentConfigsDir(),
+            {
+              systemInstruction: undefined,
+              ...generateContentConfigWithThinking,
+              tools,
+            },
+            history,
+          );
+        } catch (agentError) {
+          throw new Error(`Failed to load agent '${agentName}': ${agentError}.`);
+        }
+      }
+
+      // Create default GeminiChat
       return new GeminiChat(
         this.config,
         this.getContentGenerator(),

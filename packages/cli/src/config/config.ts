@@ -201,7 +201,7 @@ export async function parseArguments(): Promise<CliArgs> {
         'Proxy for gemini client, like schema://user:password@host:port',
     })
     .option('agent', {
-      alias: 'a',
+      alias: 'g',
       type: 'string',
       description: 'Select the agent to launch',
       default: 'default',

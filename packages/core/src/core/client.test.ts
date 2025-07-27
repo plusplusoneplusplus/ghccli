@@ -200,6 +200,8 @@ describe('Gemini Client (client.ts)', () => {
       getNoBrowser: vi.fn().mockReturnValue(false),
       getUsageStatisticsEnabled: vi.fn().mockReturnValue(true),
       getIdeMode: vi.fn().mockReturnValue(false),
+      getAgent: vi.fn().mockReturnValue('default'),
+      getAgentConfigsDir: vi.fn().mockReturnValue('/test/agents/configs'),
       getGeminiClient: vi.fn(),
     };
     const MockedConfig = vi.mocked(Config, true);

@@ -46,6 +46,8 @@ import { ClearcutLogger } from '../telemetry/clearcut-logger/clearcut-logger.js'
 import { shouldAttemptBrowserLaunch } from '../utils/browser.js';
 import { MCPOAuthConfig } from '../mcp/oauth-provider.js';
 import { IdeClient } from '../ide/ide-client.js';
+import { AgentChat } from '../agents/agentChat.js';
+import { AgentLoader } from '../agents/agentLoader.js';
 
 // Re-export OAuth config type
 export type { MCPOAuthConfig };
@@ -292,7 +294,8 @@ export class Config {
     this.summarizeToolOutput = params.summarizeToolOutput;
     this.ideMode = params.ideMode ?? false;
     this.ideClient = params.ideClient;
-    this.agent = params.agent ?? 'default';
+    // Ensure agent is always a string, even if somehow a boolean was passed
+    this.agent = typeof params.agent === 'string' ? params.agent : 'default';
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -490,18 +493,6 @@ export class Config {
     return this.geminiClient;
   }
 
-  async createAgentClient(): Promise<GeminiClient> {
-    if (this.agent === 'default') {
-      return this.geminiClient;
-    }
-    
-    // For other agents, we need to create an AgentChat client
-    // This would require loading the agent configuration and creating an AgentChat instance
-    // For now, fallback to the default client
-    console.log(`Agent selection '${this.agent}' not yet implemented, using default client`);
-    return this.geminiClient;
-  }
-
   getGeminiDir(): string {
     return path.join(this.targetDir, GEMINI_DIR);
   }
@@ -538,6 +529,15 @@ export class Config {
 
   getAgent(): string {
     return this.agent;
+  }
+
+  getAgentConfigsDir(): string {
+    // Get the path to the agents/configs directory relative to this file
+    // In ES modules, we need to use import.meta.url instead of __dirname
+    const currentFileUrl = new URL(import.meta.url);
+    const currentDir = path.dirname(currentFileUrl.pathname);
+    const configsDir = path.join(currentDir, '..', 'agents', 'configs');
+    return configsDir;
   }
 
   getWorkingDir(): string {
