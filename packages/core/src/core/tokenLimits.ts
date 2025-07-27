@@ -9,11 +9,8 @@ type TokenCount = number;
 
 export const DEFAULT_TOKEN_LIMIT = 1_048_576;
 
-export function tokenLimit(model: Model): TokenCount {
-  // Add other models as they become relevant or if specified by config
-  // Pulled from https://ai.google.dev/gemini-api/docs/models
+function getVsCodeCopilotTokenLimit(model: Model): TokenCount | null {
   switch (model) {
-    // update for vscode copilot limit
     case 'gpt-4.1':
     case 'gpt-4o':
     case 'claude-sonnet-4':
@@ -22,6 +19,21 @@ export function tokenLimit(model: Model): TokenCount {
       return 67_000;
     case 'gemini-2.5-pro':
       return 108_000;
+    default:
+      return null;
+  }
+}
+
+export function tokenLimit(model: Model): TokenCount {
+  // Check VSCode Copilot specific models first
+  const copilotLimit = getVsCodeCopilotTokenLimit(model);
+  if (copilotLimit !== null) {
+    return copilotLimit;
+  }
+
+  // Add other models as they become relevant or if specified by config
+  // Pulled from https://ai.google.dev/gemini-api/docs/models
+  switch (model) {
     // default gemini models
     case 'gemini-1.5-pro':
       return 2_097_152;
@@ -33,7 +45,8 @@ export function tokenLimit(model: Model): TokenCount {
     case 'gemini-2.0-flash':
       return 1_048_576;
     case 'gemini-2.0-flash-preview-image-generation':
-      return 32_000;    default:
+      return 32_000;
+    default:
       return 64_000; // Default token limit for unspecified models
   }
 }
