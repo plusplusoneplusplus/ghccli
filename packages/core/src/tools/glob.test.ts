@@ -9,7 +9,7 @@ import { partListUnionToString } from '../core/geminiRequest.js';
 import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'; // Removed vi
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { Config } from '../config/config.js';
 
@@ -275,6 +275,7 @@ describe('GlobTool', () => {
     });
 
     it("should return error if search path resolves outside the tool's root directory", () => {
+      vi.stubEnv('GEMINI_ENABLE_PATH_VALIDATION', 'true');
       // Create a globTool instance specifically for this test, with a deeper root
       tempRootDir = path.join(tempRootDir, 'sub');
       const specificGlobTool = new GlobTool(mockConfig);
