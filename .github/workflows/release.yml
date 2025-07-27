@@ -33,6 +33,7 @@ on:
 
 jobs:
   release:
+    if: false  # Disabled workflow
     runs-on: ubuntu-latest
     environment:
       name: production-release
