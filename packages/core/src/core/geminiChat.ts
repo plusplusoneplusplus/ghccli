@@ -10,6 +10,7 @@
 import {
   GenerateContentResponse,
   Content,
+  ContentUnion,
   GenerateContentConfig,
   SendMessageParameters,
   createUserContent,
@@ -32,6 +33,7 @@ import {
   ApiResponseEvent,
 } from '../telemetry/types.js';
 import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
+import { getCoreSystemPrompt } from './prompts.js';
 
 /**
  * Returns true if the response is valid, false otherwise.
@@ -135,6 +137,10 @@ export class GeminiChat {
     private history: Content[] = [],
   ) {
     validateHistory(history);
+    const systemInstruction = this.generateSystemPrompt();
+    if (systemInstruction) {
+      this.generationConfig.systemInstruction = systemInstruction;
+    }
   }
 
   private _getRequestTextFromContents(contents: Content[]): string {
@@ -493,6 +499,18 @@ export class GeminiChat {
 
   setTools(tools: Tool[]): void {
     this.generationConfig.tools = tools;
+  }
+
+  /**
+   * Generates the system prompt for the chat session.
+   * This method can be overridden by child classes to provide custom system prompts.
+   * 
+   * @returns The system prompt content or null if no system prompt is needed
+   */
+  protected generateSystemPrompt(): ContentUnion | null {
+    const userMemory = this.config.getUserMemory();
+    const systemInstruction = getCoreSystemPrompt(userMemory);
+    return systemInstruction;
   }
 
   getFinalUsageMetadata(

@@ -251,8 +251,6 @@ export class GeminiClient {
       ...(extraHistory ?? []),
     ];
     try {
-      const userMemory = this.config.getUserMemory();
-      const systemInstruction = getCoreSystemPrompt(userMemory);
       const generateContentConfigWithThinking = isThinkingSupported(
         this.config.getModel(),
       )
@@ -267,7 +265,7 @@ export class GeminiClient {
         this.config,
         this.getContentGenerator(),
         {
-          systemInstruction,
+          systemInstruction: undefined,
           ...generateContentConfigWithThinking,
           tools,
         },
