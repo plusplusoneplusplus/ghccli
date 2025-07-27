@@ -380,6 +380,10 @@ export class GeminiChat {
     params: SendMessageParameters,
     prompt_id: string,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
+    if (params.config !== undefined) {
+      params.config.systemInstruction = this.generateSystemPrompt() || undefined;
+    }
+
     await this.sendPromise;
     const userContent = createUserContent(params.message);
     const requestContents = this.getHistory(true).concat(userContent);
