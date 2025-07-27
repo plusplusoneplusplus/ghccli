@@ -20,6 +20,20 @@
     {
       "type": "node",
       "request": "launch",
+      "name": "Debug Agent Test",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start", "--", "--agent", "research-sub-agent", "-p", "who are you"],
+      "skipFiles": ["<node_internals>/**"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "env": {
+        "GEMINI_SANDBOX": "false"
+      },
+      "preLaunchTask": "npm: build"
+    },
+    {
+      "type": "node",
+      "request": "launch",
       "name": "Launch E2E",
       "program": "${workspaceFolder}/integration-tests/run-tests.js",
       "args": ["--verbose", "--keep-output", "list_directory"],
