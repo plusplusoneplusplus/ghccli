@@ -210,6 +210,7 @@ describe('EditTool', () => {
     });
 
     it('should return error for path outside root', () => {
+      vi.stubEnv('GEMINI_ENABLE_PATH_VALIDATION', 'true');
       const params: EditToolParams = {
         file_path: path.join(tempDir, 'outside-root.txt'),
         old_string: 'old',
