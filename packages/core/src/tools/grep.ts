@@ -38,6 +38,11 @@ export interface GrepToolParams {
    * File pattern to include in the search (e.g. "*.js", "*.{ts,tsx}")
    */
   include?: string;
+
+  /**
+   * Maximum number of matches to return (optional, defaults to 30)
+   */
+  limit?: number;
 }
 
 /**
@@ -79,6 +84,11 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
             description:
               "Optional: A glob pattern to filter which files are searched (e.g., '*.js', '*.{ts,tsx}', 'src/**'). If omitted, searches all files (respecting potential global ignores).",
             type: Type.STRING,
+          },
+          limit: {
+            description:
+              'Optional: Maximum number of matches to return. Defaults to 30 to prevent overwhelming output. Maximum allowed is 100.',
+            type: Type.NUMBER,
           },
         },
         required: ['pattern'],
@@ -152,6 +162,14 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
       return getErrorMessage(error);
     }
 
+    if (params.limit !== undefined && params.limit <= 0) {
+      return 'Limit must be a positive number.';
+    }
+
+    if (params.limit !== undefined && params.limit > 100) {
+      return 'Limit cannot exceed 100 matches to prevent overwhelming output.';
+    }
+
     return null; // Parameters are valid
   }
 
@@ -208,23 +226,57 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
         {} as Record<string, GrepMatch[]>,
       );
 
-      const matchCount = matches.length;
-      const matchTerm = matchCount === 1 ? 'match' : 'matches';
+      // Apply limit (default to 30)
+      const limit = params.limit ?? 30;
+      const totalMatchCount = matches.length;
+      const isLimited = totalMatchCount > limit;
+      const limitedMatches = isLimited ? matches.slice(0, limit) : matches;
 
-      let llmContent = `Found ${matchCount} ${matchTerm} for pattern "${params.pattern}" in path "${searchDirDisplay}"${params.include ? ` (filter: "${params.include}")` : ''}:\n---\n`;
+      // Group limited matches by file
+      const limitedMatchesByFile = limitedMatches.reduce(
+        (acc, match) => {
+          const relativeFilePath =
+            path.relative(
+              searchDirAbs,
+              path.resolve(searchDirAbs, match.filePath),
+            ) || path.basename(match.filePath);
+          if (!acc[relativeFilePath]) {
+            acc[relativeFilePath] = [];
+          }
+          acc[relativeFilePath].push(match);
+          acc[relativeFilePath].sort((a, b) => a.lineNumber - b.lineNumber);
+          return acc;
+        },
+        {} as Record<string, GrepMatch[]>,
+      );
 
-      for (const filePath in matchesByFile) {
+      const displayMatchCount = limitedMatches.length;
+      const matchTerm = totalMatchCount === 1 ? 'match' : 'matches';
+
+      let llmContent = `Found ${totalMatchCount} ${matchTerm} for pattern "${params.pattern}" in path "${searchDirDisplay}"${params.include ? ` (filter: "${params.include}")` : ''}`;
+      
+      if (isLimited) {
+        llmContent += `, showing first ${displayMatchCount} matches`;
+      }
+      
+      llmContent += ':\n---\n';
+
+      for (const filePath in limitedMatchesByFile) {
         llmContent += `File: ${filePath}\n`;
-        matchesByFile[filePath].forEach((match) => {
+        limitedMatchesByFile[filePath].forEach((match) => {
           const trimmedLine = match.line.trim();
           llmContent += `L${match.lineNumber}: ${trimmedLine}\n`;
         });
         llmContent += '---\n';
       }
 
+      if (isLimited) {
+        llmContent += `\n[Results truncated: showing ${displayMatchCount} of ${totalMatchCount} total matches. Use the 'limit' parameter to see more matches.]`;
+      }
+
       return {
         llmContent: llmContent.trim(),
-        returnDisplay: `Found ${matchCount} ${matchTerm}`,
+        returnDisplay: isLimited ? `Found ${totalMatchCount} ${matchTerm} (showing ${displayMatchCount})` : `Found ${displayMatchCount} ${matchTerm}`,
       };
     } catch (error) {
       console.error(`Error during GrepLogic execution: ${error}`);
