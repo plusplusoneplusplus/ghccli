@@ -17,6 +17,7 @@ import {
   Config,
   GeminiClient,
   getCachedEncodingForBuffer,
+  parseCommandWithQuotes,
 } from '@google/gemini-cli-core';
 import { type PartListUnion } from '@google/genai';
 import { formatMemoryUsage } from '../utils/formatters.js';
@@ -66,8 +67,9 @@ function executeShellCommand(
     const isWindows = os.platform() === 'win32';
     
     if (isWindows) {
-      // Use execa for Windows
-      const childPromise = execa('cmd.exe', ['/c', commandToExecute], {
+      // Use execa for Windows - parse command with proper quote handling
+      const parsedArgs = parseCommandWithQuotes(commandToExecute);
+      const childPromise = execa('cmd.exe', ['/c', ...parsedArgs], {
         cwd,
         env: {
           ...process.env,

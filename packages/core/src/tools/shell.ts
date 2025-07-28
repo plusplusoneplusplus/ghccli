@@ -26,6 +26,7 @@ import {
   isCommandAllowed,
   stripShellWrapper,
 } from '../utils/shell-utils.js';
+import { parseCommandWithQuotes } from '../utils/command-parser.js';
 
 export interface ShellToolParams {
   command: string;
@@ -217,9 +218,9 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     let shell: any;
     
     if (isWindows) {
-      // Use execa for Windows - escape quotes for cmd.exe
-      const escapedCommand = commandToExecute.replace(/"/g, '\\"');
-      shell = execa('cmd.exe', ['/c', escapedCommand], {
+      // Use execa for Windows - parse command with proper quote handling
+      const parsedArgs = parseCommandWithQuotes(commandToExecute);
+      shell = execa('cmd.exe', ['/c', ...parsedArgs], {
         cwd,
         env,
         stdout: ['pipe'],
