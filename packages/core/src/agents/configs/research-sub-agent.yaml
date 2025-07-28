@@ -25,7 +25,6 @@ metadata:
     
     blockedToolsRegex:
       - '^evaluate_source_quality$'    # Explicitly blocked as broken
-      - ".*copilot_completion_signal"
   
   specialization: research-subagent
   
