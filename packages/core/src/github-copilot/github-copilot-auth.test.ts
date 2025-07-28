@@ -160,14 +160,15 @@ describe('GitHubCopilotTokenManager', () => {
 
   describe('loadTokenFromFile', () => {
     it('should load token from file when it exists', () => {
+      const mockToken = 'saved-github-token';
       vi.mocked(fs.existsSync).mockReturnValue(true);
-      vi.mocked(fs.readFileSync).mockReturnValue('saved-github-token');
-
+      vi.mocked(fs.readFileSync).mockReturnValue(mockToken);
+      
       const result = tokenManager.loadTokenFromFile();
       
       expect(result).toBe('saved-github-token');
       expect(fs.readFileSync).toHaveBeenCalledWith(
-        path.join('/mock/home', '.gemini', '.github_token'),
+        path.join('/mock/home', '.ghccli', '.github_token'),
         'utf8'
       );
     });
