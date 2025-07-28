@@ -137,12 +137,7 @@ export class GeminiChat {
     private history: Content[] = [],
   ) {
     validateHistory(history);
-
     this.config = config;
-    const systemInstruction = this.generateSystemPrompt();
-    if (systemInstruction) {
-      this.generationConfig.systemInstruction = systemInstruction;
-    }
   }
 
   private _getRequestTextFromContents(contents: Content[]): string {
@@ -271,6 +266,12 @@ export class GeminiChat {
     params: SendMessageParameters,
     prompt_id: string,
   ): Promise<GenerateContentResponse> {
+    // Ensure config exists and set system instruction
+    if (!params.config) {
+      params.config = {};
+    }
+    params.config.systemInstruction = (await this.generateSystemPrompt()) || undefined;
+
     await this.sendPromise;
     const userContent = createUserContent(params.message);
     const requestContents = this.getHistory(true).concat(userContent);
@@ -380,9 +381,11 @@ export class GeminiChat {
     params: SendMessageParameters,
     prompt_id: string,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
-    if (params.config !== undefined) {
-      params.config.systemInstruction = this.generateSystemPrompt() || undefined;
+    // Ensure config exists and set system instruction
+    if (!params.config) {
+      params.config = {};
     }
+    params.config.systemInstruction = (await this.generateSystemPrompt()) || undefined;
 
     await this.sendPromise;
     const userContent = createUserContent(params.message);
@@ -513,7 +516,7 @@ export class GeminiChat {
    * 
    * @returns The system prompt content or null if no system prompt is needed
    */
-  protected generateSystemPrompt(): ContentUnion | null {
+  protected async generateSystemPrompt(): Promise<ContentUnion | null> {
     const userMemory = this.config.getUserMemory();
     const systemInstruction = getCoreSystemPrompt(userMemory);
     return systemInstruction;

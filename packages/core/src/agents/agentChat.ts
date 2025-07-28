@@ -33,14 +33,14 @@ export class AgentChat extends GeminiChat {
   /**
    * Generates the system prompt using the agent's configuration
    */
-  protected generateSystemPrompt(): ContentUnion | null {
+  protected async generateSystemPrompt(): Promise<ContentUnion | null> {
     // Check if agentConfig is available (might not be during construction)
     if (this.agentConfig && this.agentConfig.systemPrompt.type === 'content') {
       let promptContent = this.agentConfig.systemPrompt.value;
 
       // Handle variable resolution if enabled
       if (this.agentConfig.metadata.promptSupport.variableResolution) {
-        promptContent = this.resolvePromptVariables(promptContent);
+        promptContent = await this.resolvePromptVariables(promptContent);
       }
 
       return {
@@ -56,16 +56,22 @@ export class AgentChat extends GeminiChat {
   /**
    * Resolves variables in the prompt content
    */
-  private resolvePromptVariables(promptContent: string): string {
-    // Replace available agents placeholder
-    const availableAgentsText = this.agentConfig.availableAgents
-      .map(agent => `- ${agent}`)
-      .join('\n');
+  private async resolvePromptVariables(promptContent: string): Promise<string> {
+    // Check if {{availableAgents}} placeholder exists
+    const hasAvailableAgentsPlaceholder = promptContent.includes('{{availableAgents}}');
     
-    promptContent = promptContent.replace(
-      '{{availableAgents}}',
-      availableAgentsText
-    );
+    if (hasAvailableAgentsPlaceholder) {
+      // Replace available agents placeholder with detailed information
+      const availableAgentsText = await this.getAvailableAgentsAsText();
+      promptContent = promptContent.replace(
+        '{{availableAgents}}',
+        availableAgentsText
+      );
+    } else if (this.agentConfig.availableAgents.length > 1) {
+      // If no placeholder but multiple agents exist, append the information
+      const availableAgentsText = await this.getAvailableAgentsAsText();
+      promptContent += `\n\nAvailable sub-agents you can invoke:\n${availableAgentsText}`;
+    }
 
     // Replace current date placeholder
     const currentDate = new Date().toISOString().split('T')[0];
@@ -75,6 +81,32 @@ export class AgentChat extends GeminiChat {
     );
 
     return promptContent;
+  }
+
+  /**
+   * Gets available agents formatted as text for prompt variable replacement
+   */
+  private async getAvailableAgentsAsText(): Promise<string> {
+    try {
+      const agentDetails: string[] = [];
+      
+      for (const agentName of this.agentConfig.availableAgents) {
+        try {
+          const agentConfig = await this.agentLoader.loadAgentConfig(agentName);
+          agentDetails.push(`- ${agentConfig.name}: ${agentConfig.description}`);
+        } catch (error) {
+          // Fallback to just the name if config can't be loaded
+          agentDetails.push(`- ${agentName}`);
+        }
+      }
+      
+      return agentDetails.join('\n');
+    } catch (error) {
+      // Fallback to simple agent names if there's any error
+      return this.agentConfig.availableAgents
+        .map(agent => `- ${agent}`)
+        .join('\n');
+    }
   }
 
   /**

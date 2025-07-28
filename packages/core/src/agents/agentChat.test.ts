@@ -173,7 +173,7 @@ metadata:
   });
 
   describe('System prompt generation', () => {
-    it('should resolve variables in system prompt', () => {
+    it('should resolve variables in system prompt', async () => {
       const agentConfig = {
         name: 'test-agent',
         description: 'Test agent',
@@ -210,14 +210,14 @@ metadata:
       );
 
       // Test the instance method through generateSystemPrompt
-      const systemPrompt = (chat as any).generateSystemPrompt();
+      const systemPrompt = await (chat as any).generateSystemPrompt();
       
       expect(systemPrompt).toBeDefined();
       expect(systemPrompt.parts[0].text).toContain('agent with agents:\n- agent1\n- agent2');
       expect(systemPrompt.parts[0].text).toMatch(/You are a \d{4}-\d{2}-\d{2} agent/);
     });
 
-    it('should generate system prompt from agent config', () => {
+    it('should generate system prompt from agent config', async () => {
       const agentConfig = {
         name: 'test-agent',
         description: 'Test agent',
@@ -253,11 +253,135 @@ metadata:
         agentConfig
       );
 
-      const systemPrompt = (chat as any).generateSystemPrompt();
+      const systemPrompt = await (chat as any).generateSystemPrompt();
       
       expect(systemPrompt).toBeDefined();
       expect(systemPrompt.role).toBe('system');
       expect(systemPrompt.parts[0].text).toBe('You are a test agent');
+    });
+
+    it('should append agent information when no placeholder exists and multiple agents available', async () => {
+      const agentConfig = {
+        name: 'test-agent',
+        description: 'Test agent',
+        methods: [],
+        availableAgents: ['agent1', 'agent2'],
+        metadata: {
+          supportsStreaming: false,
+          supportsTools: true,
+          requiresWorkspace: false,
+          supportsPromptSelection: false,
+          languageModel: { preferred: 'gemini-pro' },
+          promptSupport: {
+            supportsPrompts: true,
+            supportsTsxMessages: false,
+            promptParameterName: 'prompt',
+            variableResolution: true
+          },
+          specialization: 'test',
+          executionConfig: { maxRounds: 5, maxContextTokens: 1000 }
+        },
+        systemPrompt: {
+          type: 'content' as const,
+          value: 'You are a test agent'
+        }
+      };
+
+      const chat = new AgentChat(
+        mockConfig,
+        mockContentGenerator,
+        agentConfig
+      );
+
+      const systemPrompt = await (chat as any).generateSystemPrompt();
+      
+      expect(systemPrompt).toBeDefined();
+      expect(systemPrompt.parts[0].text).toContain('You are a test agent');
+      expect(systemPrompt.parts[0].text).toContain('Available sub-agents you can invoke:');
+      expect(systemPrompt.parts[0].text).toContain('- agent1');
+      expect(systemPrompt.parts[0].text).toContain('- agent2');
+    });
+
+    it('should not append agent information when only one agent available', async () => {
+      const agentConfig = {
+        name: 'test-agent',
+        description: 'Test agent',
+        methods: [],
+        availableAgents: ['agent1'],
+        metadata: {
+          supportsStreaming: false,
+          supportsTools: true,
+          requiresWorkspace: false,
+          supportsPromptSelection: false,
+          languageModel: { preferred: 'gemini-pro' },
+          promptSupport: {
+            supportsPrompts: true,
+            supportsTsxMessages: false,
+            promptParameterName: 'prompt',
+            variableResolution: true
+          },
+          specialization: 'test',
+          executionConfig: { maxRounds: 5, maxContextTokens: 1000 }
+        },
+        systemPrompt: {
+          type: 'content' as const,
+          value: 'You are a test agent'
+        }
+      };
+
+      const chat = new AgentChat(
+        mockConfig,
+        mockContentGenerator,
+        agentConfig
+      );
+
+      const systemPrompt = await (chat as any).generateSystemPrompt();
+      
+      expect(systemPrompt).toBeDefined();
+      expect(systemPrompt.parts[0].text).toBe('You are a test agent');
+      expect(systemPrompt.parts[0].text).not.toContain('Available sub-agents you can invoke:');
+    });
+
+    it('should replace placeholder when {{availableAgents}} exists', async () => {
+      const agentConfig = {
+        name: 'test-agent',
+        description: 'Test agent',
+        methods: [],
+        availableAgents: ['agent1', 'agent2'],
+        metadata: {
+          supportsStreaming: false,
+          supportsTools: true,
+          requiresWorkspace: false,
+          supportsPromptSelection: false,
+          languageModel: { preferred: 'gemini-pro' },
+          promptSupport: {
+            supportsPrompts: true,
+            supportsTsxMessages: false,
+            promptParameterName: 'prompt',
+            variableResolution: true
+          },
+          specialization: 'test',
+          executionConfig: { maxRounds: 5, maxContextTokens: 1000 }
+        },
+        systemPrompt: {
+          type: 'content' as const,
+          value: 'You are a test agent with agents:\n{{availableAgents}}'
+        }
+      };
+
+      const chat = new AgentChat(
+        mockConfig,
+        mockContentGenerator,
+        agentConfig
+      );
+
+      const systemPrompt = await (chat as any).generateSystemPrompt();
+      
+      expect(systemPrompt).toBeDefined();
+      expect(systemPrompt.parts[0].text).toContain('agent with agents:\n- agent1');
+      expect(systemPrompt.parts[0].text).toContain('- agent2');
+      expect(systemPrompt.parts[0].text).not.toContain('{{availableAgents}}');
+      expect(systemPrompt.parts[0].text).not.toContain('Available sub-agents you can invoke:');
     });
   });
 
