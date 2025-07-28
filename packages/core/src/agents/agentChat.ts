@@ -167,6 +167,13 @@ export class AgentChat extends GeminiChat {
   }
 
   /**
+   * Gets the blocked tools regex patterns for this agent
+   */
+  getBlockedToolsRegex(): string[] {
+    return this.agentConfig.metadata.toolPreferences?.blockedToolsRegex || [];
+  }
+
+  /**
    * Gets the list of available agents that this agent can invoke
    */
   getAvailableAgents(): string[] {

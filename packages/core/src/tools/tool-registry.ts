@@ -357,6 +357,89 @@ export class ToolRegistry {
   }
 
   /**
+   * Retrieves the list of tool schemas (FunctionDeclaration array) filtered by allowed tool regex patterns.
+   * Only includes tools whose names match at least one of the provided regex patterns.
+   * @param allowedToolRegex - Array of regex patterns to match tool names against
+   * @returns An array of FunctionDeclarations that match the allowed patterns.
+   */
+  getFilteredFunctionDeclarations(allowedToolRegex: string[]): FunctionDeclaration[] {
+    if (!allowedToolRegex || allowedToolRegex.length === 0) {
+      return this.getFunctionDeclarations();
+    }
+
+    const declarations: FunctionDeclaration[] = [];
+    const compiledRegexes = allowedToolRegex.map(pattern => {
+      try {
+        return new RegExp(pattern);
+      } catch (error) {
+        console.warn(`Invalid regex pattern "${pattern}": ${error}`);
+        return null;
+      }
+    }).filter(regex => regex !== null) as RegExp[];
+
+    if (compiledRegexes.length === 0) {
+      console.warn('No valid regex patterns provided, returning all tools');
+      return this.getFunctionDeclarations();
+    }
+
+    this.tools.forEach((tool) => {
+      const toolName = tool.name;
+      const isAllowed = compiledRegexes.some(regex => regex.test(toolName));
+      if (isAllowed) {
+        declarations.push(tool.schema);
+      }
+    });
+
+    return declarations;
+  }
+
+  /**
+   * Retrieves the list of tool schemas (FunctionDeclaration array) filtered by both allowed and blocked tool regex patterns.
+   * First applies allowedToolRegex filter (if provided), then removes tools matching blockedToolsRegex.
+   * @param allowedToolRegex - Array of regex patterns for tools to include (whitelist). If empty, includes all tools.
+   * @param blockedToolsRegex - Array of regex patterns for tools to exclude (blacklist).
+   * @returns An array of FunctionDeclarations that match the criteria.
+   */
+  getFilteredFunctionDeclarationsWithBlocking(
+    allowedToolRegex?: string[],
+    blockedToolsRegex?: string[]
+  ): FunctionDeclaration[] {
+    // Start with allowed tools (or all tools if no allowlist)
+    const allowedDeclarations = allowedToolRegex && allowedToolRegex.length > 0
+      ? this.getFilteredFunctionDeclarations(allowedToolRegex)
+      : this.getFunctionDeclarations();
+
+    // If no blocked patterns, return allowed tools
+    if (!blockedToolsRegex || blockedToolsRegex.length === 0) {
+      return allowedDeclarations;
+    }
+
+    // Compile blocked regex patterns
+    const compiledBlockedRegexes = blockedToolsRegex.map(pattern => {
+      try {
+        return new RegExp(pattern);
+      } catch (error) {
+        console.warn(`Invalid blocked regex pattern "${pattern}": ${error}`);
+        return null;
+      }
+    }).filter(regex => regex !== null) as RegExp[];
+
+    if (compiledBlockedRegexes.length === 0) {
+      console.warn('No valid blocked regex patterns, returning allowed tools');
+      return allowedDeclarations;
+    }
+
+    // Filter out blocked tools
+    const filteredDeclarations = allowedDeclarations.filter(declaration => {
+      const toolName = declaration.name!;
+      const isBlocked = compiledBlockedRegexes.some(regex => regex.test(toolName));
+      return !isBlocked;
+    });
+
+    return filteredDeclarations;
+  }
+
+  /**
    * Returns an array of all registered and discovered tool instances.
    */
   getAllTools(): Tool[] {

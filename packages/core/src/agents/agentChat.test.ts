@@ -260,4 +260,223 @@ metadata:
       expect(systemPrompt.parts[0].text).toBe('You are a test agent');
     });
   });
+
+  describe('Tool Filtering', () => {
+    it('should return allowed tool regex patterns from agent configuration', () => {
+      const agentConfig = {
+        name: 'test-agent',
+        description: 'Test agent',
+        methods: [],
+        availableAgents: [],
+        metadata: {
+          supportsStreaming: false,
+          supportsTools: true,
+          requiresWorkspace: false,
+          supportsPromptSelection: false,
+          languageModel: { preferred: 'gemini-2.0-flash-exp' },
+          promptSupport: {
+            supportsPrompts: true,
+            supportsTsxMessages: false,
+            promptParameterName: 'prompt',
+            variableResolution: true,
+          },
+          toolPreferences: {
+            allowedToolRegex: ['read_.*', 'write_.*', 'shell_command'],
+          },
+          specialization: 'file operations',
+          executionConfig: {
+            maxRounds: 10,
+            maxContextTokens: 1000000,
+          },
+        },
+        systemPrompt: {
+          type: 'content' as const,
+          value: 'You are a file operations agent',
+        },
+      };
+
+      const chat = new AgentChat(
+        mockConfig,
+        mockContentGenerator,
+        agentConfig
+      );
+
+      const allowedRegex = chat.getAllowedToolRegex();
+      
+      expect(allowedRegex).toEqual(['read_.*', 'write_.*', 'shell_command']);
+    });
+
+    it('should return empty array when no tool preferences are configured', () => {
+      const agentConfig = {
+        name: 'test-agent',
+        description: 'Test agent',
+        methods: [],
+        availableAgents: [],
+        metadata: {
+          supportsStreaming: false,
+          supportsTools: true,
+          requiresWorkspace: false,
+          supportsPromptSelection: false,
+          languageModel: { preferred: 'gemini-2.0-flash-exp' },
+          promptSupport: {
+            supportsPrompts: true,
+            supportsTsxMessages: false,
+            promptParameterName: 'prompt',
+            variableResolution: true,
+          },
+          specialization: 'general',
+          executionConfig: {
+            maxRounds: 10,
+            maxContextTokens: 1000000,
+          },
+        },
+        systemPrompt: {
+          type: 'content' as const,
+          value: 'You are a general agent',
+        },
+      };
+
+      const chat = new AgentChat(
+        mockConfig,
+        mockContentGenerator,
+        agentConfig
+      );
+
+      const allowedRegex = chat.getAllowedToolRegex();
+      
+      expect(allowedRegex).toEqual([]);
+    });
+
+    it('should return blocked tool regex patterns from agent configuration', () => {
+      const agentConfig = {
+        name: 'secure-agent',
+        description: 'Security-focused agent',
+        methods: [],
+        availableAgents: [],
+        metadata: {
+          supportsStreaming: false,
+          supportsTools: true,
+          requiresWorkspace: false,
+          supportsPromptSelection: false,
+          languageModel: { preferred: 'gemini-2.0-flash-exp' },
+          promptSupport: {
+            supportsPrompts: true,
+            supportsTsxMessages: false,
+            promptParameterName: 'prompt',
+            variableResolution: true,
+          },
+          toolPreferences: {
+            blockedToolsRegex: ['run_shell.*', 'web_.*', 'delete_.*'],
+          },
+          specialization: 'secure operations',
+          executionConfig: {
+            maxRounds: 10,
+            maxContextTokens: 1000000,
+          },
+        },
+        systemPrompt: {
+          type: 'content' as const,
+          value: 'You are a secure agent with restricted tool access',
+        },
+      };
+
+      const chat = new AgentChat(
+        mockConfig,
+        mockContentGenerator,
+        agentConfig
+      );
+
+      const blockedRegex = chat.getBlockedToolsRegex();
+      
+      expect(blockedRegex).toEqual(['run_shell.*', 'web_.*', 'delete_.*']);
+    });
+
+    it('should return empty array when no blocked tool preferences are configured', () => {
+      const agentConfig = {
+        name: 'test-agent',
+        description: 'Test agent',
+        methods: [],
+        availableAgents: [],
+        metadata: {
+          supportsStreaming: false,
+          supportsTools: true,
+          requiresWorkspace: false,
+          supportsPromptSelection: false,
+          languageModel: { preferred: 'gemini-2.0-flash-exp' },
+          promptSupport: {
+            supportsPrompts: true,
+            supportsTsxMessages: false,
+            promptParameterName: 'prompt',
+            variableResolution: true,
+          },
+          specialization: 'general',
+          executionConfig: {
+            maxRounds: 10,
+            maxContextTokens: 1000000,
+          },
+        },
+        systemPrompt: {
+          type: 'content' as const,
+          value: 'You are a general agent',
+        },
+      };
+
+      const chat = new AgentChat(
+        mockConfig,
+        mockContentGenerator,
+        agentConfig
+      );
+
+      const blockedRegex = chat.getBlockedToolsRegex();
+      
+      expect(blockedRegex).toEqual([]);
+    });
+
+    it('should support both allowed and blocked tool preferences', () => {
+      const agentConfig = {
+        name: 'hybrid-agent',
+        description: 'Agent with both allowed and blocked patterns',
+        methods: [],
+        availableAgents: [],
+        metadata: {
+          supportsStreaming: false,
+          supportsTools: true,
+          requiresWorkspace: false,
+          supportsPromptSelection: false,
+          languageModel: { preferred: 'gemini-2.0-flash-exp' },
+          promptSupport: {
+            supportsPrompts: true,
+            supportsTsxMessages: false,
+            promptParameterName: 'prompt',
+            variableResolution: true,
+          },
+          toolPreferences: {
+            allowedToolRegex: ['read_.*', 'write_.*', 'list_.*'],
+            blockedToolsRegex: ['.*_dangerous', 'delete_.*'],
+          },
+          specialization: 'controlled file operations',
+          executionConfig: {
+            maxRounds: 10,
+            maxContextTokens: 1000000,
+          },
+        },
+        systemPrompt: {
+          type: 'content' as const,
+          value: 'You are an agent with controlled tool access',
+        },
+      };
+
+      const chat = new AgentChat(
+        mockConfig,
+        mockContentGenerator,
+        agentConfig
+      );
+
+      const allowedRegex = chat.getAllowedToolRegex();
+      const blockedRegex = chat.getBlockedToolsRegex();
+      
+      expect(allowedRegex).toEqual(['read_.*', 'write_.*', 'list_.*']);
+      expect(blockedRegex).toEqual(['.*_dangerous', 'delete_.*']);
+    });
+  });
 });

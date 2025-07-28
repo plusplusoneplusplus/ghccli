@@ -268,6 +268,23 @@ export class GeminiClient {
         try {
           // Dynamic import to avoid circular dependency
           const { AgentChat } = await import('../agents/agentChat.js');
+          const { AgentLoader } = await import('../agents/agentLoader.js');
+          
+          // Load agent configuration directly
+          const agentLoader = new AgentLoader(this.config.getAgentConfigsDir());
+          const agentConfig = await agentLoader.loadAgentConfig(agentName);
+          
+          // Get allowed and blocked tool regex patterns from agent configuration
+          const allowedToolRegex = agentConfig.metadata.toolPreferences?.allowedToolRegex || [];
+          const blockedToolsRegex = agentConfig.metadata.toolPreferences?.blockedToolsRegex || [];
+          
+          // Filter tools based on agent's tool preferences
+          const filteredToolDeclarations = (allowedToolRegex.length > 0 || blockedToolsRegex.length > 0)
+            ? toolRegistry.getFilteredFunctionDeclarationsWithBlocking(allowedToolRegex, blockedToolsRegex)
+            : toolDeclarations;
+          
+          const filteredTools: Tool[] = [{ functionDeclarations: filteredToolDeclarations }];
+          
           return await AgentChat.fromAgentConfig(
             this.config,
             this.getContentGenerator(),
@@ -276,7 +293,7 @@ export class GeminiClient {
             {
               systemInstruction: undefined,
               ...generateContentConfigWithThinking,
-              tools,
+              tools: filteredTools,
             },
             history,
           );

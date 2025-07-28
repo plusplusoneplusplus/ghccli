@@ -370,6 +370,238 @@ describe('ToolRegistry', () => {
       );
     });
   });
+
+  describe('getFilteredFunctionDeclarations', () => {
+    it('should return all tools when no regex patterns are provided', () => {
+      const tool1 = new MockTool('tool1', 'Tool 1');
+      const tool2 = new MockTool('tool2', 'Tool 2');
+      
+      toolRegistry.registerTool(tool1);
+      toolRegistry.registerTool(tool2);
+      
+      const filtered = toolRegistry.getFilteredFunctionDeclarations([]);
+      const all = toolRegistry.getFunctionDeclarations();
+      
+      expect(filtered).toEqual(all);
+      expect(filtered).toHaveLength(2);
+    });
+
+    it('should filter tools based on regex patterns', () => {
+      const tool1 = new MockTool('read_file', 'Read File');
+      const tool2 = new MockTool('write_file', 'Write File');
+      const tool3 = new MockTool('shell_command', 'Shell Command');
+      
+      toolRegistry.registerTool(tool1);
+      toolRegistry.registerTool(tool2);
+      toolRegistry.registerTool(tool3);
+      
+      // Filter for tools containing 'file'
+      const filtered = toolRegistry.getFilteredFunctionDeclarations(['.*file.*']);
+      
+      expect(filtered).toHaveLength(2);
+      expect(filtered.map(d => d.name)).toEqual(['read_file', 'write_file']);
+    });
+
+    it('should handle multiple regex patterns', () => {
+      const tool1 = new MockTool('read_file', 'Read File');
+      const tool2 = new MockTool('write_file', 'Write File');
+      const tool3 = new MockTool('shell_command', 'Shell Command');
+      const tool4 = new MockTool('memory_save', 'Memory Save');
+      
+      toolRegistry.registerTool(tool1);
+      toolRegistry.registerTool(tool2);
+      toolRegistry.registerTool(tool3);
+      toolRegistry.registerTool(tool4);
+      
+      // Filter for tools containing 'file' OR starting with 'memory'
+      const filtered = toolRegistry.getFilteredFunctionDeclarations(['.*file.*', '^memory']);
+      
+      expect(filtered).toHaveLength(3);
+      expect(filtered.map(d => d.name).sort()).toEqual(['memory_save', 'read_file', 'write_file']);
+    });
+
+    it('should handle invalid regex patterns gracefully', () => {
+      const tool1 = new MockTool('valid_tool', 'Valid Tool');
+      toolRegistry.registerTool(tool1);
+      
+      const consoleSpy = vi.spyOn(console, 'warn');
+      
+      // Mix of valid and invalid regex patterns
+      const filtered = toolRegistry.getFilteredFunctionDeclarations(['[invalid', 'valid.*']);
+      
+      expect(consoleSpy).toHaveBeenCalledWith('Invalid regex pattern "[invalid": SyntaxError: Invalid regular expression: /[invalid/: Unterminated character class');
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].name).toBe('valid_tool');
+    });
+
+    it('should return empty array when no tools match patterns', () => {
+      const tool1 = new MockTool('read_file', 'Read File');
+      const tool2 = new MockTool('write_file', 'Write File');
+      
+      toolRegistry.registerTool(tool1);
+      toolRegistry.registerTool(tool2);
+      
+      const filtered = toolRegistry.getFilteredFunctionDeclarations(['^shell.*']);
+      
+      expect(filtered).toHaveLength(0);
+    });
+
+    it('should warn and return all tools when no valid regex patterns provided', () => {
+      const tool1 = new MockTool('test_tool', 'Test Tool');
+      toolRegistry.registerTool(tool1);
+      
+      const consoleSpy = vi.spyOn(console, 'warn');
+      
+      const filtered = toolRegistry.getFilteredFunctionDeclarations(['[invalid', '*invalid']);
+      
+      expect(consoleSpy).toHaveBeenCalledWith('No valid regex patterns provided, returning all tools');
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].name).toBe('test_tool');
+    });
+  });
+
+  describe('getFilteredFunctionDeclarationsWithBlocking', () => {
+    it('should return all tools when no patterns are provided', () => {
+      const tool1 = new MockTool('tool1', 'Tool 1');
+      const tool2 = new MockTool('tool2', 'Tool 2');
+      
+      toolRegistry.registerTool(tool1);
+      toolRegistry.registerTool(tool2);
+      
+      const filtered = toolRegistry.getFilteredFunctionDeclarationsWithBlocking();
+      const all = toolRegistry.getFunctionDeclarations();
+      
+      expect(filtered).toEqual(all);
+      expect(filtered).toHaveLength(2);
+    });
+
+    it('should filter tools with allowedToolRegex only', () => {
+      const tool1 = new MockTool('read_file', 'Read File');
+      const tool2 = new MockTool('write_file', 'Write File');
+      const tool3 = new MockTool('shell_command', 'Shell Command');
+      
+      toolRegistry.registerTool(tool1);
+      toolRegistry.registerTool(tool2);
+      toolRegistry.registerTool(tool3);
+      
+      const filtered = toolRegistry.getFilteredFunctionDeclarationsWithBlocking(['.*file.*']);
+      
+      expect(filtered).toHaveLength(2);
+      expect(filtered.map(d => d.name).sort()).toEqual(['read_file', 'write_file']);
+    });
+
+    it('should filter tools with blockedToolsRegex only', () => {
+      const tool1 = new MockTool('read_file', 'Read File');
+      const tool2 = new MockTool('write_file', 'Write File');
+      const tool3 = new MockTool('shell_command', 'Shell Command');
+      const tool4 = new MockTool('web_search', 'Web Search');
+      
+      toolRegistry.registerTool(tool1);
+      toolRegistry.registerTool(tool2);
+      toolRegistry.registerTool(tool3);
+      toolRegistry.registerTool(tool4);
+      
+      // Block shell and web tools
+      const filtered = toolRegistry.getFilteredFunctionDeclarationsWithBlocking(undefined, ['shell.*', 'web.*']);
+      
+      expect(filtered).toHaveLength(2);
+      expect(filtered.map(d => d.name).sort()).toEqual(['read_file', 'write_file']);
+    });
+
+    it('should apply both allowed and blocked patterns correctly', () => {
+      const tool1 = new MockTool('read_file', 'Read File');
+      const tool2 = new MockTool('read_config', 'Read Config');
+      const tool3 = new MockTool('write_file', 'Write File');
+      const tool4 = new MockTool('shell_command', 'Shell Command');
+      const tool5 = new MockTool('memory_save', 'Memory Save');
+      
+      toolRegistry.registerTool(tool1);
+      toolRegistry.registerTool(tool2);
+      toolRegistry.registerTool(tool3);
+      toolRegistry.registerTool(tool4);
+      toolRegistry.registerTool(tool5);
+      
+      // Allow read/write tools, but block config-related ones
+      const filtered = toolRegistry.getFilteredFunctionDeclarationsWithBlocking(
+        ['read.*', 'write.*'], 
+        ['.*config.*']
+      );
+      
+      expect(filtered).toHaveLength(2);
+      expect(filtered.map(d => d.name).sort()).toEqual(['read_file', 'write_file']);
+    });
+
+    it('should handle empty allowed list with blocked patterns', () => {
+      const tool1 = new MockTool('read_file', 'Read File');
+      const tool2 = new MockTool('write_file', 'Write File');
+      const tool3 = new MockTool('shell_command', 'Shell Command');
+      
+      toolRegistry.registerTool(tool1);
+      toolRegistry.registerTool(tool2);
+      toolRegistry.registerTool(tool3);
+      
+      // No allowed patterns (include all), but block shell
+      const filtered = toolRegistry.getFilteredFunctionDeclarationsWithBlocking([], ['shell.*']);
+      
+      expect(filtered).toHaveLength(2);
+      expect(filtered.map(d => d.name).sort()).toEqual(['read_file', 'write_file']);
+    });
+
+    it('should handle invalid regex patterns gracefully', () => {
+      const tool1 = new MockTool('valid_tool', 'Valid Tool');
+      toolRegistry.registerTool(tool1);
+      
+      const consoleSpy = vi.spyOn(console, 'warn');
+      
+      // Mix of valid and invalid patterns
+      const filtered = toolRegistry.getFilteredFunctionDeclarationsWithBlocking(
+        ['valid.*'], 
+        ['[invalid', 'blocked.*']
+      );
+      
+      expect(consoleSpy).toHaveBeenCalledWith('Invalid blocked regex pattern "[invalid": SyntaxError: Invalid regular expression: /[invalid/: Unterminated character class');
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].name).toBe('valid_tool');
+    });
+
+    it('should return empty array when all tools are blocked', () => {
+      const tool1 = new MockTool('read_file', 'Read File');
+      const tool2 = new MockTool('write_file', 'Write File');
+      
+      toolRegistry.registerTool(tool1);
+      toolRegistry.registerTool(tool2);
+      
+      // Block all file tools
+      const filtered = toolRegistry.getFilteredFunctionDeclarationsWithBlocking(undefined, ['.*file.*']);
+      
+      expect(filtered).toHaveLength(0);
+    });
+
+    it('should handle complex allowed/blocked combinations', () => {
+      const tool1 = new MockTool('read_file', 'Read File');
+      const tool2 = new MockTool('read_memory', 'Read Memory');
+      const tool3 = new MockTool('write_file', 'Write File');
+      const tool4 = new MockTool('write_memory', 'Write Memory');
+      const tool5 = new MockTool('delete_file', 'Delete File');
+      const tool6 = new MockTool('shell_command', 'Shell Command');
+      
+      toolRegistry.registerTool(tool1);
+      toolRegistry.registerTool(tool2);
+      toolRegistry.registerTool(tool3);
+      toolRegistry.registerTool(tool4);
+      toolRegistry.registerTool(tool5);
+      toolRegistry.registerTool(tool6);
+      
+      // Allow file and memory operations, but block memory tools and delete operations
+      const filtered = toolRegistry.getFilteredFunctionDeclarationsWithBlocking(
+        ['.*file.*', '.*memory.*'],
+        ['.*memory.*', 'delete.*']
+      );
+      
+      expect(filtered).toHaveLength(2);
+      expect(filtered.map(d => d.name).sort()).toEqual(['read_file', 'write_file']);
+    });
+  });
 });
 
 describe('sanitizeParameters', () => {

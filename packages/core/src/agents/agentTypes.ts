@@ -22,6 +22,7 @@ export interface AgentPromptSupport {
 
 export interface AgentToolPreferences {
   allowedToolRegex?: string[];
+  blockedToolsRegex?: string[];
 }
 
 export interface AgentExecutionConfig {
