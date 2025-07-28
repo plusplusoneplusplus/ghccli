@@ -6,7 +6,7 @@
       "Bash(git push:*)",
       "Bash(npm test:*)",
       "Bash(mv:*)",
-      "Bash(npm:*:*)",
+      "Bash(npm:*)",
       "Bash(npx:*)"
     ],
     "deny": []

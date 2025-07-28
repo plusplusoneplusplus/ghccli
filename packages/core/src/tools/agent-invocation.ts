@@ -7,10 +7,9 @@
 import { BaseTool, Icon, ToolResult } from './tools.js';
 import { FunctionDeclaration, Type } from '@google/genai';
 import { AgentChat } from '../agents/agentChat.js';
-import { AgentConfig } from '../agents/agentTypes.js';
 import { AgentLoader } from '../agents/agentLoader.js';
+import { createContentGenerator } from '../core/contentGenerator.js';
 import { Config } from '../config/config.js';
-import { ContentGenerator, createContentGenerator } from '../core/contentGenerator.js';
 import * as path from 'node:path';
 
 const agentInvocationToolSchemaData: FunctionDeclaration = {

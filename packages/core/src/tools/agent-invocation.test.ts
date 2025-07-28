@@ -23,8 +23,11 @@ describe('AgentInvocationTool', () => {
   const mockAbortSignal = new AbortController().signal;
   
   const mockConfig = {
-    getContentGeneratorConfig: vi.fn(),
-    getSessionId: vi.fn(),
+    getContentGeneratorConfig: vi.fn().mockReturnValue({
+      model: 'gemini-pro',
+      authType: 'test-auth',
+    }),
+    getSessionId: vi.fn().mockReturnValue('test-session-id'),
   } as unknown as Config;
 
   const mockAgentConfig: AgentConfig = {
@@ -65,11 +68,6 @@ describe('AgentInvocationTool', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockConfig.getSessionId.mockReturnValue('test-session-id');
-    mockConfig.getContentGeneratorConfig.mockReturnValue({
-      model: 'gemini-pro',
-      authType: 'test-auth',
-    });
     
     tool = new AgentInvocationTool(mockConfig);
   });
@@ -200,16 +198,19 @@ describe('AgentInvocationTool', () => {
     beforeEach(() => {
       // Setup mocks for successful execution
       mockResponse = {
-        text: 'Agent response text',
         candidates: [
           {
             content: {
               parts: [{ text: 'Agent response text' }],
               role: 'model',
             },
+            finishReason: 'STOP',
+            index: 0,
+            safetyRatings: [],
           },
         ],
-      };
+        text: () => 'Agent response text',
+      } as unknown as GenerateContentResponse;
 
       mockAgentLoaderInstance = {
         loadAgentConfig: vi.fn().mockResolvedValue(mockAgentConfig),
@@ -371,7 +372,7 @@ describe('AgentInvocationTool', () => {
 
       const result = await tool.execute(params, mockAbortSignal);
 
-      const parsedResult = JSON.parse(result.llmContent);
+      const parsedResult = JSON.parse(result.llmContent as string);
       expect(parsedResult.executionSummary.parentExecutionId).toBe('parent-execution-id');
       expect(parsedResult.results[0].childExecutionId).toContain('custom-execution-id-agent-0');
     });
@@ -388,7 +389,7 @@ describe('AgentInvocationTool', () => {
 
       const result = await tool.execute(params, mockAbortSignal);
 
-      const parsedResult = JSON.parse(result.llmContent);
+      const parsedResult = JSON.parse(result.llmContent as string);
       expect(parsedResult.results[0].childExecutionId).toMatch(/gemini-agent-exec-\d+-[a-z0-9]+/);
     });
 
@@ -406,9 +407,17 @@ describe('AgentInvocationTool', () => {
       // Mock a long-running agent operation
       mockAgentChatInstance.sendMessage.mockImplementation(() => 
         new Promise((resolve) => setTimeout(() => resolve({
-          text: 'Delayed response',
-          candidates: [{ content: { parts: [{ text: 'Delayed response' }], role: 'model' } }]
-        }), 100))
+          candidates: [{ 
+            content: { 
+              parts: [{ text: 'Delayed response' }], 
+              role: 'model' 
+            },
+            finishReason: 'STOP',
+            index: 0,
+            safetyRatings: []
+          }],
+          text: () => 'Delayed response'
+        } as unknown as GenerateContentResponse), 100))
       );
 
       const params: IMultiAgentInvocationParameters = {
