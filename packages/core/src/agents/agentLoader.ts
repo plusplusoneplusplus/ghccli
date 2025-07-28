@@ -10,71 +10,90 @@ import * as YAML from 'yaml';
 import { AgentConfig } from './agentTypes.js';
 
 export class AgentLoader {
-  private configsDir: string;
+  private configsDirs: string[];
 
-  constructor(configsDir: string) {
-    this.configsDir = configsDir;
+  constructor(configsDir: string | string[]) {
+    this.configsDirs = Array.isArray(configsDir) ? configsDir : [configsDir];
   }
 
   /**
    * Loads an agent configuration from YAML file and its associated prompt file
    */
   async loadAgentConfig(agentName: string): Promise<AgentConfig> {
-    const yamlPath = path.join(this.configsDir, `${agentName}.yaml`);
+    let lastError: Error | null = null;
     
-    try {
-      const yamlContent = await fs.readFile(yamlPath, 'utf-8');
-      const config = YAML.parse(yamlContent) as AgentConfig;
+    // Try each directory in order until we find the agent
+    for (const configsDir of this.configsDirs) {
+      const yamlPath = path.join(configsDir, `${agentName}.yaml`);
       
-      if (!config) {
-        throw new Error(`Failed to parse YAML config for agent: ${agentName}`);
-      }
-
-      // If the system prompt is a file reference, load its content
-      if (config.systemPrompt.type === 'file') {
-        const promptPath = path.join(this.configsDir, config.systemPrompt.value);
-        try {
-          const promptContent = await fs.readFile(promptPath, 'utf-8');
-          config.systemPrompt = {
-            type: 'content',
-            value: promptContent
-          };
-        } catch (error) {
-          throw new Error(`Failed to load prompt file ${promptPath}: ${error}`);
+      try {
+        const yamlContent = await fs.readFile(yamlPath, 'utf-8');
+        const config = YAML.parse(yamlContent) as AgentConfig;
+        
+        if (!config) {
+          throw new Error(`Failed to parse YAML config for agent: ${agentName}`);
         }
-      }
 
-      return config;
-    } catch (error) {
-      throw new Error(`Failed to load agent config for ${agentName}: ${error}`);
+        // If the system prompt is a file reference, load its content
+        if (config.systemPrompt.type === 'file') {
+          const promptPath = path.join(configsDir, config.systemPrompt.value);
+          try {
+            const promptContent = await fs.readFile(promptPath, 'utf-8');
+            config.systemPrompt = {
+              type: 'content',
+              value: promptContent
+            };
+          } catch (error) {
+            throw new Error(`Failed to load prompt file ${promptPath}: ${error}`);
+          }
+        }
+
+        return config;
+      } catch (error) {
+        lastError = error as Error;
+        continue;
+      }
     }
+    
+    throw new Error(`Failed to load agent config for ${agentName}: ${lastError?.message || 'Agent not found in any directory'}`);
   }
 
 
   /**
-   * Lists all available agent names in the configs directory
+   * Lists all available agent names across all configs directories
    */
   async listAvailableAgents(): Promise<string[]> {
-    try {
-      const files = await fs.readdir(this.configsDir);
-      return files
-        .filter(file => file.endsWith('.yaml'))
-        .map(file => file.replace('.yaml', ''));
-    } catch (error) {
-      throw new Error(`Failed to list agents in ${this.configsDir}: ${error}`);
+    const allAgents = new Set<string>();
+    
+    for (const configsDir of this.configsDirs) {
+      try {
+        const files = await fs.readdir(configsDir);
+        files
+          .filter(file => file.endsWith('.yaml'))
+          .map(file => file.replace('.yaml', ''))
+          .forEach(agent => allAgents.add(agent));
+      } catch (error) {
+        // Skip directories that don't exist or can't be read
+        continue;
+      }
     }
+    
+    return Array.from(allAgents).sort();
   }
 
   /**
-   * Checks if an agent config exists
+   * Checks if an agent config exists in any of the directories
    */
   async agentExists(agentName: string): Promise<boolean> {
-    const yamlPath = path.join(this.configsDir, `${agentName}.yaml`);
-    try {
-      await fs.access(yamlPath);
-      return true;
-    } catch {
-      return false;
+    for (const configsDir of this.configsDirs) {
+      const yamlPath = path.join(configsDir, `${agentName}.yaml`);
+      try {
+        await fs.access(yamlPath);
+        return true;
+      } catch {
+        continue;
+      }
     }
+    return false;
   }
 }

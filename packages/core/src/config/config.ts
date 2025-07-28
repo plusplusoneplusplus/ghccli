@@ -32,7 +32,7 @@ import { AgentInvocationTool } from '../tools/agent-invocation.js';
 import { GeminiClient } from '../core/client.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { GitService } from '../services/gitService.js';
-import { getProjectTempDir } from '../utils/paths.js';
+import { getProjectTempDir, getUserAgentsDir, getProjectAgentsDir } from '../utils/paths.js';
 import {
   initializeTelemetry,
   DEFAULT_TELEMETRY_TARGET,
@@ -550,12 +550,21 @@ export class Config {
     return this.agentSwitchedDuringSession;
   }
 
-  getAgentConfigsDir(): string {
-    // Get the path to the agents/configs directory relative to this file
-    // In ES modules, we need to use import.meta.url and fileURLToPath for cross-platform compatibility
+  getAgentConfigsDir(): string[] {
+    const directories: string[] = [];
+    
+    // User-level agents directory (~/.ghccli/agents)
+    directories.push(getUserAgentsDir());
+    
+    // Project-level agents directory (<project>/.ghccli/agents)
+    directories.push(getProjectAgentsDir(this.cwd));
+    
+    // Built-in agents directory (packages/core/src/agents/configs)
     const currentDir = path.dirname(fileURLToPath(import.meta.url));
-    const configsDir = path.join(currentDir, '..', 'agents', 'configs');
-    return configsDir;
+    const builtinConfigsDir = path.join(currentDir, '..', 'agents', 'configs');
+    directories.push(builtinConfigsDir);
+    
+    return directories;
   }
 
   getWorkingDir(): string {

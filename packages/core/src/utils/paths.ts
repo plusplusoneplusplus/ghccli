@@ -177,3 +177,20 @@ export function getUserCommandsDir(): string {
 export function getProjectCommandsDir(projectRoot: string): string {
   return path.join(projectRoot, GEMINI_DIR, COMMANDS_DIR_NAME);
 }
+
+/**
+ * Returns the absolute path to the user-level agents directory.
+ * @returns The path to the user's agents directory.
+ */
+export function getUserAgentsDir(): string {
+  return path.join(os.homedir(), GEMINI_DIR, 'agents');
+}
+
+/**
+ * Returns the absolute path to the project-level agents directory.
+ * @param projectRoot The absolute path to the project's root directory.
+ * @returns The path to the project's agents directory.
+ */
+export function getProjectAgentsDir(projectRoot: string): string {
+  return path.join(projectRoot, GEMINI_DIR, 'agents');
+}

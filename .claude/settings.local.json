@@ -8,7 +8,9 @@
       "Bash(npm:*)",
       "Bash(npx:*)",
       "Bash(grep:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(mkdir:*)",
+      "Bash(node:*)"
     ],
     "deny": []
   }

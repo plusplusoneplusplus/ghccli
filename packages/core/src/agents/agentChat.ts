@@ -116,7 +116,7 @@ export class AgentChat extends GeminiChat {
     config: Config,
     contentGenerator: ContentGenerator,
     agentName: string,
-    configsDir: string,
+    configsDir: string | string[],
     generationConfig: GenerateContentConfig = {},
     history: Content[] = [],
   ): Promise<AgentChat> {
