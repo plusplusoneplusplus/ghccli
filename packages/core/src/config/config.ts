@@ -241,7 +241,8 @@ export class Config {
   private readonly summarizeToolOutput:
     | Record<string, SummarizeToolOutputSettings>
     | undefined;
-  private readonly agent: string;
+  private agent: string;
+  private agentSwitchedDuringSession: boolean = false;
   private readonly experimentalAcp: boolean = false;
 
   constructor(params: ConfigParameters) {
@@ -530,6 +531,22 @@ export class Config {
 
   getAgent(): string {
     return this.agent;
+  }
+
+  getCurrentAgent(): string | null {
+    return this.agent === 'default' ? null : this.agent;
+  }
+
+  setCurrentAgent(newAgent: string | null): void {
+    const previousAgent = this.agent;
+    this.agent = newAgent || 'default';
+    if (this.agent !== previousAgent) {
+      this.agentSwitchedDuringSession = true;
+    }
+  }
+
+  isAgentSwitchedDuringSession(): boolean {
+    return this.agentSwitchedDuringSession;
   }
 
   getAgentConfigsDir(): string {

@@ -7,6 +7,9 @@
 // Export config
 export * from './config/config.js';
 
+// Export agents
+export * from './agents/index.js';
+
 // Export Core Logic
 export * from './core/client.js';
 export * from './core/contentGenerator.js';

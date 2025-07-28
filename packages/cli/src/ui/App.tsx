@@ -24,6 +24,7 @@ import { useThemeCommand } from './hooks/useThemeCommand.js';
 import { useAuthCommand } from './hooks/useAuthCommand.js';
 import { useEditorSettings } from './hooks/useEditorSettings.js';
 import { useModelCommand } from './hooks/useModelCommand.js';
+import { useAgentCommand } from './hooks/useAgentCommand.js';
 import { useSlashCommandProcessor } from './hooks/slashCommandProcessor.js';
 import { useAutoAcceptIndicator } from './hooks/useAutoAcceptIndicator.js';
 import { useConsoleMessages } from './hooks/useConsoleMessages.js';
@@ -38,6 +39,7 @@ import { AuthDialog } from './components/AuthDialog.js';
 import { AuthInProgress } from './components/AuthInProgress.js';
 import { EditorSettingsDialog } from './components/EditorSettingsDialog.js';
 import { ModelDialog } from './components/ModelDialog.js';
+import { AgentDialog } from './components/AgentDialog.js';
 import { AVAILABLE_MODELS } from './constants/models.js';
 import { Colors } from './colors.js';
 import { Help } from './components/Help.js';
@@ -231,6 +233,13 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     handleModelSelect,
   } = useModelCommand(config, settings, addItem);
 
+  const {
+    isAgentDialogOpen,
+    openAgentDialog,
+    handleAgentSelect,
+    availableAgents,
+  } = useAgentCommand(config, settings, addItem);
+
   const toggleCorgiMode = useCallback(() => {
     setCorgiMode((prev) => !prev);
   }, []);
@@ -401,6 +410,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     openAuthDialog,
     openEditorDialog,
     openModelDialog,
+    openAgentDialog,
     toggleCorgiMode,
     setQuittingMessages,
     openPrivacyNotice,
@@ -668,6 +678,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
       !isThemeDialogOpen &&
       !isEditorDialogOpen &&
       !isModelDialogOpen &&
+      !isAgentDialogOpen &&
       !showPrivacyNotice &&
       geminiClient?.isInitialized?.()
     ) {
@@ -682,6 +693,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     isThemeDialogOpen,
     isEditorDialogOpen,
     isModelDialogOpen,
+    isAgentDialogOpen,
     showPrivacyNotice,
     geminiClient,
   ]);
@@ -867,6 +879,16 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
                 onModelSelect={handleModelSelect}
               />
             </Box>
+          ) : isAgentDialogOpen ? (
+            <Box flexDirection="column">
+              <AgentDialog
+                isOpen={isAgentDialogOpen}
+                onExit={() => {}} // Will be closed by handleAgentSelect
+                agents={availableAgents}
+                currentAgent={config?.getCurrentAgent() || 'default'}
+                onAgentSelect={handleAgentSelect}
+              />
+            </Box>
           ) : showPrivacyNotice ? (
             <PrivacyNotice
               onExit={() => setShowPrivacyNotice(false)}
@@ -999,6 +1021,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
           )}
           <Footer
             model={currentModel}
+            agent={config.getCurrentAgent() ?? 'default'}
             targetDir={config.getTargetDir()}
             debugMode={config.getDebugMode()}
             branchName={branchName}

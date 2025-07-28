@@ -15,6 +15,7 @@ import { MemoryUsageDisplay } from './MemoryUsageDisplay.js';
 
 interface FooterProps {
   model: string;
+  agent: string;
   targetDir: string;
   branchName?: string;
   debugMode: boolean;
@@ -27,8 +28,17 @@ interface FooterProps {
   nightly: boolean;
 }
 
+const truncateText = (text: string, maxWords: number = 8): string => {
+  const words = text.split(' ');
+  if (words.length <= maxWords) {
+    return text;
+  }
+  return words.slice(0, maxWords).join(' ') + '..';
+};
+
 export const Footer: React.FC<FooterProps> = ({
   model,
+  agent,
   targetDir,
   branchName,
   debugMode,
@@ -93,7 +103,7 @@ export const Footer: React.FC<FooterProps> = ({
       <Box alignItems="center">
         <Text color={Colors.AccentBlue}>
           {' '}
-          {model}{' '}
+          {truncateText(agent)} | {model}{' '}
           <Text color={Colors.Gray}>
             ({((1 - percentage) * 100).toFixed(0)}% context left)
           </Text>

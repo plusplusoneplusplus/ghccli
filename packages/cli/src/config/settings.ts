@@ -61,6 +61,7 @@ export interface Settings {
   customThemes?: Record<string, CustomTheme>;
   selectedAuthType?: AuthType;
   selectedModel?: string;
+  selectedAgent?: string;
   sandbox?: boolean | string;
   coreTools?: string[];
   excludeTools?: string[];
