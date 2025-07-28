@@ -6,6 +6,7 @@
 
 import * as path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 import {
   AuthType,
   ContentGeneratorConfig,
@@ -551,9 +552,8 @@ export class Config {
 
   getAgentConfigsDir(): string {
     // Get the path to the agents/configs directory relative to this file
-    // In ES modules, we need to use import.meta.url instead of __dirname
-    const currentFileUrl = new URL(import.meta.url);
-    const currentDir = path.dirname(currentFileUrl.pathname);
+    // In ES modules, we need to use import.meta.url and fileURLToPath for cross-platform compatibility
+    const currentDir = path.dirname(fileURLToPath(import.meta.url));
     const configsDir = path.join(currentDir, '..', 'agents', 'configs');
     return configsDir;
   }
