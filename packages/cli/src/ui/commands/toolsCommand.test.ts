@@ -84,8 +84,8 @@ describe('toolsCommand', () => {
 
     const message = (mockContext.ui.addItem as vi.Mock).mock.calls[0][0].text;
     expect(message).not.toContain('Reads files from the local system.');
-    expect(message).toContain('File Reader');
-    expect(message).toContain('Code Editor');
+    expect(message).toContain('File Reader (file-reader)');
+    expect(message).toContain('Code Editor (code-editor)');
   });
 
   it('should list tools with descriptions when "desc" arg is passed', async () => {

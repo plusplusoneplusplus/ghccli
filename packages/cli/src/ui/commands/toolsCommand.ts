@@ -56,7 +56,7 @@ export const toolsCommand: SlashCommand = {
             message += `      ${greenColor}${descLine}${resetColor}\n`;
           }
         } else {
-          message += `  - \u001b[36m${tool.displayName}\u001b[0m\n`;
+          message += `  - \u001b[36m${tool.displayName} (${tool.name})\u001b[0m\n`;
         }
       });
     } else {
