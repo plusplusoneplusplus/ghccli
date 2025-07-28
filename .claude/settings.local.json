@@ -7,7 +7,9 @@
       "Bash(npm test:*)",
       "Bash(mv:*)",
       "Bash(npm:*)",
-      "Bash(npx:*)"
+      "Bash(npx:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)"
     ],
     "deny": []
   }
