@@ -30,7 +30,7 @@ export async function getEffectiveModel(
 
   const modelToTest = DEFAULT_GEMINI_MODEL;
   const fallbackModel = DEFAULT_GEMINI_FLASH_MODEL;
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelToTest}:generateContent`;
+  const endpoint = `https://non-existing-website-azure/v1beta/models/${modelToTest}:generateContent`;
   const body = JSON.stringify({
     contents: [{ parts: [{ text: 'test' }] }],
     generationConfig: {
