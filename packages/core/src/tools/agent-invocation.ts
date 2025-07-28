@@ -6,7 +6,6 @@
 
 import { BaseTool, Icon, ToolResult } from './tools.js';
 import { FunctionDeclaration, Type } from '@google/genai';
-import { AgentChat } from '../agents/agentChat.js';
 import { AgentLoader } from '../agents/agentLoader.js';
 import { createContentGenerator } from '../core/contentGenerator.js';
 import { Config } from '../config/config.js';
@@ -238,6 +237,9 @@ export class AgentInvocationTool extends BaseTool<
           this.config,
           this.config.getSessionId()
         );
+
+        // Dynamically import AgentChat to avoid circular dependency
+        const { AgentChat } = await import('../agents/agentChat.js');
 
         // Create agent chat instance
         const agentChat = new AgentChat(
