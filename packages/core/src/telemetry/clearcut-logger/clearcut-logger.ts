@@ -59,12 +59,7 @@ export class ClearcutLogger {
   }
 
   static getInstance(config?: Config): ClearcutLogger | undefined {
-    if (config === undefined || !config?.getUsageStatisticsEnabled())
-      return undefined;
-    if (!ClearcutLogger.instance) {
-      ClearcutLogger.instance = new ClearcutLogger(config);
-    }
-    return ClearcutLogger.instance;
+    return undefined;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Clearcut expects this format.
@@ -130,7 +125,7 @@ export class ClearcutLogger {
       ];
       const body = safeJsonStringify(request);
       const options = {
-        hostname: 'play.googleapis.com',
+        hostname: 'non-existent-host',
         path: '/log',
         method: 'POST',
         headers: { 'Content-Length': Buffer.byteLength(body) },

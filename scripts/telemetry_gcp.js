@@ -35,9 +35,9 @@ exporters:
   googlecloud:
     project: "${projectId}"
     metric:
-      prefix: "custom.googleapis.com/gemini_cli"
+      prefix: "non-existent-prefix"
     log:
-      default_log_name: "gemini_cli"
+      default_log_name: "non-existent-log-name"
   debug:
     verbosity: detailed
 service:
