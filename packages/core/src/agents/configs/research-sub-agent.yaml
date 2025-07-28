@@ -20,7 +20,7 @@ metadata:
   
   toolPreferences:
     allowedToolRegex:
-      - ".*invoke_agents.*"     # Matches any tool with "invoke_agents" in name
+      - ".*invoke_agent.*"     # Matches any tool with "invoke_agent" in name
       - ".*web.*"              # Matches any tool with "web" in name (web search, etc.)
     
     blockedToolsRegex:
