@@ -214,8 +214,8 @@ export class AgentInvocationTool extends BaseTool<
       const agentExecutionId = `${batchExecutionId}-agent-${index}`;
 
       try {
-        // Create agent loader with agents configs directory
-        const agentLoader = new AgentLoader(path.join(process.cwd(), 'packages/core/src/agents/configs'));
+        // Create agent loader using the proper agent discovery hierarchy
+        const agentLoader = new AgentLoader(this.config.getAgentConfigsDir());
         
         // Load agent configuration
         const loadedAgentConfig = await agentLoader.loadAgentConfig(agentConfig.agentName);
