@@ -9,6 +9,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
+import { GEMINI_DIR } from '../utils/paths.js';
 
 const logger = {
   debug: (...args: any[]) => console.debug('[DEBUG]', ...args),
@@ -86,8 +87,8 @@ export class GitHubCopilotTokenManager {
       ...config,
     };
     
-    // Store token in .gemini directory
-    const geminiDir = path.join(os.homedir(), '.gemini');
+    // Store token in GEMINI_DIR directory
+    const geminiDir = path.join(os.homedir(), GEMINI_DIR);
     if (!fs.existsSync(geminiDir)) {
       fs.mkdirSync(geminiDir, { recursive: true });
     }
