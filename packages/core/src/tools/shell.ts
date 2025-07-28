@@ -218,8 +218,8 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     
     if (isWindows) {
       // Use execa for Windows - escape quotes for cmd.exe
-      const escapedCommand = commandToExecute.replace(/"/g, '""');
-      shell = execa('cmd.exe', ['/c', `"${escapedCommand}"`], {
+      const escapedCommand = commandToExecute.replace(/"/g, '\\"');
+      shell = execa('cmd.exe', ['/c', escapedCommand], {
         cwd,
         env,
         stdout: ['pipe'],
