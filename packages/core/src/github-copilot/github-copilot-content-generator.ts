@@ -76,9 +76,9 @@ function toPart(part: PartUnion): Part {
 /**
  * Convert Gemini request format to OpenAI chat messages format
  */
-function convertToOpenAIMessages(contents: Content[]): Array<any> {
+export function convertToOpenAIMessages(contents: Content[], toolCallIdMap?: Map<string, string>): Array<any> {
   const messages: Array<any> = [];
-  const toolCallIdMap = new Map<string, string>(); // Track tool call IDs by function name
+  const idMap = toolCallIdMap || new Map<string, string>(); // Use provided map or create new one
   
   for (const content of contents) {
     const role = content.role === 'user' ? 'user' : 'assistant';
@@ -104,7 +104,7 @@ function convertToOpenAIMessages(contents: Content[]): Array<any> {
           const toolCallId = `call_${Math.random().toString(36).substr(2, 9)}`;
           const functionName = part.functionCall.name;
           if (functionName) {
-            toolCallIdMap.set(functionName, toolCallId);
+            idMap.set(functionName, toolCallId);
           }
           
           functionCalls.push({
@@ -141,7 +141,12 @@ function convertToOpenAIMessages(contents: Content[]): Array<any> {
     for (const functionResponse of functionResponses) {
       const functionName = functionResponse.name;
       if (functionName) {
-        const toolCallId = toolCallIdMap.get(functionName) || `call_${functionName}_${Math.random().toString(36).substr(2, 9)}`;
+        const toolCallId = idMap.get(functionName);
+        if (!toolCallId) {
+          // Skip tool responses that don't have matching tool call IDs
+          // This happens when the tool response is from a previous conversation turn
+          continue;
+        }
         
         messages.push({
           role: 'tool',
@@ -284,7 +289,7 @@ interface StreamingToolCall {
 
 export class GitHubCopilotGeminiServer implements ContentGenerator {
   private streamingToolCalls = new Map<number, StreamingToolCall>();
-  private toolCallIdMap = new Map<string, string>(); // Maps OpenAI tool call IDs to function names
+  private toolCallIdMap = new Map<string, string>(); // Maps function names to OpenAI tool call IDs
 
   constructor(
     private readonly tokenManager: GitHubCopilotTokenManager,
@@ -497,6 +502,10 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
   ): Promise<GenerateContentResponse> {
     const endpoint = "https://api.githubcopilot.com/chat/completions";
     
+    // Clear tool call tracking state for new request
+    this.streamingToolCalls.clear();
+    this.toolCallIdMap.clear();
+    
     // Ensure we have a fresh GitHub Copilot token
     const tokenInfo = await this.tokenManager.getCachedOrFreshToken();
     if (!tokenInfo) {
@@ -505,7 +514,7 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
 
     // Convert Gemini format to OpenAI chat messages format
     const contents = toContents(request.contents || []);
-    const messages = convertToOpenAIMessages(contents);
+    const messages = convertToOpenAIMessages(contents, this.toolCallIdMap);
 
     // Handle system instruction from config
     if (request.config?.systemInstruction) {
@@ -589,6 +598,10 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
     const endpoint = "https://api.githubcopilot.com/chat/completions";
     
+    // Clear tool call tracking state for new request
+    this.streamingToolCalls.clear();
+    this.toolCallIdMap.clear();
+    
     // Ensure we have a fresh GitHub Copilot token
     const tokenInfo = await this.tokenManager.getCachedOrFreshToken();
     if (!tokenInfo) {
@@ -597,7 +610,7 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
 
     // Convert Gemini format to OpenAI chat messages format
     const contents = toContents(request.contents || []);
-    const messages = convertToOpenAIMessages(contents);
+    const messages = convertToOpenAIMessages(contents, this.toolCallIdMap);
 
     // Handle system instruction from config
     if (request.config?.systemInstruction) {
@@ -808,7 +821,7 @@ export class GitHubCopilotGeminiServer implements ContentGenerator {
   async countTokens(request: CountTokensParameters): Promise<CountTokensResponse> {
     // Convert Gemini format to OpenAI messages for accurate estimation
     const contents = toContents(request.contents || []);
-    const messages = convertToOpenAIMessages(contents);
+    const messages = convertToOpenAIMessages(contents, this.toolCallIdMap);
 
     // Account for tools if present in the request config
     const tools = request.config?.tools ? convertGeminiToolsToOpenAI(

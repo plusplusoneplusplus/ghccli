@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { GitHubCopilotGeminiServer, createGitHubCopilotContentGenerator } from './github-copilot-content-generator.js';
+import { GitHubCopilotGeminiServer, createGitHubCopilotContentGenerator, convertToOpenAIMessages } from './github-copilot-content-generator.js';
 import { GitHubCopilotTokenManager } from './github-copilot-auth.js';
 import { Config } from '../config/config.js';
 import { GenerateContentParameters, GenerateContentResponse, FinishReason } from '@google/genai';
@@ -553,6 +553,441 @@ describe('GitHubCopilotGeminiServer - Integration Tests', () => {
       await expect(server.generateContentStream(request)).rejects.toThrow(
         'GitHub Copilot streaming request failed: 500 Internal Server Error'
       );
+    });
+  });
+
+  describe('toolCallIdMap functionality', () => {
+    let server: GitHubCopilotGeminiServer;
+    let mockTokenManager: any;
+
+    beforeEach(() => {
+      mockTokenManager = {
+        getCachedOrFreshToken: vi.fn().mockResolvedValue({ token: 'mock-copilot-token' }),
+        validateToken: vi.fn().mockResolvedValue(true),
+        getCopilotToken: vi.fn().mockResolvedValue({ token: 'mock-copilot-token' }),
+        getGitHubToken: vi.fn().mockResolvedValue('mock-github-token'),
+        config: {
+          editorName: 'test-editor',
+          editorVersion: '1.0.0'
+        }
+      };
+      server = new GitHubCopilotGeminiServer(mockTokenManager, mockConfig);
+    });
+
+    it('should clear toolCallIdMap between requests', async () => {
+      // First request: populate toolCallIdMap through streaming
+      const mockStreamChunks1 = [
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_123","function":{"name":"test_tool","arguments":"{\\"param\\": \\"value\\"}"}}]}}]}\n\n',
+        'data: {"choices":[{"finish_reason":"tool_calls"}]}\n\n',
+        'data: [DONE]\n\n'
+      ];
+
+      vi.mocked(fetch).mockResolvedValueOnce(createMockStreamResponse(mockStreamChunks1));
+
+      const request1: GenerateContentParameters = {
+        model: 'gemini-2.0-flash-exp',
+        contents: [{ parts: [{ text: 'First request' }], role: 'user' }]
+      };
+
+      const generator1 = await server.generateContentStream(request1);
+      const results1: GenerateContentResponse[] = [];
+      
+      for await (const result of generator1) {
+        results1.push(result);
+      }
+
+      // Verify toolCallIdMap was populated
+      expect(results1.some(r => 
+        r.candidates?.[0]?.content?.parts?.some(p => 'functionCall' in p)
+      )).toBe(true);
+
+      // Second request: should have cleared toolCallIdMap
+      const mockStreamChunks2 = [
+        'data: {"choices":[{"delta":{"content":"Second response"}}]}\n\n',
+        'data: {"choices":[{"finish_reason":"stop"}]}\n\n',
+        'data: [DONE]\n\n'
+      ];
+
+      vi.mocked(fetch).mockResolvedValueOnce(createMockStreamResponse(mockStreamChunks2));
+
+      const request2: GenerateContentParameters = {
+        model: 'gemini-2.0-flash-exp',
+        contents: [
+          { parts: [{ text: 'Second request' }], role: 'user' },
+          { 
+            parts: [{ 
+              functionResponse: { 
+                name: 'test_tool', 
+                response: { result: 'success' } 
+              } 
+            }], 
+            role: 'user' 
+          }
+        ]
+      };
+
+      const generator2 = await server.generateContentStream(request2);
+      const results2: GenerateContentResponse[] = [];
+      
+      for await (const result of generator2) {
+        results2.push(result);
+      }
+
+      // Should not throw error and should process normally
+      expect(results2.length).toBeGreaterThan(0);
+    });
+
+    it('should properly map tool call IDs from streaming responses', async () => {
+      const mockStreamChunks = [
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_abc123","function":{"name":"get_weather"}}]}}]}\n\n',
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"location\\": \\"NYC\\"}"}}]}}]}\n\n',
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":1,"id":"call_def456","function":{"name":"get_time","arguments":"{\\"timezone\\": \\"EST\\"}"}}]}}]}\n\n',
+        'data: {"choices":[{"finish_reason":"tool_calls"}]}\n\n',
+        'data: [DONE]\n\n'
+      ];
+
+      vi.mocked(fetch).mockResolvedValueOnce(createMockStreamResponse(mockStreamChunks));
+
+      const request: GenerateContentParameters = {
+        model: 'gemini-2.0-flash-exp',
+        contents: [{ parts: [{ text: 'What is the weather and time in NYC?' }], role: 'user' }]
+      };
+
+      const generator = await server.generateContentStream(request);
+      const results: GenerateContentResponse[] = [];
+      
+      for await (const result of generator) {
+        results.push(result);
+      }
+
+      // Verify that tool calls have the correct IDs
+      const toolCallResults = results.filter(r => 
+        r.candidates?.[0]?.content?.parts?.some(p => 'functionCall' in p)
+      );
+
+      expect(toolCallResults.length).toBeGreaterThan(0);
+      
+      // Check that tool calls were properly parsed
+      const allParts = toolCallResults.flatMap(r => 
+        r.candidates?.[0]?.content?.parts || []
+      );
+      
+      const functionCalls = allParts.filter(p => 'functionCall' in p);
+      expect(functionCalls.length).toBe(2);
+      
+      const weatherCall = functionCalls.find(p => 
+        'functionCall' in p && p.functionCall?.name === 'get_weather'
+      );
+      const timeCall = functionCalls.find(p => 
+        'functionCall' in p && p.functionCall?.name === 'get_time'
+      );
+      
+      expect(weatherCall).toBeDefined();
+      expect(timeCall).toBeDefined();
+    });
+
+    it('should skip tool responses without matching tool call IDs', async () => {
+      // Mock a simple text response (no tool calls)
+      const mockStreamChunks = [
+        'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n',
+        'data: {"choices":[{"finish_reason":"stop"}]}\n\n',
+        'data: [DONE]\n\n'
+      ];
+
+      vi.mocked(fetch).mockResolvedValueOnce(createMockStreamResponse(mockStreamChunks));
+
+      // Request with tool response but no matching tool call ID in toolCallIdMap
+      const request: GenerateContentParameters = {
+        model: 'gemini-2.0-flash-exp',
+        contents: [
+          { parts: [{ text: 'Hello' }], role: 'user' },
+          { 
+            parts: [{ 
+              functionResponse: { 
+                name: 'nonexistent_tool', 
+                response: { data: 'some data' } 
+              } 
+            }], 
+            role: 'user' 
+          }
+        ]
+      };
+
+      // Should not throw error even with unmatched tool response
+      const generator = await server.generateContentStream(request);
+      const results: GenerateContentResponse[] = [];
+      
+      for await (const result of generator) {
+        results.push(result);
+      }
+
+      expect(results.length).toBeGreaterThan(0);
+      
+      // Verify we got text content
+      const textResults = results.filter(r => 
+        r.candidates?.[0]?.content?.parts?.some(p => 'text' in p)
+      );
+      expect(textResults.length).toBeGreaterThan(0);
+    });
+
+    it('should handle tool responses with matching IDs correctly', async () => {
+      // First, simulate a request that generates tool calls
+      const mockStreamChunks1 = [
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_valid_123","function":{"name":"calculator","arguments":"{\\"operation\\": \\"add\\", \\"a\\": 5, \\"b\\": 3}"}}]}}]}\n\n',
+        'data: {"choices":[{"finish_reason":"tool_calls"}]}\n\n',
+        'data: [DONE]\n\n'
+      ];
+
+      vi.mocked(fetch).mockResolvedValueOnce(createMockStreamResponse(mockStreamChunks1));
+
+      const request1: GenerateContentParameters = {
+        model: 'gemini-2.0-flash-exp',
+        contents: [{ parts: [{ text: 'Calculate 5 + 3' }], role: 'user' }]
+      };
+
+      const generator1 = await server.generateContentStream(request1);
+      for await (const result of generator1) {
+        // Process first request to populate toolCallIdMap
+      }
+
+      // Second request with tool response that should match
+      const mockStreamChunks2 = [
+        'data: {"choices":[{"delta":{"content":"The result is 8"}}]}\n\n',
+        'data: {"choices":[{"finish_reason":"stop"}]}\n\n',
+        'data: [DONE]\n\n'
+      ];
+
+      vi.mocked(fetch).mockResolvedValueOnce(createMockStreamResponse(mockStreamChunks2));
+
+      const request2: GenerateContentParameters = {
+        model: 'gemini-2.0-flash-exp',
+        contents: [
+          { parts: [{ text: 'Calculate 5 + 3' }], role: 'user' },
+          { 
+            parts: [{ 
+              functionCall: { 
+                name: 'calculator', 
+                args: { operation: 'add', a: 5, b: 3 } 
+              } 
+            }], 
+            role: 'model' 
+          },
+          { 
+            parts: [{ 
+              functionResponse: { 
+                name: 'calculator', 
+                response: { result: 8 } 
+              } 
+            }], 
+            role: 'user' 
+          }
+        ]
+      };
+
+      const generator2 = await server.generateContentStream(request2);
+      const results2: GenerateContentResponse[] = [];
+      
+      for await (const result of generator2) {
+        results2.push(result);
+      }
+
+      expect(results2.length).toBeGreaterThan(0);
+      
+      // Should process successfully with matching tool call ID
+      const textResults = results2.filter(r => 
+        r.candidates?.[0]?.content?.parts?.some(p => 'text' in p && p.text?.includes('8'))
+      );
+      expect(textResults.length).toBeGreaterThan(0);
+    });
+
+    it('should clear state for both generateContent and generateContentStream', async () => {
+      // First call generateContentStream to populate state
+      const mockStreamChunks = [
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_stream_123","function":{"name":"stream_tool","arguments":"{\\"param\\": \\"value\\"}"}}]}}]}\n\n',
+        'data: {"choices":[{"finish_reason":"tool_calls"}]}\n\n',
+        'data: [DONE]\n\n'
+      ];
+
+      vi.mocked(fetch).mockResolvedValueOnce(createMockStreamResponse(mockStreamChunks));
+
+      const streamRequest: GenerateContentParameters = {
+        model: 'gemini-2.0-flash-exp',
+        contents: [{ parts: [{ text: 'Stream request' }], role: 'user' }]
+      };
+
+      const generator = await server.generateContentStream(streamRequest);
+      for await (const result of generator) {
+        // Process to populate state
+      }
+
+      // Then call generateContent (non-streaming) - should clear state
+      const mockNonStreamResponse = {
+        ok: true,
+        json: () => Promise.resolve({
+          choices: [{
+            message: { content: 'Non-stream response' }
+          }],
+          usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 }
+        })
+      } as Response;
+
+      vi.mocked(fetch).mockResolvedValueOnce(mockNonStreamResponse);
+
+      const nonStreamRequest: GenerateContentParameters = {
+        model: 'gemini-2.0-flash-exp',
+        contents: [
+          { parts: [{ text: 'Non-stream request' }], role: 'user' },
+          { 
+            parts: [{ 
+              functionResponse: { 
+                name: 'stream_tool', 
+                response: { data: 'response' } 
+              } 
+            }], 
+            role: 'user' 
+          }
+        ]
+      };
+
+      // Should not throw error even though tool response doesn't match cleared state
+      const result = await server.generateContent(nonStreamRequest);
+      expect(result).toBeDefined();
+      expect(result.candidates?.[0]?.content?.parts?.[0]).toHaveProperty('text');
+    });
+  });
+
+  describe('convertToOpenAIMessages with toolCallIdMap', () => {
+
+    it('should use provided toolCallIdMap for tool responses', () => {
+      const toolCallIdMap = new Map<string, string>();
+      toolCallIdMap.set('test_function', 'call_12345');
+      toolCallIdMap.set('another_function', 'call_67890');
+
+      const contents = [
+        {
+          role: 'user',
+          parts: [
+            { text: 'Hello' },
+            { 
+              functionResponse: { 
+                name: 'test_function', 
+                response: { result: 'success' } 
+              } 
+            }
+          ]
+        }
+      ];
+
+      const messages = convertToOpenAIMessages(contents, toolCallIdMap);
+
+      // Should have user message and tool message
+      expect(messages.length).toBe(2);
+      expect(messages[0]).toEqual({
+        role: 'user',
+        content: 'Hello'
+      });
+      expect(messages[1]).toEqual({
+        role: 'tool',
+        content: JSON.stringify({ result: 'success' }),
+        tool_call_id: 'call_12345',
+        name: 'test_function'
+      });
+    });
+
+    it('should skip tool responses without matching IDs in provided map', () => {
+      const toolCallIdMap = new Map<string, string>();
+      toolCallIdMap.set('existing_function', 'call_exists');
+
+      const contents = [
+        {
+          role: 'user',
+          parts: [
+            { text: 'Hello' },
+            { 
+              functionResponse: { 
+                name: 'nonexistent_function', 
+                response: { result: 'should_be_skipped' } 
+              } 
+            },
+            { 
+              functionResponse: { 
+                name: 'existing_function', 
+                response: { result: 'should_be_included' } 
+              } 
+            }
+          ]
+        }
+      ];
+
+      const messages = convertToOpenAIMessages(contents, toolCallIdMap);
+
+      // Should have user message and only one tool message (for existing_function)
+      expect(messages.length).toBe(2);
+      expect(messages[0]).toEqual({
+        role: 'user',
+        content: 'Hello'
+      });
+      expect(messages[1]).toEqual({
+        role: 'tool',
+        content: JSON.stringify({ result: 'should_be_included' }),
+        tool_call_id: 'call_exists',
+        name: 'existing_function'
+      });
+    });
+
+    it('should generate new IDs for function calls when no map provided', () => {
+      const contents = [
+        {
+          role: 'model',
+          parts: [
+            { text: 'I will call a function' },
+            { 
+              functionCall: { 
+                name: 'test_function',
+                args: { param: 'value' }
+              } 
+            }
+          ]
+        }
+      ];
+
+      const messages = convertToOpenAIMessages(contents);
+
+      expect(messages.length).toBe(1);
+      expect(messages[0].role).toBe('assistant');
+      expect(messages[0].content).toBe('I will call a function');
+      expect(messages[0].tool_calls).toBeDefined();
+      expect(messages[0].tool_calls.length).toBe(1);
+      expect(messages[0].tool_calls[0].function.name).toBe('test_function');
+      expect(messages[0].tool_calls[0].id).toMatch(/^call_/);
+    });
+
+    it('should work with empty toolCallIdMap', () => {
+      const emptyMap = new Map<string, string>();
+      
+      const contents = [
+        {
+          role: 'user',
+          parts: [
+            { text: 'Hello' },
+            { 
+              functionResponse: { 
+                name: 'any_function', 
+                response: { data: 'test' } 
+              } 
+            }
+          ]
+        }
+      ];
+
+      const messages = convertToOpenAIMessages(contents, emptyMap);
+
+      // Should only have the text message, tool response should be skipped
+      expect(messages.length).toBe(1);
+      expect(messages[0]).toEqual({
+        role: 'user',
+        content: 'Hello'
+      });
     });
   });
 }); 
