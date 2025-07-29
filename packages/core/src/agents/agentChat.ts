@@ -65,7 +65,7 @@ export class AgentChat extends GeminiChat {
         '{{availableAgents}}',
         availableAgentsText
       );
-    } else if (this.agentConfig.availableAgents.length > 1) {
+    } else if (this.agentConfig.availableAgents && this.agentConfig.availableAgents.length > 1) {
       // If no placeholder but multiple agents exist, append the information
       const availableAgentsText = await this.getAvailableAgentsAsText();
       promptContent += `\n\nAvailable sub-agents you can invoke:\n${availableAgentsText}`;
@@ -86,6 +86,10 @@ export class AgentChat extends GeminiChat {
    */
   private async getAvailableAgentsAsText(): Promise<string> {
     try {
+      if (!this.agentConfig.availableAgents || this.agentConfig.availableAgents.length === 0) {
+        return '';
+      }
+
       const agentDetails: string[] = [];
       
       for (const agentName of this.agentConfig.availableAgents) {
@@ -101,9 +105,12 @@ export class AgentChat extends GeminiChat {
       return agentDetails.join('\n');
     } catch (error) {
       // Fallback to simple agent names if there's any error
-      return this.agentConfig.availableAgents
-        .map(agent => `- ${agent}`)
-        .join('\n');
+      if (this.agentConfig.availableAgents && this.agentConfig.availableAgents.length > 0) {
+        return this.agentConfig.availableAgents
+          .map(agent => `- ${agent}`)
+          .join('\n');
+      }
+      return '';
     }
   }
 
@@ -207,6 +214,6 @@ export class AgentChat extends GeminiChat {
    * Gets the list of available agents that this agent can invoke
    */
   getAvailableAgents(): string[] {
-    return this.agentConfig.availableAgents;
+    return this.agentConfig.availableAgents || [];
   }
 }

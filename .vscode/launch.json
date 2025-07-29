@@ -22,7 +22,7 @@
       "request": "launch",
       "name": "Debug Agent Test",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "start", "--", "--agent", "research-sub-agent", "-p", "who are you"],
+      "runtimeArgs": ["run", "start", "--", "--agent", "research-sub-agent"],
       "skipFiles": ["<node_internals>/**"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",

@@ -3,6 +3,9 @@ name: research-sub-agent
 description: Specialized research sub-agent for focused research tasks with comprehensive investigation capabilities
 methods: [] # No methods - agent will use default behavior via empty string method
 
+# Available agents that this agent can invoke (empty for sub-agents)
+availableAgents: []
+
 metadata:
   supportsStreaming: false
   supportsTools: true
@@ -21,11 +24,8 @@ metadata:
     allowedToolRegex:
       - ".*invoke_agent.*"     # Matches any tool with "invoke_agent" in name
       - ".*web.*"              # Matches any tool with "web" in name (web search, etc.)
-    
-    blockedToolsRegex:
-      - '^evaluate_source_quality$'    # Explicitly blocked as broken
   
-  specialization: research-subagent
+  specialization: research-sub-agent
   
   executionConfig:
     maxRounds: 5      # Max rounds for sub-agent research tasks (matches prompt limit)
