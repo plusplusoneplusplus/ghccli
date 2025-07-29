@@ -90,6 +90,13 @@ import {
         arguments: string;
       }
     > = new Map();
+
+    /**
+     * Override this method in subclasses to provide additional headers for API requests
+     */
+    protected async getAdditionalHeaders(): Promise<Record<string, string> | undefined> {
+      return undefined;
+    }
   
     constructor(apiKey: string, model: string, config: Config) {
       this.model = model;
@@ -182,9 +189,13 @@ import {
             request.config.tools,
           );
         }
+        // Get additional headers from subclass
+        const additionalHeaders = await this.getAdditionalHeaders();
+        
         // console.log('createParams', createParams);
         const completion = (await this.client.chat.completions.create(
           createParams,
+          additionalHeaders ? { headers: additionalHeaders } : undefined
         )) as ChatCompletion;
   
         const response = this.convertToGeminiFormat(completion);
@@ -309,10 +320,14 @@ import {
           );
         }
   
+        // Get additional headers from subclass
+        const additionalHeaders = await this.getAdditionalHeaders();
+  
         // console.log('createParams', createParams);
   
         const stream = (await this.client.chat.completions.create(
           createParams,
+          additionalHeaders ? { headers: additionalHeaders } : undefined
         )) as AsyncIterable<ChatCompletionChunk>;
   
         const originalStream = this.streamGenerator(stream);
