@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Edit",
       "WebFetch(domain:github.com)",
       "Bash(git:*)",
       "Bash(npm test:*)",
