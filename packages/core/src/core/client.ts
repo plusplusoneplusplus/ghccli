@@ -274,6 +274,16 @@ export class GeminiClient {
           const agentLoader = new AgentLoader(this.config.getAgentConfigsDir());
           const agentConfig = await agentLoader.loadAgentConfig(agentName);
           
+          // Update global model if agent has a preferred model and it's available
+          const preferredModel = agentConfig.metadata.languageModel.preferred;
+          if (preferredModel) {
+            // Import the model validation function
+            const { isModelAvailable } = await import('../config/supportedModels.js');
+            if (isModelAvailable(preferredModel)) {
+              this.config.setModel(preferredModel);
+            }
+          }
+          
           // Get allowed and blocked tool regex patterns from agent configuration
           const allowedToolRegex = agentConfig.metadata.toolPreferences?.allowedToolRegex || [];
           const blockedToolsRegex = agentConfig.metadata.toolPreferences?.blockedToolsRegex || [];
