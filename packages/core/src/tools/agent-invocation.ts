@@ -9,6 +9,7 @@ import { FunctionDeclaration, Type } from '@google/genai';
 import { AgentLoader } from '../agents/agentLoader.js';
 import { createContentGenerator } from '../core/contentGenerator.js';
 import { Config } from '../config/config.js';
+import { Logger } from '../core/logger.js';
 import * as path from 'node:path';
 
 const agentInvocationToolSchemaData: FunctionDeclaration = {
@@ -254,6 +255,17 @@ export class AgentInvocationTool extends BaseTool<
           agentExecutionId,
         );
 
+        // Save chat history automatically using execution ID as tag
+        try {
+          const logger = new Logger(this.config.getSessionId());
+          await logger.initialize();
+          const chatHistory = agentChat.getHistory();
+          await logger.saveCheckpoint(chatHistory, agentExecutionId);
+        } catch (saveError) {
+          // Log error but don't fail the agent execution
+          console.warn(`Failed to save chat history for agent ${agentConfig.agentName}:`, saveError);
+        }
+
         const duration = Date.now() - agentStartTime;
 
         const individualResult: IndividualAgentResult = {
@@ -335,12 +347,12 @@ export class AgentInvocationTool extends BaseTool<
       return {
         summary,
         llmContent: JSON.stringify(response, null, 2),
-        returnDisplay: `## Agent Invocation Results\n\n${summary}\n\n**Total Duration:** ${totalDuration}ms\n\n### Individual Results:\n\n${individualResults
+        returnDisplay: `## Agent Invocation Results\n\n${summary}\n\n**Execution ID:** \`${batchExecutionId}\`\n**Total Duration:** ${totalDuration}ms\n\n### Individual Results:\n\n${individualResults
           .map(
             (result) =>
               `- **${result.agent}**: ${result.success ? '✅ Success' : '❌ Failed'} (${result.duration})${
                 result.error ? ` - ${result.error.message}` : ''
-              }`
+              }${result.success ? ` - *Chat saved as: \`${result.childExecutionId}\`*` : ''}`
           )
           .join('\n')}`,
       };
@@ -370,7 +382,7 @@ export class AgentInvocationTool extends BaseTool<
 
       return {
         llmContent: JSON.stringify(errorResponse, null, 2),
-        returnDisplay: `Error invoking agents: ${errorMessage}`,
+        returnDisplay: `## Agent Invocation Error\n\n**Execution ID:** \`${batchExecutionId}\`\n**Error:** ${errorMessage}`,
       };
     }
   }
