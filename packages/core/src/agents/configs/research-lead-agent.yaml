@@ -20,7 +20,6 @@ metadata:
     supportsPrompts: true
     supportsTsxMessages: false
     promptParameterName: prompt
-    variableResolution: false
   
   toolPreferences:
     allowedToolRegex:

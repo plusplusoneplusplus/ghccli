@@ -39,9 +39,7 @@ export class AgentChat extends GeminiChat {
       let promptContent = this.agentConfig.systemPrompt.value;
 
       // Handle variable resolution if enabled
-      if (this.agentConfig.metadata.promptSupport.variableResolution) {
-        promptContent = await this.resolvePromptVariables(promptContent);
-      }
+      promptContent = await this.resolvePromptVariables(promptContent);
 
       return {
         role: 'system',
