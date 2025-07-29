@@ -131,7 +131,7 @@ export class GeminiChat {
   private sendPromise: Promise<void> = Promise.resolve();
 
   constructor(
-    private readonly config: Config,
+    protected readonly config: Config,
     private readonly contentGenerator: ContentGenerator,
     private readonly generationConfig: GenerateContentConfig = {},
     private history: Content[] = [],
@@ -165,7 +165,7 @@ export class GeminiChat {
     logApiResponse(
       this.config,
       new ApiResponseEvent(
-        this.config.getModel(),
+        this.getCurrentModel(),
         durationMs,
         prompt_id,
         this.config.getContentGeneratorConfig()?.authType,
@@ -186,7 +186,7 @@ export class GeminiChat {
     logApiError(
       this.config,
       new ApiErrorEvent(
-        this.config.getModel(),
+        this.getCurrentModel(),
         errorMessage,
         durationMs,
         prompt_id,
@@ -276,14 +276,14 @@ export class GeminiChat {
     const userContent = createUserContent(params.message);
     const requestContents = this.getHistory(true).concat(userContent);
 
-    this._logApiRequest(requestContents, this.config.getModel(), prompt_id);
+    this._logApiRequest(requestContents, this.getCurrentModel(), prompt_id);
 
     const startTime = Date.now();
     let response: GenerateContentResponse;
 
     try {
       const apiCall = () => {
-        const modelToUse = this.config.getModel() || DEFAULT_GEMINI_FLASH_MODEL;
+        const modelToUse = this.getCurrentModel() || DEFAULT_GEMINI_FLASH_MODEL;
 
         // Prevent Flash model calls immediately after quota error
         if (
@@ -390,13 +390,13 @@ export class GeminiChat {
     await this.sendPromise;
     const userContent = createUserContent(params.message);
     const requestContents = this.getHistory(true).concat(userContent);
-    this._logApiRequest(requestContents, this.config.getModel(), prompt_id);
+    this._logApiRequest(requestContents, this.getCurrentModel(), prompt_id);
 
     const startTime = Date.now();
 
     try {
       const apiCall = () => {
-        const modelToUse = this.config.getModel();
+        const modelToUse = this.getCurrentModel();
 
         // Prevent Flash model calls immediately after quota error
         if (
@@ -508,6 +508,16 @@ export class GeminiChat {
 
   setTools(tools: Tool[]): void {
     this.generationConfig.tools = tools;
+  }
+
+  /**
+   * Gets the current model to use for API calls.
+   * This method can be overridden by child classes to provide custom model selection logic.
+   * 
+   * @returns The model name to use
+   */
+  protected getCurrentModel(): string {
+    return this.config.getModel();
   }
 
   /**

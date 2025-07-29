@@ -4,12 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ContentUnion, Content, GenerateContentConfig } from '@google/genai';
+import { ContentUnion, Content, GenerateContentConfig, SendMessageParameters, GenerateContentResponse } from '@google/genai';
 import { GeminiChat } from '../core/geminiChat.js';
 import { ContentGenerator } from '../core/contentGenerator.js';
 import { Config } from '../config/config.js';
 import { AgentConfig } from './agentTypes.js';
 import { AgentLoader } from './agentLoader.js';
+import { isModelAvailable } from '../config/supportedModels.js';
 
 /**
  * A specialized GeminiChat instance that loads configuration from YAML agent files
@@ -215,5 +216,20 @@ export class AgentChat extends GeminiChat {
    */
   getAvailableAgents(): string[] {
     return this.agentConfig.availableAgents || [];
+  }
+
+  /**
+   * Override getCurrentModel to use the agent's preferred model if available
+   */
+  protected getCurrentModel(): string {
+    const preferredModel = this.agentConfig.metadata.languageModel.preferred;
+    
+    // Check if the preferred model is available
+    if (preferredModel && isModelAvailable(preferredModel)) {
+      return preferredModel;
+    }
+    
+    // Fallback to global model
+    return super.getCurrentModel();
   }
 }

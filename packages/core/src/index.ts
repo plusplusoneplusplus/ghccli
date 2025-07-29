@@ -6,6 +6,7 @@
 
 // Export config
 export * from './config/config.js';
+export * from './config/supportedModels.js';
 
 // Export agents
 export * from './agents/index.js';
