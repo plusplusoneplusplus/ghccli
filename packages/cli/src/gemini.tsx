@@ -299,8 +299,8 @@ async function loadNonInteractiveConfig(
     const existingExcludeTools = settings.merged.excludeTools || [];
     const interactiveTools = [
       ShellTool.Name,
-      EditTool.Name,
-      WriteFileTool.Name,
+      // EditTool.Name,
+      // WriteFileTool.Name,
     ];
 
     const newExcludeTools = [

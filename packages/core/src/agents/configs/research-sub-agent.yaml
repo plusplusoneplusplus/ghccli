@@ -24,6 +24,7 @@ metadata:
     allowedToolRegex:
       - ".*invoke_agent.*"     # Matches any tool with "invoke_agent" in name
       - ".*web.*"              # Matches any tool with "web" in name (web search, etc.)
+      - ".*replace.*"
   
   specialization: research-sub-agent
   
