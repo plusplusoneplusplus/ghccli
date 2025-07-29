@@ -190,7 +190,12 @@ export class AgentInvocationTool extends BaseTool<
 
   getDescription(params: IMultiAgentInvocationParameters): string {
     const agentList = params.agents
-      .map(agent => `- ${agent.agentName}${agent.method ? ` (${agent.method})` : ''}`)
+      .map(agent => {
+        const truncatedMessage = agent.message.length > 60 
+          ? agent.message.substring(0, 60) + '...' 
+          : agent.message;
+        return `- ${agent.agentName}${agent.method ? ` (${agent.method})` : ''}: "${truncatedMessage}"`;
+      })
       .join('\n');
 
     return `**Invoke ${params.agents.length} Agents in Parallel**:\n\n${agentList}\n\nThis will send messages to ${params.agents.length} agents in parallel and return aggregated results.`;
