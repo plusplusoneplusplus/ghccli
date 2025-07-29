@@ -13,7 +13,7 @@ metadata:
   supportsPromptSelection: false
   
   languageModel:
-    preferred: claude-sonnet-4
+    preferred: gpt-4.1
   
   promptSupport:
     supportsPrompts: true

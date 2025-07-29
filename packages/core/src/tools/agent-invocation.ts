@@ -164,6 +164,8 @@ export class AgentInvocationTool extends BaseTool<
       agentInvocationToolDescription,
       Icon.Hammer,
       agentInvocationToolSchemaData.parameters as Record<string, unknown>,
+      true, // isOutputMarkdown
+      true, // canUpdateOutput - enable live progress updates
     );
     this.config = config;
   }
@@ -204,6 +206,7 @@ export class AgentInvocationTool extends BaseTool<
   async execute(
     params: IMultiAgentInvocationParameters,
     signal: AbortSignal,
+    updateOutput?: (output: string) => void,
   ): Promise<ToolResult> {
     const startTime = Date.now();
 
@@ -217,6 +220,11 @@ export class AgentInvocationTool extends BaseTool<
     }
 
     const batchExecutionId = params.executionId || this.generateExecutionId();
+
+    // Send initial progress update
+    if (updateOutput) {
+      updateOutput(`Starting execution of ${params.agents.length} agents in parallel...`);
+    }
 
     // Create execution promises for all agents
     const agentPromises = params.agents.map(async (agentConfig, index) => {
@@ -277,12 +285,19 @@ export class AgentInvocationTool extends BaseTool<
           },
         );
 
+        // Create progress update callback that sends live updates
+        const onProgressUpdate = updateOutput ? (progressText: string) => {
+          const agentProgressText = `**Agent ${index + 1} (${agentConfig.agentName})**: ${progressText}`;
+          updateOutput(agentProgressText);
+        } : undefined;
+
         // Execute the agent with complete tool calling support
         let responseText = await this.executeAgentWithToolSupport(
           agentChat,
           agentConfig.message,
           agentExecutionId,
           signal,
+          onProgressUpdate,
         );
 
         // Save chat history automatically using execution ID as tag
@@ -374,6 +389,11 @@ export class AgentInvocationTool extends BaseTool<
 
       const summary = `Invoked ${params.agents.length} agents: ${successful} successful, ${failed} failed`;
 
+      // Send final progress update
+      if (updateOutput) {
+        updateOutput(`✅ Completed execution of ${params.agents.length} agents: ${successful} successful, ${failed} failed`);
+      }
+
       return {
         summary,
         llmContent: JSON.stringify(response, null, 2),
@@ -431,6 +451,7 @@ export class AgentInvocationTool extends BaseTool<
     message: string,
     executionId: string,
     signal: AbortSignal,
+    onProgressUpdate?: (progressText: string) => void,
   ): Promise<string> {
     let currentMessage = message;
     let fullResponseText = '';
@@ -439,6 +460,11 @@ export class AgentInvocationTool extends BaseTool<
 
     while (conversationRound < maxRounds && !signal.aborted) {
       conversationRound++;
+      
+      // Update progress if callback provided
+      if (onProgressUpdate) {
+        onProgressUpdate(`Round ${conversationRound}/${maxRounds}: Processing agent response...`);
+      }
       
       // Send message to the agent
       const responseStream = await agentChat.sendMessageStream(
@@ -474,7 +500,15 @@ export class AgentInvocationTool extends BaseTool<
       
       if (toolCalls.length === 0) {
         // No tool calls, we're done
+        if (onProgressUpdate) {
+          onProgressUpdate(`Round ${conversationRound}/${maxRounds}: Agent completed successfully`);
+        }
         break;
+      }
+
+      // Update progress for tool execution
+      if (onProgressUpdate) {
+        onProgressUpdate(`Round ${conversationRound}/${maxRounds}: Executing ${toolCalls.length} tools...`);
       }
 
       // Execute tool calls using CoreToolScheduler
