@@ -5,12 +5,16 @@
  */
 
 import { BaseTool, Icon, ToolResult } from './tools.js';
-import { FunctionDeclaration, Type } from '@google/genai';
+import { FunctionDeclaration, Type, Tool, Part, GenerateContentResponse } from '@google/genai';
 import { AgentLoader } from '../agents/agentLoader.js';
 import { createContentGenerator } from '../core/contentGenerator.js';
 import { Config } from '../config/config.js';
 import { Logger } from '../core/logger.js';
 import * as path from 'node:path';
+import { getResponseText } from '../utils/generateContentResponseUtilities.js';
+import { CoreToolScheduler } from '../core/coreToolScheduler.js';
+import { ApprovalMode } from '../config/config.js';
+import { ToolCallRequestInfo, ToolCallResponseInfo } from '../core/turn.js';
 
 const agentInvocationToolSchemaData: FunctionDeclaration = {
   name: 'invoke_agents',
@@ -239,20 +243,41 @@ export class AgentInvocationTool extends BaseTool<
           this.config.getSessionId()
         );
 
+        // Get tool registry and apply agent-specific tool filtering
+        const toolRegistry = await this.config.getToolRegistry();
+        const toolDeclarations = toolRegistry.getFunctionDeclarations();
+        
+        // Get allowed and blocked tool regex patterns from agent configuration
+        const allowedToolRegex = loadedAgentConfig.metadata.toolPreferences?.allowedToolRegex || [];
+        const blockedToolsRegex = loadedAgentConfig.metadata.toolPreferences?.blockedToolsRegex || [];
+        
+        // Filter tools based on agent's tool preferences
+        const filteredToolDeclarations = (allowedToolRegex.length > 0 || blockedToolsRegex.length > 0)
+          ? toolRegistry.getFilteredFunctionDeclarationsWithBlocking(allowedToolRegex, blockedToolsRegex)
+          : toolDeclarations;
+        
+        const filteredTools = [{ functionDeclarations: filteredToolDeclarations }];
+
         // Dynamically import AgentChat to avoid circular dependency
         const { AgentChat } = await import('../agents/agentChat.js');
 
-        // Create agent chat instance
-        const agentChat = new AgentChat(
+        // Create agent chat instance with filtered tools
+        const agentChat = await AgentChat.fromAgentConfig(
           this.config,
           contentGenerator,
-          loadedAgentConfig,
+          agentConfig.agentName,
+          this.config.getAgentConfigsDir(),
+          {
+            tools: filteredTools,
+          },
         );
 
-        // Execute the agent with the provided message
-        const response = await agentChat.sendMessage(
-          { message: agentConfig.message },
+        // Execute the agent with complete tool calling support
+        let responseText = await this.executeAgentWithToolSupport(
+          agentChat,
+          agentConfig.message,
           agentExecutionId,
+          signal,
         );
 
         // Save chat history automatically using execution ID as tag
@@ -274,7 +299,7 @@ export class AgentInvocationTool extends BaseTool<
           success: true,
           duration: `${duration}ms`,
           result: {
-            response: response.text || 'No response content',
+            response: responseText,
             data: agentConfig.additionalParams || null,
           },
           childExecutionId: agentExecutionId,
@@ -390,5 +415,171 @@ export class AgentInvocationTool extends BaseTool<
 
   private generateExecutionId(): string {
     return `gemini-agent-exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Execute an agent with full tool calling support, handling multiple rounds of conversation
+   * until the agent provides a final response without tool calls.
+   */
+  private async executeAgentWithToolSupport(
+    agentChat: any, // AgentChat type
+    message: string,
+    executionId: string,
+    signal: AbortSignal,
+  ): Promise<string> {
+    let currentMessage = message;
+    let fullResponseText = '';
+    let conversationRound = 0;
+    const maxRounds = 10; // Prevent infinite loops
+
+    while (conversationRound < maxRounds && !signal.aborted) {
+      conversationRound++;
+      
+      // Send message to the agent
+      const responseStream = await agentChat.sendMessageStream(
+        { message: currentMessage },
+        `${executionId}-round-${conversationRound}`,
+      );
+
+      // Collect response parts and check for tool calls
+      const responseParts: Part[] = [];
+      let roundResponseText = '';
+
+      for await (const resp of responseStream) {
+        if (resp.candidates?.[0]?.content?.parts) {
+          for (const part of resp.candidates[0].content.parts) {
+            responseParts.push(part);
+            
+            // Collect text parts
+            const textPart = getResponseText(resp);
+            if (textPart) {
+              roundResponseText += textPart;
+            }
+          }
+        }
+      }
+
+      // Add the round's text to the full response
+      if (roundResponseText.trim()) {
+        fullResponseText += (fullResponseText ? '\n\n' : '') + roundResponseText;
+      }
+
+      // Extract tool calls from the response parts
+      const toolCalls = this.extractToolCallsFromParts(responseParts);
+      
+      if (toolCalls.length === 0) {
+        // No tool calls, we're done
+        break;
+      }
+
+      // Execute tool calls using CoreToolScheduler
+      const toolResults = await this.executeToolCalls(toolCalls, signal);
+      
+      // Convert tool results back to message format for the next round
+      currentMessage = this.formatToolResultsAsMessage(toolResults);
+    }
+
+    if (conversationRound >= maxRounds) {
+      fullResponseText += '\n\n[Warning: Agent conversation reached maximum rounds limit]';
+    }
+
+    return fullResponseText;
+  }
+
+  /**
+   * Extract tool calls from response parts
+   */
+  private extractToolCallsFromParts(parts: Part[]): ToolCallRequestInfo[] {
+    const toolCalls: ToolCallRequestInfo[] = [];
+    
+    for (const part of parts) {
+      if ('functionCall' in part && part.functionCall) {
+        const fc = part.functionCall;
+        toolCalls.push({
+          callId: fc.id || `call_${toolCalls.length}`,
+          name: fc.name || '',
+          args: fc.args || {},
+          isClientInitiated: false, // These are agent-initiated tool calls
+          prompt_id: `agent-tool-${Date.now()}-${toolCalls.length}`,
+        });
+      }
+    }
+    
+    return toolCalls;
+  }
+
+  /**
+   * Execute tool calls using CoreToolScheduler
+   */
+  private async executeToolCalls(
+    toolCalls: ToolCallRequestInfo[],
+    signal: AbortSignal,
+  ): Promise<any[]> {
+    return new Promise((resolve, reject) => {
+      const results: any[] = [];
+      
+      const toolScheduler = new CoreToolScheduler({
+        toolRegistry: this.config.getToolRegistry(),
+        approvalMode: ApprovalMode.YOLO, // Auto-approve tools for sub-agents
+        getPreferredEditor: () => undefined,
+        config: this.config,
+        onAllToolCallsComplete: (completedCalls) => {
+          // Extract results from completed calls
+          for (const call of completedCalls) {
+            if (call.status === 'success') {
+              let result = 'Tool executed successfully';
+              
+              // Extract result from responseParts
+              if (call.response?.responseParts) {
+                const responseParts = call.response.responseParts;
+                if (typeof responseParts === 'object' && 'functionResponse' in responseParts) {
+                  result = (responseParts as any).functionResponse?.response || result;
+                } else if (Array.isArray(responseParts) && responseParts.length > 0) {
+                  const firstPart = responseParts[0];
+                  if (typeof firstPart === 'object' && 'functionResponse' in firstPart) {
+                    result = (firstPart as any).functionResponse?.response || result;
+                  }
+                }
+              }
+              
+              results.push({
+                callId: call.request.callId,
+                name: call.request.name,
+                result: result,
+                success: true,
+              });
+            } else {
+              results.push({
+                callId: call.request.callId,
+                name: call.request.name,
+                error: call.response?.error?.message || 'Tool execution failed',
+                success: false,
+              });
+            }
+          }
+          resolve(results);
+        },
+      });
+
+      // Schedule the tool calls
+      toolScheduler.schedule(toolCalls, signal).catch(reject);
+    });
+  }
+
+  /**
+   * Format tool results as a message for the next conversation round
+   */
+  private formatToolResultsAsMessage(toolResults: any[]): string {
+    const resultSummary = toolResults
+      .map((result) => {
+        if (result.success) {
+          return `Tool ${result.name} executed successfully: ${JSON.stringify(result.result)}`;
+        } else {
+          return `Tool ${result.name} failed: ${result.error}`;
+        }
+      })
+      .join('\n');
+    
+    return `Tool execution results:\n${resultSummary}\n\nPlease continue with your response based on these results.`;
   }
 }

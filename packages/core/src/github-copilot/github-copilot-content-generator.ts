@@ -18,6 +18,8 @@ import { Config } from '../config/config.js';
 import { OpenAIContentGenerator } from './openaiContentGenerator.js';
 import OpenAI from 'openai';
 
+let globalTokenManager: GitHubCopilotTokenManager | null = null;
+
 /**
  * A ContentGenerator implementation that uses the OpenAI generator with GitHub Copilot endpoint and auth
  */
@@ -65,28 +67,32 @@ export class GitHubCopilotGeminiServer extends OpenAIContentGenerator {
 export async function createGitHubCopilotContentGenerator(
   config: Config
 ): Promise<ContentGenerator> {
-  // Get GitHub token using the device flow or from file/env
-  const githubToken = await GitHubCopilotTokenManager.getGitHubToken(true);
-  
-  if (!githubToken) {
-    throw new Error('Failed to obtain GitHub token for Copilot authentication');
+  // Use global token manager if available, otherwise create a new one
+  if (!globalTokenManager) {
+    // Get GitHub token using the device flow or from file/env
+    const githubToken = await GitHubCopilotTokenManager.getGitHubToken(true);
+    
+    if (!githubToken) {
+      throw new Error('Failed to obtain GitHub token for Copilot authentication');
+    }
+
+    globalTokenManager = new GitHubCopilotTokenManager({ token: githubToken });
+    
+    // Validate the token
+    const isValid = await globalTokenManager.validateToken();
+    if (!isValid) {
+      throw new Error('Invalid GitHub token provided');
+    }
+
+    // Test if we can get a Copilot bearer token
+    const copilotTokenInfo = await globalTokenManager.getCopilotToken();
+    if (!copilotTokenInfo) {
+      throw new Error('Failed to obtain Copilot bearer token');
+    }
+
+    const currentModel = config.getModel() || 'gpt-4';
+    console.log(`GitHub Copilot content generator initialized successfully with model: ${currentModel}`);
   }
 
-  const tokenManager = new GitHubCopilotTokenManager({ token: githubToken });
-  
-  // Validate the token
-  const isValid = await tokenManager.validateToken();
-  if (!isValid) {
-    throw new Error('Invalid GitHub token provided');
-  }
-
-  // Test if we can get a Copilot bearer token
-  const copilotTokenInfo = await tokenManager.getCopilotToken();
-  if (!copilotTokenInfo) {
-    throw new Error('Failed to obtain Copilot bearer token');
-  }
-
-  const currentModel = config.getModel() || 'gpt-4';
-  console.log(`GitHub Copilot content generator initialized successfully with model: ${currentModel}`);
-  return new GitHubCopilotGeminiServer(tokenManager, config);
+  return new GitHubCopilotGeminiServer(globalTokenManager, config);
 } 
