@@ -53,6 +53,18 @@ export type ContentGeneratorConfig = {
   vertexai?: boolean;
   authType?: AuthType | undefined;
   proxy?: string | undefined;
+  timeout?: number;
+  maxRetries?: number;
+  enableOpenAILogging?: boolean;
+  samplingParams?: {
+    temperature?: number;
+    max_tokens?: number;
+    top_p?: number;
+    top_k?: number;
+    repetition_penalty?: number;
+    presence_penalty?: number;
+    frequency_penalty?: number;
+  };
 };
 
 export function createContentGeneratorConfig(
