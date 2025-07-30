@@ -250,6 +250,20 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
           cacheEfficiency={computed.cacheEfficiency}
         />
       )}
+
+      {computed.totalCachedTokens > 0 && (
+        <Box marginTop={1}>
+          <Text>
+            Savings Highlight: {computed.totalCachedTokens.toLocaleString()} ({computed.cacheEfficiency.toFixed(1)}%) of input tokens were served from the cache, reducing costs.
+          </Text>
+        </Box>
+      )}
+
+      {Object.keys(models).length > 0 && (
+        <Box marginTop={1}>
+          <Text>» Tip: For a full token breakdown, run `/stats model`.</Text>
+        </Box>
+      )}
     </Box>
   );
 };
