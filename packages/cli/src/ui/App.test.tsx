@@ -80,6 +80,7 @@ interface MockServerConfig {
   getAllGeminiMdFilenames: Mock<() => string[]>;
   getGeminiClient: Mock<() => GeminiClient | undefined>;
   getUserTier: Mock<() => Promise<string | undefined>>;
+  getCurrentAgent: Mock<() => string>;
 }
 
 // Mock @google/gemini-cli-core and its Config class
@@ -149,6 +150,7 @@ vi.mock('@google/gemini-cli-core', async (importOriginal) => {
         getSessionId: vi.fn(() => 'test-session-id'),
         getUserTier: vi.fn().mockResolvedValue(undefined),
         getIdeMode: vi.fn(() => false),
+        getCurrentAgent: vi.fn(() => 'default'),
       };
     });
 

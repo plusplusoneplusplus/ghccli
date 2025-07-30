@@ -4,6 +4,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+// Mock Node.js modules for jsdom environment
+vi.mock('node:os', () => ({
+  default: {
+    homedir: vi.fn(() => '/mock/home'),
+    tmpdir: vi.fn(() => '/tmp'),
+  },
+  homedir: vi.fn(() => '/mock/home'),
+  tmpdir: vi.fn(() => '/tmp'),
+}));
+
+vi.mock('node:path', () => ({
+  default: {
+    join: vi.fn((...parts) => parts.join('/')),
+    dirname: vi.fn((path) => path.split('/').slice(0, -1).join('/')),
+  },
+  join: vi.fn((...parts) => parts.join('/')),
+  dirname: vi.fn((path) => path.split('/').slice(0, -1).join('/')),
+}));
+
+vi.mock('node:crypto', () => ({
+  default: {
+    randomBytes: vi.fn(() => ({ toString: vi.fn(() => 'mocked') })),
+  },
+  randomBytes: vi.fn(() => ({ toString: vi.fn(() => 'mocked') })),
+}));
+
 import { act, renderHook } from '@testing-library/react';
 import {
   vi,

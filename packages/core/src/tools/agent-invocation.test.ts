@@ -24,6 +24,11 @@ vi.mock('node:path');
 describe('AgentInvocationTool', () => {
   const mockAbortSignal = new AbortController().signal;
   
+  const mockToolRegistry = {
+    getFunctionDeclarations: vi.fn().mockReturnValue([]),
+    getFilteredFunctionDeclarationsWithBlocking: vi.fn().mockReturnValue([]),
+  };
+
   const mockConfig = {
     getContentGeneratorConfig: vi.fn().mockReturnValue({
       model: 'gemini-pro',
@@ -31,6 +36,7 @@ describe('AgentInvocationTool', () => {
     }),
     getSessionId: vi.fn().mockReturnValue('test-session-id'),
     getAgentConfigsDir: vi.fn().mockReturnValue('/test/agents/dir'),
+    getToolRegistry: vi.fn().mockReturnValue(mockToolRegistry),
   } as unknown as Config;
 
   const mockAgentConfig: AgentConfig = {
@@ -72,6 +78,9 @@ describe('AgentInvocationTool', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    
+    // Reset the mock return values
+    (mockConfig.getToolRegistry as any).mockReturnValue(mockToolRegistry);
     
     tool = new AgentInvocationTool(mockConfig);
   });
@@ -167,7 +176,7 @@ describe('AgentInvocationTool', () => {
 
       const result = tool.getDescription(params);
       expect(result).toBe(
-        '**Invoke 1 Agents in Parallel**:\n\n- test-agent\n\nThis will send messages to 1 agents in parallel and return aggregated results.'
+        '**Invoke 1 Agents in Parallel**:\n\n- test-agent: "Test message"\n\nThis will send messages to 1 agents in parallel and return aggregated results.'
       );
     });
 
@@ -189,7 +198,7 @@ describe('AgentInvocationTool', () => {
 
       const result = tool.getDescription(params);
       expect(result).toBe(
-        '**Invoke 2 Agents in Parallel**:\n\n- research-agent (research)\n- analysis-agent (analyze)\n\nThis will send messages to 2 agents in parallel and return aggregated results.'
+        '**Invoke 2 Agents in Parallel**:\n\n- research-agent (research): "Research AI developments"\n- analysis-agent (analyze): "Analyze the data"\n\nThis will send messages to 2 agents in parallel and return aggregated results.'
       );
     });
   });
@@ -232,9 +241,13 @@ describe('AgentInvocationTool', () => {
 
       mockAgentChatInstance = {
         sendMessage: vi.fn().mockResolvedValue(mockResponse),
+        sendMessageStream: vi.fn().mockResolvedValue((async function* () {
+          yield mockResponse;
+        })()),
         getHistory: vi.fn().mockReturnValue(mockChatHistory),
       };
       mockAgentChat.mockImplementation(() => mockAgentChatInstance);
+      mockAgentChat.fromAgentConfig = vi.fn().mockResolvedValue(mockAgentChatInstance);
 
       mockLoggerInstance = {
         initialize: vi.fn().mockResolvedValue(undefined),
@@ -311,8 +324,10 @@ describe('AgentInvocationTool', () => {
       expect(mockLoggerInstance.saveCheckpoint).toHaveBeenCalledTimes(2);
       
       const saveCalls = mockLoggerInstance.saveCheckpoint.mock.calls;
-      expect(saveCalls[0]).toEqual([mockChatHistory, 'batch-exec-id-agent-0']);
-      expect(saveCalls[1]).toEqual([mockChatHistory, 'batch-exec-id-agent-1']);
+      // Sort the calls by execution ID to ensure consistent testing since agents run in parallel
+      const sortedCalls = saveCalls.sort((a, b) => a[1].localeCompare(b[1]));
+      expect(sortedCalls[0]).toEqual([mockChatHistory, 'batch-exec-id-agent-0']);
+      expect(sortedCalls[1]).toEqual([mockChatHistory, 'batch-exec-id-agent-1']);
     });
 
     it('should not fail agent execution when chat history saving fails', async () => {
@@ -478,7 +493,7 @@ describe('AgentInvocationTool', () => {
     });
 
     it('should handle agent execution error', async () => {
-      mockAgentChatInstance.sendMessage.mockRejectedValue(new Error('Agent execution failed'));
+      mockAgentChatInstance.sendMessageStream.mockRejectedValue(new Error('Agent execution failed'));
 
       const params: IMultiAgentInvocationParameters = {
         agents: [

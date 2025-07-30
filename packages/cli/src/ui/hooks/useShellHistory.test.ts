@@ -4,6 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+// Mock Node.js modules for jsdom environment
+vi.mock('node:os', () => ({
+  homedir: vi.fn(() => '/mock/home'),
+}));
+
+vi.mock('node:path', () => ({
+  join: vi.fn((...parts) => parts.join('/')),
+  dirname: vi.fn((path) => path.split('/').slice(0, -1).join('/')),
+}));
+
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useShellHistory } from './useShellHistory.js';
 import * as fs from 'fs/promises';
@@ -14,6 +24,15 @@ import * as crypto from 'crypto';
 vi.mock('fs/promises');
 vi.mock('os');
 vi.mock('crypto');
+
+// Mock the getProjectTempDir function from core package
+vi.mock('@google/gemini-cli-core', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    getProjectTempDir: vi.fn(() => '/test/home/.ghccli/tmp/mocked_hash'),
+  };
+});
 
 const MOCKED_PROJECT_ROOT = '/test/project';
 const MOCKED_HOME_DIR = '/test/home';
