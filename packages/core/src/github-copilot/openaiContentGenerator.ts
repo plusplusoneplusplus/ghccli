@@ -30,6 +30,7 @@ import {
   import { ApiResponseEvent } from '../telemetry/types.js';
   import { Config } from '../config/config.js';
   import { createSessionLogger } from '../utils/openaiLogger.js';
+  import { Agent as UndiciAgent } from 'undici';
   
   // OpenAI API type definitions for logging
   interface OpenAIToolCall {
@@ -118,8 +119,6 @@ import {
         timeout: 120000,
         // Maximum retries for failed requests
         maxRetries: 3,
-        // HTTP client options
-        httpAgent: undefined, // Let the client use default agent
       };
   
       // Allow config to override timeout settings
@@ -131,11 +130,21 @@ import {
         timeoutConfig.maxRetries = contentGeneratorConfig.maxRetries;
       }
   
+      // Configure HTTP/2 support using undici dispatcher
+      // This enables HTTP/2 multiplexing for better performance with concurrent requests
+      const dispatcher = new UndiciAgent({
+        allowH2: true, // Enable HTTP/2 support
+        maxCachedSessions: 100, // Cache multiple HTTP/2 sessions
+        keepAliveTimeout: 30000, // Keep connections alive for 30s
+        keepAliveMaxTimeout: 60000, // Maximum keep-alive time
+      });
+
       this.client = new OpenAI({
         apiKey,
         baseURL,
         timeout: timeoutConfig.timeout,
         maxRetries: timeoutConfig.maxRetries,
+        fetchOptions: { dispatcher }, // Use undici dispatcher for HTTP/2
       });
     }
   
