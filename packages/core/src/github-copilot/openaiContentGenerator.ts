@@ -700,7 +700,7 @@ import {
       const converted = JSON.parse(JSON.stringify(parameters));
   
       const convertTypes = (obj: unknown): unknown => {
-        if (typeof obj !== 'object' || obj === null) {
+        if (typeof obj !== 'object' || obj === null || obj === undefined) {
           return obj;
         }
   
@@ -709,7 +709,7 @@ import {
         }
   
         const result: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(obj)) {
+        for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
           if (key === 'type' && typeof value === 'string') {
             // Convert Gemini types to OpenAI JSON Schema types
             const lowerValue = value.toLowerCase();
