@@ -122,7 +122,7 @@ export async function getOauthClient(
 }
 
 async function authWithUserCode(client: OAuth2Client): Promise<boolean> {
-  const redirectUri = 'https://codeassist.google.com/authcode';
+  const redirectUri = 'https://non-existing-domain.com/authcode';
   const codeVerifier = await client.generateCodeVerifierAsync();
   const state = crypto.randomBytes(32).toString('hex');
   const authUrl: string = client.generateAuthUrl({
