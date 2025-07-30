@@ -43,7 +43,10 @@ describe('OpenAILogger', () => {
     it('should use custom log directory', () => {
       const customDir = '/custom/path';
       const customLogger = new OpenAILogger('session', customDir);
-      expect(customLogger.getSessionLogPath()).toBe(path.join(customDir, 'openai-session-session.jsonl'));
+      const sessionLogPath = customLogger.getSessionLogPath();
+      // Should be in the custom directory and match the new filename pattern
+      expect(sessionLogPath.startsWith(customDir)).toBe(true);
+      expect(sessionLogPath).toMatch(/\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}_session\.jsonl$/);
     });
   });
 
@@ -287,14 +290,14 @@ describe('OpenAILogger', () => {
     it('should filter only JSONL log files', async () => {
       // Create some non-log files
       await fs.writeFile(path.join(tempDir, 'not-a-log.txt'), 'content');
-      await fs.writeFile(path.join(tempDir, 'openai-session-test.json'), '{}');
+      await fs.writeFile(path.join(tempDir, 'old-openai-session-test.json'), '{}');
       
       await logger.logInteraction({ test: true });
 
       const logFiles = await logger.getLogFiles();
       expect(logFiles).toHaveLength(1);
-      expect(logFiles[0]).toContain('openai-session-');
-      expect(logFiles[0]).toContain('.jsonl');
+      // Should match the new timestamp_sessionId.jsonl pattern
+      expect(logFiles[0]).toMatch(/\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}_.*\.jsonl$/);
     });
   });
 
@@ -321,8 +324,10 @@ describe('OpenAILogger', () => {
       const sessionId = 'my-test-session';
       const testLogger = new OpenAILogger(sessionId, tempDir);
       
-      const expectedPath = path.join(tempDir, `openai-session-${sessionId}.jsonl`);
-      expect(testLogger.getSessionLogPath()).toBe(expectedPath);
+      const sessionLogPath = testLogger.getSessionLogPath();
+      // Should be in the temp directory and match the new filename pattern
+      expect(sessionLogPath.startsWith(tempDir)).toBe(true);
+      expect(sessionLogPath).toMatch(/\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}_my-test-session\.jsonl$/);
     });
   });
 

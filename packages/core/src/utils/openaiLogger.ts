@@ -39,6 +39,7 @@ export class OpenAILogger {
   private logDir: string;
   private initialized: boolean = false;
   private sessionId: string;
+  private sessionStartTime: string;
 
   /**
    * Creates a new OpenAI logger
@@ -47,7 +48,19 @@ export class OpenAILogger {
    */
   constructor(sessionId?: string, customLogDir?: string) {
     this.sessionId = sessionId || uuidv4();
-    this.logDir = customLogDir || path.join(os.homedir(), GEMINI_DIR, 'tmp', this.sessionId);
+    // Generate timestamp in yyyy_MM_dd_hh_mm_ss format
+    const now = new Date();
+    this.sessionStartTime = `${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}_${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}_${String(now.getMinutes()).padStart(2, '0')}_${String(now.getSeconds()).padStart(2, '0')}`;
+    
+    if (customLogDir) {
+      this.logDir = customLogDir;
+    } else {
+      const homeDir = os.homedir();
+      if (!homeDir) {
+        throw new Error('Unable to determine home directory for OpenAI logger');
+      }
+      this.logDir = path.join(homeDir, GEMINI_DIR, 'tmp', 'sessions');
+    }
   }
 
   /**
@@ -86,7 +99,7 @@ export class OpenAILogger {
     }
 
     const interactionId = uuidv4().slice(0, 8);
-    const filename = `openai-session-${this.sessionId}.jsonl`;
+    const filename = `${this.sessionStartTime}_${this.sessionId}.jsonl`;
     const filePath = path.join(this.logDir, filename);
 
     const logEntry: LogEntry = {
@@ -124,8 +137,11 @@ export class OpenAILogger {
   async getLogFiles(limit?: number): Promise<string[]> {
     try {
       const files = await fs.readdir(this.logDir);
+      // Match the new filename pattern: yyyy_MM_dd_hh_mm_ss_sessionId.jsonl
+      // This pattern matches 6 timestamp components (year_month_day_hour_minute_second) followed by session ID
+      const timestampPattern = /^\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}_.*\.jsonl$/;
       const logFiles = files
-        .filter((file) => file.startsWith('openai-session-') && file.endsWith('.jsonl'))
+        .filter((file) => timestampPattern.test(file))
         .map((file) => path.join(this.logDir, file))
         .sort()
         .reverse();
@@ -161,7 +177,7 @@ export class OpenAILogger {
    * @returns The path to the current session's log file
    */
   getSessionLogPath(): string {
-    return path.join(this.logDir, `openai-session-${this.sessionId}.jsonl`);
+    return path.join(this.logDir, `${this.sessionStartTime}_${this.sessionId}.jsonl`);
   }
 
   /**
