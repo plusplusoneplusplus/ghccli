@@ -325,7 +325,7 @@ describe('AgentInvocationTool', () => {
       
       const saveCalls = mockLoggerInstance.saveCheckpoint.mock.calls;
       // Sort the calls by execution ID to ensure consistent testing since agents run in parallel
-      const sortedCalls = saveCalls.sort((a, b) => a[1].localeCompare(b[1]));
+      const sortedCalls = saveCalls.sort((a: any[], b: any[]) => a[1].localeCompare(b[1]));
       expect(sortedCalls[0]).toEqual([mockChatHistory, 'batch-exec-id-agent-0']);
       expect(sortedCalls[1]).toEqual([mockChatHistory, 'batch-exec-id-agent-1']);
     });

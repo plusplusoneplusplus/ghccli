@@ -49,8 +49,6 @@ import { ClearcutLogger } from '../telemetry/clearcut-logger/clearcut-logger.js'
 import { shouldAttemptBrowserLaunch } from '../utils/browser.js';
 import { MCPOAuthConfig } from '../mcp/oauth-provider.js';
 import { IdeClient } from '../ide/ide-client.js';
-import { AgentChat } from '../agents/agentChat.js';
-import { AgentLoader } from '../agents/agentLoader.js';
 
 // Re-export OAuth config type
 export type { MCPOAuthConfig };
