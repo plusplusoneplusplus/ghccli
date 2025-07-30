@@ -52,15 +52,7 @@ export class OpenAILogger {
     const now = new Date();
     this.sessionStartTime = `${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}_${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}_${String(now.getMinutes()).padStart(2, '0')}_${String(now.getSeconds()).padStart(2, '0')}`;
     
-    if (customLogDir) {
-      this.logDir = customLogDir;
-    } else {
-      const homeDir = os.homedir();
-      if (!homeDir) {
-        throw new Error('Unable to determine home directory for OpenAI logger');
-      }
-      this.logDir = path.join(homeDir, GEMINI_DIR, 'tmp', 'sessions');
-    }
+    this.logDir = customLogDir || path.join(os.homedir(), GEMINI_DIR, 'tmp', 'sessions');
   }
 
   /**
