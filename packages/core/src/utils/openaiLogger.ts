@@ -8,6 +8,7 @@ import * as path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { v4 as uuidv4 } from 'uuid';
 import * as os from 'os';
+import { GEMINI_DIR } from './paths.js';
 
 interface TokenUsage {
   promptTokens: number;
@@ -46,7 +47,7 @@ export class OpenAILogger {
    */
   constructor(sessionId?: string, customLogDir?: string) {
     this.sessionId = sessionId || uuidv4();
-    this.logDir = customLogDir || path.join(process.cwd(), 'logs', 'openai');
+    this.logDir = customLogDir || path.join(os.homedir(), GEMINI_DIR, 'tmp', this.sessionId);
   }
 
   /**
