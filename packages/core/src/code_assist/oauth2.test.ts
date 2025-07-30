@@ -107,10 +107,6 @@ describe('oauth2', () => {
           .mockResolvedValue({ email: 'test-gcp-account@gmail.com' }),
       } as unknown as Response);
 
-      const writeFileSpy = vi
-        .spyOn(fs.promises, 'writeFile')
-        .mockResolvedValue(undefined);
-
       const client = await getOauthClient(
         AuthType.LOGIN_WITH_GOOGLE,
         mockConfig,
@@ -138,18 +134,11 @@ describe('oauth2', () => {
         '.gemini',
         'google_accounts.json',
       );
-      expect(writeFileSpy).toHaveBeenCalledWith(
-        googleAccountPath,
-        JSON.stringify(
-          {
-            active: 'test-gcp-account@gmail.com',
-            old: [],
-          },
-          null,
-          2,
-        ),
-        'utf-8',
-      );
+      const cachedContent = fs.readFileSync(googleAccountPath, 'utf-8');
+      expect(JSON.parse(cachedContent)).toEqual({
+        active: 'test-gcp-account@gmail.com',
+        old: [],
+      });
     });
 
     it.skip('should not use GCP token if GOOGLE_CLOUD_ACCESS_TOKEN is not set', async () => {
@@ -172,9 +161,9 @@ describe('oauth2', () => {
 
       // Make it fall through to cached credentials path
       const cachedCreds = { refresh_token: 'cached-token' };
-      vi.spyOn(fs.promises, 'readFile').mockResolvedValue(
-        JSON.stringify(cachedCreds),
-      );
+      const credsPath = path.join(tempHomeDir, '.gemini', 'oauth_creds.json');
+      await fs.promises.mkdir(path.dirname(credsPath), { recursive: true });
+      await fs.promises.writeFile(credsPath, JSON.stringify(cachedCreds));
 
       await getOauthClient(AuthType.LOGIN_WITH_GOOGLE, mockConfig);
 
@@ -203,9 +192,9 @@ describe('oauth2', () => {
 
       // Make it fall through to cached credentials path
       const cachedCreds = { refresh_token: 'cached-token' };
-      vi.spyOn(fs.promises, 'readFile').mockResolvedValue(
-        JSON.stringify(cachedCreds),
-      );
+      const credsPath = path.join(tempHomeDir, '.gemini', 'oauth_creds.json');
+      await fs.promises.mkdir(path.dirname(credsPath), { recursive: true });
+      await fs.promises.writeFile(credsPath, JSON.stringify(cachedCreds));
 
       await getOauthClient(AuthType.LOGIN_WITH_GOOGLE, mockConfig);
 
