@@ -432,6 +432,7 @@ export async function loadCliConfig(
     ideMode,
     ideClient,
     agent: argv.agent,
+    enableOpenAILogging: settings.enableOpenAILogging,
   });
 }
 

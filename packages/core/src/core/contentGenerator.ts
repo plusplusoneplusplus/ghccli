@@ -83,6 +83,7 @@ export function createContentGeneratorConfig(
     model: effectiveModel,
     authType,
     proxy: config?.getProxy(),
+    enableOpenAILogging: config?.getEnableOpenAILogging() ?? false,
   };
 
   // If we are using Google auth or Cloud Shell, these are now disabled for privacy reasons

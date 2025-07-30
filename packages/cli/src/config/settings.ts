@@ -103,6 +103,9 @@ export interface Settings {
   // Add other settings here.
   ideMode?: boolean;
   memoryDiscoveryMaxDirs?: number;
+  
+  // OpenAI logging setting
+  enableOpenAILogging?: boolean;
 }
 
 export interface SettingsError {

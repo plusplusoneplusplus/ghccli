@@ -9,18 +9,43 @@ import { promises as fs } from 'node:fs';
 import { v4 as uuidv4 } from 'uuid';
 import * as os from 'os';
 
+interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  cachedTokens?: number;
+}
+
+interface LogEntry {
+  timestamp: string;
+  sessionId: string;
+  interactionId: string;
+  model: string;
+  tokenUsage?: TokenUsage;
+  request: unknown;
+  response?: unknown;
+  error?: {
+    message: string;
+    stack?: string;
+  };
+}
+
 /**
  * Logger specifically for OpenAI API requests and responses
+ * Logs to session-specific JSONL files with token usage tracking
  */
 export class OpenAILogger {
   private logDir: string;
   private initialized: boolean = false;
+  private sessionId: string;
 
   /**
    * Creates a new OpenAI logger
+   * @param sessionId Session identifier for this logging session
    * @param customLogDir Optional custom log directory path
    */
-  constructor(customLogDir?: string) {
+  constructor(sessionId?: string, customLogDir?: string) {
+    this.sessionId = sessionId || uuidv4();
     this.logDir = customLogDir || path.join(process.cwd(), 'logs', 'openai');
   }
 
@@ -40,28 +65,35 @@ export class OpenAILogger {
   }
 
   /**
-   * Logs an OpenAI API request and its response
+   * Logs an OpenAI API request and its response in JSONL format
    * @param request The request sent to OpenAI
    * @param response The response received from OpenAI
+   * @param model The model used for the request
+   * @param tokenUsage Token usage information if available
    * @param error Optional error if the request failed
    * @returns The file path where the log was written
    */
   async logInteraction(
     request: unknown,
     response?: unknown,
+    model?: string,
+    tokenUsage?: TokenUsage,
     error?: Error,
   ): Promise<string> {
     if (!this.initialized) {
       await this.initialize();
     }
 
-    const timestamp = new Date().toISOString().replace(/:/g, '-');
-    const id = uuidv4().slice(0, 8);
-    const filename = `openai-${timestamp}-${id}.json`;
+    const interactionId = uuidv4().slice(0, 8);
+    const filename = `openai-session-${this.sessionId}.jsonl`;
     const filePath = path.join(this.logDir, filename);
 
-    const logData = {
+    const logEntry: LogEntry = {
       timestamp: new Date().toISOString(),
+      sessionId: this.sessionId,
+      interactionId,
+      model: model || 'unknown',
+      tokenUsage,
       request,
       response: response || null,
       error: error
@@ -69,17 +101,13 @@ export class OpenAILogger {
             message: error.message,
             stack: error.stack,
           }
-        : null,
-      system: {
-        hostname: os.hostname(),
-        platform: os.platform(),
-        release: os.release(),
-        nodeVersion: process.version,
-      },
+        : undefined,
     };
 
     try {
-      await fs.writeFile(filePath, JSON.stringify(logData, null, 2), 'utf-8');
+      // Append to JSONL file (one JSON object per line)
+      const logLine = JSON.stringify(logEntry) + '\n';
+      await fs.appendFile(filePath, logLine, 'utf-8');
       return filePath;
     } catch (writeError) {
       console.error('Failed to write OpenAI log file:', writeError);
@@ -88,19 +116,15 @@ export class OpenAILogger {
   }
 
   /**
-   * Get all logged interactions
+   * Get all logged session files
    * @param limit Optional limit on the number of log files to return (sorted by most recent first)
    * @returns Array of log file paths
    */
   async getLogFiles(limit?: number): Promise<string[]> {
-    if (!this.initialized) {
-      await this.initialize();
-    }
-
     try {
       const files = await fs.readdir(this.logDir);
       const logFiles = files
-        .filter((file) => file.startsWith('openai-') && file.endsWith('.json'))
+        .filter((file) => file.startsWith('openai-session-') && file.endsWith('.jsonl'))
         .map((file) => path.join(this.logDir, file))
         .sort()
         .reverse();
@@ -116,20 +140,44 @@ export class OpenAILogger {
   }
 
   /**
-   * Read a specific log file
+   * Read a specific JSONL log file and return all entries
    * @param filePath The path to the log file
-   * @returns The log file content
+   * @returns Array of log entries
    */
-  async readLogFile(filePath: string): Promise<unknown> {
+  async readLogFile(filePath: string): Promise<LogEntry[]> {
     try {
       const content = await fs.readFile(filePath, 'utf-8');
-      return JSON.parse(content);
+      const lines = content.trim().split('\n').filter(line => line.trim());
+      return lines.map(line => JSON.parse(line) as LogEntry);
     } catch (error) {
       console.error(`Failed to read log file ${filePath}:`, error);
       throw new Error(`Failed to read log file: ${error}`);
     }
   }
+
+  /**
+   * Get the current session's log file path
+   * @returns The path to the current session's log file
+   */
+  getSessionLogPath(): string {
+    return path.join(this.logDir, `openai-session-${this.sessionId}.jsonl`);
+  }
+
+  /**
+   * Get the session ID for this logger instance
+   * @returns The session ID
+   */
+  getSessionId(): string {
+    return this.sessionId;
+  }
 }
 
-// Create a singleton instance for easy import
+// Session-aware logger factory
+export function createSessionLogger(sessionId?: string): OpenAILogger {
+  return new OpenAILogger(sessionId);
+}
+
+// Create a default instance for backward compatibility
+// Note: This will use a generated session ID. For session-specific logging,
+// use createSessionLogger() with the actual session ID.
 export const openaiLogger = new OpenAILogger();

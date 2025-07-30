@@ -29,7 +29,7 @@ import {
   import { logApiResponse } from '../telemetry/loggers.js';
   import { ApiResponseEvent } from '../telemetry/types.js';
   import { Config } from '../config/config.js';
-  import { openaiLogger } from '../utils/openaiLogger.js';
+  import { createSessionLogger } from '../utils/openaiLogger.js';
   
   // OpenAI API type definitions for logging
   interface OpenAIToolCall {
@@ -89,6 +89,7 @@ import {
     private client: OpenAI;
     private model: string;
     private config: Config;
+    private sessionLogger: ReturnType<typeof createSessionLogger>;
     private streamingToolCalls: Map<
       number,
       {
@@ -108,6 +109,7 @@ import {
     constructor(apiKey: string, model: string, config: Config) {
       this.model = model;
       this.config = config;
+      this.sessionLogger = createSessionLogger(config.getSessionId());
       const baseURL = process.env.OPENAI_BASE_URL || '';
   
       // Configure timeout settings - using progressive timeouts
@@ -223,7 +225,13 @@ import {
         if (this.config.getContentGeneratorConfig()?.enableOpenAILogging) {
           const openaiRequest = await this.convertGeminiRequestToOpenAI(request);
           const openaiResponse = this.convertGeminiResponseToOpenAI(response);
-          await openaiLogger.logInteraction(openaiRequest, openaiResponse);
+          const tokenUsage = response.usageMetadata ? {
+            promptTokens: response.usageMetadata.promptTokenCount || 0,
+            completionTokens: response.usageMetadata.candidatesTokenCount || 0,
+            totalTokens: response.usageMetadata.totalTokenCount || 0,
+            cachedTokens: response.usageMetadata.cachedContentTokenCount || 0,
+          } : undefined;
+          await this.sessionLogger.logInteraction(openaiRequest, openaiResponse, this.model, tokenUsage);
         }
   
         return response;
@@ -277,9 +285,17 @@ import {
         // Log error interaction if enabled
         if (this.config.getContentGeneratorConfig()?.enableOpenAILogging) {
           const openaiRequest = await this.convertGeminiRequestToOpenAI(request);
-          await openaiLogger.logInteraction(
+          const tokenUsage = estimatedUsage ? {
+            promptTokens: estimatedUsage.promptTokenCount || 0,
+            completionTokens: estimatedUsage.candidatesTokenCount || 0,
+            totalTokens: estimatedUsage.totalTokenCount || 0,
+            cachedTokens: 0, // estimatedUsage doesn't have cachedContentTokenCount
+          } : undefined;
+          await this.sessionLogger.logInteraction(
             openaiRequest,
             undefined,
+            this.model,
+            tokenUsage,
             error as Error,
           );
         }
@@ -378,7 +394,13 @@ import {
                 this.combineStreamResponsesForLogging(responses);
               const openaiResponse =
                 this.convertGeminiResponseToOpenAI(combinedResponse);
-              await openaiLogger.logInteraction(openaiRequest, openaiResponse);
+              const tokenUsage = finalUsageMetadata ? {
+                promptTokens: finalUsageMetadata.promptTokenCount || 0,
+                completionTokens: finalUsageMetadata.candidatesTokenCount || 0,
+                totalTokens: finalUsageMetadata.totalTokenCount || 0,
+                cachedTokens: finalUsageMetadata.cachedContentTokenCount || 0,
+              } : undefined;
+              await this.sessionLogger.logInteraction(openaiRequest, openaiResponse, this.model, tokenUsage);
             }
           } catch (error) {
             const durationMs = Date.now() - startTime;
@@ -430,9 +452,17 @@ import {
             if (this.config.getContentGeneratorConfig()?.enableOpenAILogging) {
               const openaiRequest =
                 await this.convertGeminiRequestToOpenAI(request);
-              await openaiLogger.logInteraction(
+              const tokenUsage = estimatedUsage ? {
+                promptTokens: estimatedUsage.promptTokenCount || 0,
+                completionTokens: estimatedUsage.candidatesTokenCount || 0,
+                totalTokens: estimatedUsage.totalTokenCount || 0,
+                cachedTokens: 0, // estimatedUsage doesn't have cachedContentTokenCount
+              } : undefined;
+              await this.sessionLogger.logInteraction(
                 openaiRequest,
                 undefined,
+                this.model,
+                tokenUsage,
                 error as Error,
               );
             }
