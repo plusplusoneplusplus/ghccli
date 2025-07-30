@@ -153,10 +153,10 @@ describe('GitService', () => {
   });
 
   describe('setupShadowGitRepository', () => {
-    const repoDir = path.join(mockHomedir, '.ghccli', 'history', mockHash);
-    const hiddenGitIgnorePath = path.join(repoDir, '.gitignore');
-    const visibleGitIgnorePath = path.join(mockProjectRoot, '.gitignore');
-    const gitConfigPath = path.join(repoDir, '.gitconfig');
+    // const repoDir = path.join(mockHomedir, '.ghccli', 'history', mockHash);
+    // const hiddenGitIgnorePath = path.join(repoDir, '.gitignore');
+    // const visibleGitIgnorePath = path.join(mockProjectRoot, '.gitignore');
+    // const gitConfigPath = path.join(repoDir, '.gitconfig');
     let repoDir: string;
     let gitConfigPath: string;
 

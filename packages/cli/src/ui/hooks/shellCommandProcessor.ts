@@ -19,7 +19,6 @@ import {
   getCachedEncodingForBuffer,
   parseCommandWithQuotes,
   isBinary,
-  ShellExecutionResult,
   ShellExecutionService,
 } from '@google/gemini-cli-core';
 import { type PartListUnion } from '@google/genai';
@@ -27,6 +26,7 @@ import { UseHistoryManagerReturn } from './useHistoryManager.js';
 import { SHELL_COMMAND_NAME } from '../constants.js';
 import { formatMemoryUsage } from '../utils/formatters.js';
 import crypto from 'crypto';
+import stripAnsi from 'strip-ansi';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
