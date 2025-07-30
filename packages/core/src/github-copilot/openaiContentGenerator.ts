@@ -895,7 +895,10 @@ import {
   
       // Clean up orphaned tool calls and merge consecutive assistant messages
       const cleanedMessages = this.cleanOrphanedToolCalls(messages);
-      return this.mergeConsecutiveAssistantMessages(cleanedMessages);
+      const mergedMessages = this.mergeConsecutiveAssistantMessages(cleanedMessages);
+      
+      // Apply any provider-specific message transformations (e.g., cache control for GitHub Copilot)
+      return this.applyProviderSpecificTransforms(mergedMessages);
     }
   
     /**
@@ -1103,6 +1106,17 @@ import {
       }
   
       return merged;
+    }
+
+    /**
+     * Override this method in subclasses to apply provider-specific message transformations.
+     * For example, GitHub Copilot implementation can add cache control headers.
+     */
+    protected applyProviderSpecificTransforms(
+      messages: OpenAI.Chat.ChatCompletionMessageParam[],
+    ): OpenAI.Chat.ChatCompletionMessageParam[] {
+      // Base implementation does nothing - returns messages as-is
+      return messages;
     }
   
     private convertToGeminiFormat(

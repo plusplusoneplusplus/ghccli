@@ -26,6 +26,7 @@ vi.mock('./github-copilot-auth.js', () => ({
 // Mock config
 const mockConfig = {
   getModel: vi.fn().mockReturnValue('gemini-2.0-flash-exp'),
+  getContentGeneratorConfig: vi.fn().mockReturnValue(undefined),
 } as unknown as Config;
 
 // Helper to create a ReadableStream from chunks
@@ -856,4 +857,257 @@ describe('GitHubCopilotGeminiServer - Integration Tests', () => {
     });
   });
 
+});
+
+describe('GitHubCopilotGeminiServer - Cache Control Tests', () => {
+  let server: GitHubCopilotGeminiServer;
+  let mockTokenManager: any;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockTokenManager = {
+      getCachedOrFreshToken: vi.fn().mockResolvedValue({ token: 'mock-copilot-token' }),
+      validateToken: vi.fn().mockResolvedValue(true),
+      getCopilotToken: vi.fn().mockResolvedValue({ token: 'mock-copilot-token' }),
+      getGitHubToken: vi.fn().mockResolvedValue('mock-github-token'),
+      config: {
+        editorName: 'test-editor',
+        editorVersion: '1.0.0',
+        pluginName: 'test-plugin', 
+        pluginVersion: '1.0.0',
+      }
+    };
+    server = new GitHubCopilotGeminiServer(mockTokenManager, mockConfig);
+  });
+
+  describe('applyProviderSpecificTransforms with cache control', () => {
+    it('should add copilot_cache_control only to the very last message regardless of role', () => {
+      const baseMessages = [
+        { role: 'system' as const, content: 'You are a helpful assistant.' },
+        { role: 'user' as const, content: 'User message 1' },
+        { role: 'assistant' as const, content: 'Assistant response 1' },
+        { role: 'user' as const, content: 'User message 2' },
+        { role: 'assistant' as const, content: 'Assistant response 2' },
+      ];
+
+      // Use the protected method through server instance
+      const messages = (server as any).applyProviderSpecificTransforms(baseMessages);
+
+      // System message should NOT have cache control
+      expect(messages[0]).toMatchObject({
+        role: 'system',
+        content: 'You are a helpful assistant.'
+      });
+      expect(messages[0]).not.toHaveProperty('copilot_cache_control');
+
+      // First user message should NOT have cache control
+      expect(messages[1]).toMatchObject({
+        role: 'user',
+        content: 'User message 1'
+      });
+      expect(messages[1]).not.toHaveProperty('copilot_cache_control');
+
+      // First assistant message should NOT have cache control
+      expect(messages[2]).toMatchObject({
+        role: 'assistant',
+        content: 'Assistant response 1'
+      });
+      expect(messages[2]).not.toHaveProperty('copilot_cache_control');
+
+      // Second user message should NOT have cache control
+      expect(messages[3]).toMatchObject({
+        role: 'user',
+        content: 'User message 2'
+      });
+      expect(messages[3]).not.toHaveProperty('copilot_cache_control');
+
+      // ONLY the very last message should have cache control (regardless of role)
+      expect(messages[4]).toMatchObject({
+        role: 'assistant',
+        content: 'Assistant response 2',
+        copilot_cache_control: { type: 'ephemeral' }
+      });
+    });
+
+    it('should handle tool calls with cache control correctly', () => {
+      const baseMessages = [
+        { role: 'user' as const, content: 'User message' },
+        { 
+          role: 'assistant' as const, 
+          content: null,
+          tool_calls: [{ 
+            id: 'call_123', 
+            type: 'function' as const,
+            function: { name: 'test_function', arguments: '{"param":"value"}' }
+          }]
+        },
+        { 
+          role: 'tool' as const,
+          tool_call_id: 'call_123',
+          content: '{"result":"success"}'
+        },
+        { role: 'assistant' as const, content: 'Final response' },
+      ];
+
+      const messages = (server as any).applyProviderSpecificTransforms(baseMessages);
+
+      // User message should NOT have cache control (not the last message)
+      expect(messages[0]).toMatchObject({
+        role: 'user',
+        content: 'User message'
+      });
+      expect(messages[0]).not.toHaveProperty('copilot_cache_control');
+
+      // Assistant message with tool call should NOT have cache control
+      expect(messages[1]).toMatchObject({
+        role: 'assistant'
+      });
+      expect(messages[1]).not.toHaveProperty('copilot_cache_control');
+
+      // Tool response should NOT have cache control
+      expect(messages[2]).toMatchObject({
+        role: 'tool'
+      });
+      expect(messages[2]).not.toHaveProperty('copilot_cache_control');
+
+      // Final assistant message should have cache control (it's the very last message)
+      expect(messages[3]).toMatchObject({
+        role: 'assistant',
+        content: 'Final response',
+        copilot_cache_control: { type: 'ephemeral' }
+      });
+    });
+
+    it('should handle single user message correctly', () => {
+      const baseMessages = [
+        { role: 'user' as const, content: 'Single user message' }
+      ];
+
+      const messages = (server as any).applyProviderSpecificTransforms(baseMessages);
+
+      // Single user message should have cache control (it's the very last message)
+      expect(messages[0]).toMatchObject({
+        role: 'user',
+        content: 'Single user message',
+        copilot_cache_control: { type: 'ephemeral' }
+      });
+    });
+
+    it('should handle empty messages array', () => {
+      const baseMessages: any[] = [];
+      const messages = (server as any).applyProviderSpecificTransforms(baseMessages);
+      expect(messages).toEqual([]);
+    });
+
+    it('should handle multiple user messages correctly - only the very last message gets cached', () => {
+      const baseMessages = [
+        { role: 'user' as const, content: 'First user message' },
+        { role: 'assistant' as const, content: 'First response' },
+        { role: 'user' as const, content: 'Second user message' },
+        { role: 'assistant' as const, content: 'Second response' },
+        { role: 'user' as const, content: 'Third user message' }
+      ];
+
+      const messages = (server as any).applyProviderSpecificTransforms(baseMessages);
+
+      // First user message should NOT have cache control
+      expect(messages[0]).toMatchObject({
+        role: 'user',
+        content: 'First user message'
+      });
+      expect(messages[0]).not.toHaveProperty('copilot_cache_control');
+
+      // First assistant message should NOT have cache control
+      expect(messages[1]).toMatchObject({
+        role: 'assistant',
+        content: 'First response'
+      });
+      expect(messages[1]).not.toHaveProperty('copilot_cache_control');
+
+      // Second user message should NOT have cache control
+      expect(messages[2]).toMatchObject({
+        role: 'user',
+        content: 'Second user message'
+      });
+      expect(messages[2]).not.toHaveProperty('copilot_cache_control');
+
+      // Second assistant message should NOT have cache control
+      expect(messages[3]).toMatchObject({
+        role: 'assistant',
+        content: 'Second response'
+      });
+      expect(messages[3]).not.toHaveProperty('copilot_cache_control');
+
+      // Only the very last message should have cache control (regardless of role)
+      expect(messages[4]).toMatchObject({
+        role: 'user',
+        content: 'Third user message',
+        copilot_cache_control: { type: 'ephemeral' }
+      });
+    });
+
+    it('should handle tool response as last message correctly', () => {
+      const baseMessages = [
+        { role: 'user' as const, content: 'User message' },
+        { 
+          role: 'assistant' as const, 
+          content: null,
+          tool_calls: [{ 
+            id: 'call_123', 
+            type: 'function' as const,
+            function: { name: 'test_function', arguments: '{"param":"value"}' }
+          }]
+        },
+        { 
+          role: 'tool' as const,
+          tool_call_id: 'call_123',
+          content: '{"result":"success"}'
+        }
+      ];
+
+      const messages = (server as any).applyProviderSpecificTransforms(baseMessages);
+
+      // User message should NOT have cache control
+      expect(messages[0]).toMatchObject({
+        role: 'user',
+        content: 'User message'
+      });
+      expect(messages[0]).not.toHaveProperty('copilot_cache_control');
+
+      // Assistant message with tool call should NOT have cache control
+      expect(messages[1]).toMatchObject({
+        role: 'assistant'
+      });
+      expect(messages[1]).not.toHaveProperty('copilot_cache_control');
+
+      // Tool response should have cache control (it's the very last message)
+      expect(messages[2]).toMatchObject({
+        role: 'tool',
+        tool_call_id: 'call_123',
+        content: '{"result":"success"}',
+        copilot_cache_control: { type: 'ephemeral' }
+      });
+    });
+  });
+
+  describe('Base OpenAI generator behavior', () => {
+    it('should not add cache control in base OpenAI implementation', async () => {
+      const { OpenAIContentGenerator } = await import('./openaiContentGenerator.js');
+      const baseGenerator = new OpenAIContentGenerator('test-key', 'gpt-4', mockConfig);
+      
+      const baseMessages = [
+        { role: 'system' as const, content: 'System message' },
+        { role: 'user' as const, content: 'User message' },
+        { role: 'assistant' as const, content: 'Assistant response' },
+      ];
+
+      const messages = (baseGenerator as any).applyProviderSpecificTransforms(baseMessages);
+
+      // Base implementation should return messages unchanged (no cache control)
+      messages.forEach((msg: any) => {
+        expect(msg).not.toHaveProperty('copilot_cache_control');
+      });
+      expect(messages).toEqual(baseMessages);
+    });
+  });
 }); 

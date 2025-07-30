@@ -39,6 +39,33 @@ export class GitHubCopilotGeminiServer extends OpenAIContentGenerator {
   }
 
   /**
+   * Apply GitHub Copilot specific cache control strategy.
+   * Only the very last message gets cache control for efficient prefix caching,
+   * regardless of its role (user, assistant, tool, system).
+   */
+  protected applyProviderSpecificTransforms(
+    messages: OpenAI.Chat.ChatCompletionMessageParam[],
+  ): Array<OpenAI.Chat.ChatCompletionMessageParam & { copilot_cache_control?: { type: 'ephemeral' } }> {
+    if (messages.length === 0) return messages as any;
+
+    // Copy messages without modifying the originals
+    const messagesWithCache: Array<OpenAI.Chat.ChatCompletionMessageParam & { copilot_cache_control?: { type: 'ephemeral' } }> = 
+      messages.map(msg => ({ ...msg }));
+
+    // Add cache control to the very last message (regardless of role)
+    // This creates a cache breakpoint at the latest message being sent
+    if (messagesWithCache.length > 0) {
+      const lastIndex = messagesWithCache.length - 1;
+      messagesWithCache[lastIndex] = {
+        ...messagesWithCache[lastIndex],
+        copilot_cache_control: { type: 'ephemeral' as const }
+      };
+    }
+
+    return messagesWithCache;
+  }
+
+  /**
    * Override to provide GitHub Copilot Bearer token and required headers
    */
   protected async getAdditionalHeaders(): Promise<Record<string, string> | undefined> {
