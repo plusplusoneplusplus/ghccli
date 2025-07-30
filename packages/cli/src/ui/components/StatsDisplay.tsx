@@ -69,10 +69,11 @@ const ModelUsageTable: React.FC<{
   totalCachedTokens: number;
   cacheEfficiency: number;
 }> = ({ models, totalCachedTokens, cacheEfficiency }) => {
-  const nameWidth = 25;
-  const requestsWidth = 8;
-  const inputTokensWidth = 15;
+  const nameWidth = 28;
+  const requestsWidth = 6;
+  const inputTokensWidth = 14;
   const outputTokensWidth = 15;
+  const cachedTokensWidth = 15;
 
   return (
     <Box flexDirection="column" marginTop={1}>
@@ -81,14 +82,17 @@ const ModelUsageTable: React.FC<{
         <Box width={nameWidth}>
           <Text bold>Model Usage</Text>
         </Box>
-        <Box width={requestsWidth} justifyContent="flex-end">
+        <Box width={requestsWidth} justifyContent="flex-end" paddingRight={1}>
           <Text bold>Reqs</Text>
         </Box>
-        <Box width={inputTokensWidth} justifyContent="flex-end">
+        <Box width={inputTokensWidth} justifyContent="flex-end" paddingRight={1}>
           <Text bold>Input Tokens</Text>
         </Box>
-        <Box width={outputTokensWidth} justifyContent="flex-end">
+        <Box width={outputTokensWidth} justifyContent="flex-end" paddingRight={1}>
           <Text bold>Output Tokens</Text>
+        </Box>
+        <Box width={cachedTokensWidth} justifyContent="flex-end">
+          <Text bold>Cached Tokens</Text>
         </Box>
       </Box>
       {/* Divider */}
@@ -98,7 +102,7 @@ const ModelUsageTable: React.FC<{
         borderTop={false}
         borderLeft={false}
         borderRight={false}
-        width={nameWidth + requestsWidth + inputTokensWidth + outputTokensWidth}
+        width={nameWidth + requestsWidth + inputTokensWidth + outputTokensWidth + cachedTokensWidth}
       ></Box>
 
       {/* Rows */}
@@ -107,34 +111,26 @@ const ModelUsageTable: React.FC<{
           <Box width={nameWidth}>
             <Text>{name.replace('-001', '')}</Text>
           </Box>
-          <Box width={requestsWidth} justifyContent="flex-end">
+          <Box width={requestsWidth} justifyContent="flex-end" paddingRight={1}>
             <Text>{modelMetrics.api.totalRequests}</Text>
           </Box>
-          <Box width={inputTokensWidth} justifyContent="flex-end">
+          <Box width={inputTokensWidth} justifyContent="flex-end" paddingRight={1}>
             <Text color={Colors.AccentYellow}>
               {modelMetrics.tokens.prompt.toLocaleString()}
             </Text>
           </Box>
-          <Box width={outputTokensWidth} justifyContent="flex-end">
+          <Box width={outputTokensWidth} justifyContent="flex-end" paddingRight={1}>
             <Text color={Colors.AccentYellow}>
               {modelMetrics.tokens.candidates.toLocaleString()}
             </Text>
           </Box>
+          <Box width={cachedTokensWidth} justifyContent="flex-end">
+            <Text color={Colors.AccentGreen}>
+              {modelMetrics.tokens.cached > 0 ? modelMetrics.tokens.cached.toLocaleString() : '-'}
+            </Text>
+          </Box>
         </Box>
       ))}
-      {cacheEfficiency > 0 && (
-        <Box flexDirection="column" marginTop={1}>
-          <Text>
-            <Text color={Colors.AccentGreen}>Savings Highlight:</Text>{' '}
-            {totalCachedTokens.toLocaleString()} ({cacheEfficiency.toFixed(1)}
-            %) of input tokens were served from the cache, reducing costs.
-          </Text>
-          <Box height={1} />
-          <Text color={Colors.Gray}>
-            » Tip: For a full token breakdown, run `/stats model`.
-          </Text>
-        </Box>
-      )}
     </Box>
   );
 };

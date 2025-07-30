@@ -52,6 +52,13 @@ import {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
+    prompt_tokens_details?: {
+      cached_tokens?: number;
+    };
+    completion_tokens_details?: {
+      accepted_prediction_tokens?: number;
+      rejected_prediction_tokens?: number;
+    };
   }
   
   interface OpenAIChoice {
@@ -1178,6 +1185,9 @@ import {
           prompt_tokens?: number;
           completion_tokens?: number;
           total_tokens?: number;
+          prompt_tokens_details?: {
+            cached_tokens?: number;
+          };
         };
   
         const promptTokens = usage.prompt_tokens || 0;
@@ -1199,6 +1209,7 @@ import {
           promptTokenCount: finalPromptTokens,
           candidatesTokenCount: finalCompletionTokens,
           totalTokenCount: totalTokens,
+          cachedContentTokenCount: usage.prompt_tokens_details?.cached_tokens || 0,
         };
       }
   
@@ -1301,6 +1312,9 @@ import {
           prompt_tokens?: number;
           completion_tokens?: number;
           total_tokens?: number;
+          prompt_tokens_details?: {
+            cached_tokens?: number;
+          };
         };
   
         const promptTokens = usage.prompt_tokens || 0;
@@ -1322,6 +1336,7 @@ import {
           promptTokenCount: finalPromptTokens,
           candidatesTokenCount: finalCompletionTokens,
           totalTokenCount: totalTokens,
+          cachedContentTokenCount: usage.prompt_tokens_details?.cached_tokens || 0,
         };
       }
   
@@ -1769,6 +1784,9 @@ import {
           prompt_tokens: response.usageMetadata.promptTokenCount || 0,
           completion_tokens: response.usageMetadata.candidatesTokenCount || 0,
           total_tokens: response.usageMetadata.totalTokenCount || 0,
+          prompt_tokens_details: {
+            cached_tokens: response.usageMetadata.cachedContentTokenCount || 0,
+          },
         };
       }
   
