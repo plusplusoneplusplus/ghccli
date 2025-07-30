@@ -306,8 +306,8 @@ async function loadNonInteractiveConfig(
   if (config.getApprovalMode() !== ApprovalMode.YOLO) {
     // Everything is not allowed, ensure that only read-only tools are configured.
     const existingExcludeTools = settings.merged.excludeTools || [];
-    const interactiveTools = [
-      ShellTool.Name,
+    const interactiveTools = [ ""
+      // ShellTool.Name,
       // EditTool.Name,
       // WriteFileTool.Name,
     ];
