@@ -100,6 +100,147 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     return description;
   }
 
+  private checkDangerousPatterns(command: string): string | null {
+    const isWindows = os.platform() === 'win32';
+    const normalizedCommand = command.trim();
+    
+    if (isWindows) {
+      return this.checkWindowsDangerousPatterns(normalizedCommand);
+    } else {
+      return this.checkUnixDangerousPatterns(normalizedCommand);
+    }
+  }
+
+  private checkUnixDangerousPatterns(command: string): string | null {
+    // List of dangerous command patterns to block on Unix/Linux/macOS
+    // Order matters - more specific patterns should come first
+    const dangerousPatterns = [
+      // System directory operations (more specific, should be checked first)
+      { pattern: /\b(sudo\s+)?rm\s+.*\/(bin|sbin|usr|etc|var|sys|proc|dev)\b/i, message: 'Removal of system directories is not allowed' },
+      
+      // Mass file operations in user directories (should be checked before general rm -rf)
+      { pattern: /\b(rm|mv|cp)\s+.*\/(home|Users|Documents)\/.*\*/i, message: 'Mass file operations in user directories with wildcards are not allowed' },
+      
+      // Destructive file operations (more general, checked after specific patterns)
+      { pattern: /\brm\s+.*-rf?\b/i, message: 'rm -rf commands are not allowed for security reasons' },
+      { pattern: /\brm\s+.*-fr?\b/i, message: 'rm -fr commands are not allowed for security reasons' },
+      { pattern: /\brm\s+.*--recursive.*--force\b/i, message: 'Recursive force removal commands are not allowed' },
+      { pattern: /\brm\s+.*--force.*--recursive\b/i, message: 'Force recursive removal commands are not allowed' },
+      
+      // Permission changes
+      { pattern: /\bchmod\s+777\b/i, message: 'chmod 777 is not allowed for security reasons' },
+      { pattern: /\bchown\s+.*root\b/i, message: 'Changing ownership to root is not allowed' },
+      
+      // Network and system access
+      { pattern: /\b(wget|curl)\s+.*\|\s*(sh|bash|zsh)\b/i, message: 'Downloading and executing scripts is not allowed' },
+      { pattern: /\bdd\s+.*of=\/dev\/(sd|hd)[a-z]\b/i, message: 'Writing to disk devices is not allowed' },
+      
+      // Process manipulation
+      { pattern: /\bkillall\s+-9\b/i, message: 'Force killing all processes is not allowed' },
+      { pattern: /\bpkill\s+-9\b/i, message: 'Force killing processes by name is not allowed' },
+      
+      // File system bombs
+      { pattern: /:\(\)\{.*:\|:&\}/i, message: 'Fork bomb patterns are not allowed' },
+      { pattern: /\bfind\s+\/.*-exec\s+rm\b/i, message: 'find with rm execution is not allowed' },
+      
+      // Data destruction
+      { pattern: />\s*\/dev\/(null|zero|random|urandom)\s*<\s*\/dev\/(sd|hd)[a-z]/i, message: 'Disk wiping commands are not allowed' },
+      { pattern: /\bmkfs\b/i, message: 'File system formatting commands are not allowed' },
+      { pattern: /\bfdisk\b/i, message: 'Disk partitioning commands are not allowed' },
+    ];
+    
+    for (const { pattern, message } of dangerousPatterns) {
+      if (pattern.test(command)) {
+        return message;
+      }
+    }
+
+    // Check for suspicious root operations
+    if (/\bsu\s+root\b/i.test(command) || /\bsudo\s+su\b/i.test(command)) {
+      return 'Root access commands are not allowed';
+    }
+
+    // Check for mass file operations in sensitive locations
+    if (/\b(rm|mv|cp)\s+.*[-\/].*\*.*\/(home|Users|Documents)\b/i.test(command)) {
+      return 'Mass file operations in user directories with wildcards are not allowed';
+    }
+
+    return null;
+  }
+
+  private checkWindowsDangerousPatterns(command: string): string | null {
+    // List of dangerous command patterns to block on Windows
+    const dangerousPatterns = [
+      // Destructive file operations
+      { pattern: /\bdel\s+.*\/[sq]\b/i, message: 'del /s or del /q commands are not allowed for security reasons' },
+      { pattern: /\brmdir\s+.*\/s\b/i, message: 'rmdir /s commands are not allowed for security reasons' },
+      { pattern: /\brd\s+.*\/s\b/i, message: 'rd /s commands are not allowed for security reasons' },
+      { pattern: /\berase\s+.*\/[sq]\b/i, message: 'erase /s or erase /q commands are not allowed for security reasons' },
+      
+      // System directory operations
+      { pattern: /\b(del|rmdir|rd|erase)\s+.*[Cc]:\\[Ww]indows\b/i, message: 'Operations on Windows system directory are not allowed' },
+      { pattern: /\b(del|rmdir|rd|erase)\s+.*[Cc]:\\[Pp]rogram\s+[Ff]iles\b/i, message: 'Operations on Program Files directory are not allowed' },
+      { pattern: /\b(del|rmdir|rd|erase)\s+.*[Cc]:\\[Ss]ystem32\b/i, message: 'Operations on System32 directory are not allowed' },
+      { pattern: /\b(del|rmdir|rd|erase)\s+.*[Cc]:\\[Uu]sers\\[Aa]ll\s+[Uu]sers\b/i, message: 'Operations on All Users directory are not allowed' },
+      
+      // Registry operations
+      { pattern: /\breg\s+(delete|del)\s+.*HKEY_LOCAL_MACHINE\b/i, message: 'Registry deletion operations on HKLM are not allowed' },
+      { pattern: /\breg\s+(delete|del)\s+.*HKLM\b/i, message: 'Registry deletion operations on HKLM are not allowed' },
+      { pattern: /\bregedit\s+.*\/[sd]\b/i, message: 'Registry import/export operations are not allowed' },
+      
+      // System manipulation
+      { pattern: /\bformat\s+[Cc]:/i, message: 'Formatting system drive is not allowed' },
+      { pattern: /\bdiskpart\b/i, message: 'Disk partitioning commands are not allowed' },
+      { pattern: /\bfdisk\s+\/mbr\b/i, message: 'Master boot record operations are not allowed' },
+      
+      // Network and system access
+      { pattern: /\b(powershell|pwsh)\s+.*Invoke-WebRequest.*\|\s*Invoke-Expression\b/i, message: 'Downloading and executing scripts is not allowed' },
+      { pattern: /\b(wget|curl|iwr)\s+.*\|\s*(powershell|pwsh|cmd)\b/i, message: 'Downloading and executing scripts is not allowed' },
+      { pattern: /\bcertlm\s+.*-delstore\b/i, message: 'Certificate store manipulation is not allowed' },
+      
+      // Process manipulation
+      { pattern: /\btaskkill\s+.*\/f\s+\/im\s+explorer\.exe\b/i, message: 'Force killing Explorer is not allowed' },
+      { pattern: /\btaskkill\s+.*\/f\s+\/im\s+winlogon\.exe\b/i, message: 'Force killing Winlogon is not allowed' },
+      { pattern: /\btaskkill\s+.*\/f\s+\/im\s+csrss\.exe\b/i, message: 'Force killing critical system processes is not allowed' },
+      { pattern: /\bwmic\s+process\s+.*delete\b/i, message: 'WMIC process deletion is not allowed' },
+      
+      // Service manipulation
+      { pattern: /\bsc\s+(delete|stop)\s+(Spooler|BITS|Winmgmt|RpcSs|Dhcp|Dnscache)\b/i, message: 'Critical service manipulation is not allowed' },
+      { pattern: /\bnet\s+stop\s+(Spooler|BITS|Winmgmt|RpcSs|Dhcp|Dnscache)\b/i, message: 'Stopping critical services is not allowed' },
+      
+      // File system bombs
+      { pattern: /\bfor\s+.*\bdo\s+.*del\s+.*\*\b/i, message: 'Batch file deletion loops are not allowed' },
+      { pattern: /\bdir\s+.*\|\s*del\b/i, message: 'Piped directory listing to deletion is not allowed' },
+      
+      // PowerShell specific
+      { pattern: /\bRemove-Item\s+.*-Recurse\s+.*-Force\b/i, message: 'PowerShell recursive force removal is not allowed' },
+      { pattern: /\bRemove-Item\s+.*-Force\s+.*-Recurse\b/i, message: 'PowerShell force recursive removal is not allowed' },
+      { pattern: /\bGet-ChildItem\s+.*\|\s*Remove-Item\s+.*-Force\b/i, message: 'PowerShell piped force removal is not allowed' },
+      
+      // UAC and privilege escalation
+      { pattern: /\bStart-Process\s+.*-Verb\s+RunAs\b/i, message: 'UAC elevation requests are not allowed' },
+      { pattern: /\brunas\s+\/user:Administrator\b/i, message: 'Running as Administrator is not allowed' },
+    ];
+    
+    for (const { pattern, message } of dangerousPatterns) {
+      if (pattern.test(command)) {
+        return message;
+      }
+    }
+
+    // Check for mass file operations in sensitive locations (Windows paths)
+    if (/\b(del|rmdir|rd|erase|Remove-Item)\s+.*\\\\?(Users|Documents and Settings|ProgramData)\\.*\*/i.test(command)) {
+      return 'Mass file operations in user directories with wildcards are not allowed';
+    }
+
+    // Check for system file operations
+    if (/\b(del|rmdir|rd|erase|Remove-Item)\s+.*\*\.*(exe|dll|sys|ini|bat|cmd|ps1)\b/i.test(command)) {
+      return 'Mass operations on system file types are not allowed';
+    }
+
+    return null;
+  }
+
   validateToolParams(params: ShellToolParams): string | null {
     const commandCheck = isCommandAllowed(params.command, this.config);
     if (!commandCheck.allowed) {
@@ -111,6 +252,13 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
       }
       return commandCheck.reason;
     }
+
+    // Check for dangerous command patterns
+    const dangerousPatternCheck = this.checkDangerousPatterns(params.command);
+    if (dangerousPatternCheck) {
+      return dangerousPatternCheck;
+    }
+
     const errors = SchemaValidator.validate(this.schema.parameters, params);
     if (errors) {
       return errors;
