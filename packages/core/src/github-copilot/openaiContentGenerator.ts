@@ -806,7 +806,7 @@ import {
       return openAITools;
     }
   
-    private convertToOpenAIFormat(
+    protected convertToOpenAIFormat(
       request: GenerateContentParameters,
     ): OpenAI.Chat.ChatCompletionMessageParam[] {
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];

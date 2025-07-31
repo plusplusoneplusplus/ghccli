@@ -11,11 +11,14 @@ import {
   EmbedContentParameters,
   EmbedContentResponse,
   GenerateContentParameters,
-  GenerateContentResponse
+  GenerateContentResponse,
+  Content,
+  Part
 } from '@google/genai';
 import { ContentGenerator } from '../core/contentGenerator.js';
 import { Config } from '../config/config.js';
 import { OpenAIContentGenerator } from './openaiContentGenerator.js';
+import { getCoreSystemPrompt } from '../core/prompts.js';
 import OpenAI from 'openai';
 
 let globalTokenManager: GitHubCopilotTokenManager | null = null;
@@ -63,6 +66,32 @@ export class GitHubCopilotGeminiServer extends OpenAIContentGenerator {
     }
 
     return messagesWithCache;
+  }
+
+  /**
+   * Override to include getCoreSystemPrompt when converting to OpenAI format
+   */
+  protected convertToOpenAIFormat(
+    request: GenerateContentParameters,
+  ): OpenAI.Chat.ChatCompletionMessageParam[] {
+    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+
+    // First, add the core system prompt
+    const coreSystemPrompt = getCoreSystemPrompt();
+    if (coreSystemPrompt) {
+      messages.push({
+        role: 'system' as const,
+        content: coreSystemPrompt,
+      });
+    }
+
+    // Then get messages from the parent implementation
+    const parentMessages = super.convertToOpenAIFormat(request);
+    
+    // Add all non-system messages from parent (system messages come after core prompt)
+    messages.push(...parentMessages);
+    
+    return messages;
   }
 
   /**
