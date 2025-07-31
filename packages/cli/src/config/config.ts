@@ -204,7 +204,6 @@ export async function parseArguments(): Promise<CliArgs> {
       alias: 'g',
       type: 'string',
       description: 'Select the agent to launch',
-      default: 'default',
     })
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
@@ -431,7 +430,7 @@ export async function loadCliConfig(
     summarizeToolOutput: settings.summarizeToolOutput,
     ideMode,
     ideClient,
-    agent: argv.agent,
+    agent: argv.agent || settings.selectedAgent || 'default',
     enableOpenAILogging: settings.enableOpenAILogging ?? true
   });
 }

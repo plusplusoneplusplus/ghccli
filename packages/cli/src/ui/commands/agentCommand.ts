@@ -12,6 +12,7 @@ import {
 } from './types.js';
 import { AgentLoader } from '@google/gemini-cli-core';
 import { switchAgent } from '../utils/agentUtils.js';
+import { SettingScope } from '../../config/settings.js';
 
 export const agentCommand: SlashCommand = {
   name: 'agent',
@@ -21,7 +22,7 @@ export const agentCommand: SlashCommand = {
     context: CommandContext,
     args: string,
   ): Promise<SlashCommandActionReturn> => {
-    const { config } = context.services;
+    const { config, settings } = context.services;
     if (!config) {
       return {
         type: 'message',
@@ -71,6 +72,11 @@ export const agentCommand: SlashCommand = {
       
       // Switch to the requested agent
       await switchAgent(config, trimmedArgs);
+
+      // Save the selected agent to user settings
+      if (settings) {
+        settings.setValue(SettingScope.User, 'selectedAgent', trimmedArgs);
+      }
 
       return {
         type: 'message',

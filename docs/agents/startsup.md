@@ -70,6 +70,90 @@ The CLI automatically discovers and loads `GEMINI.md` files from:
 - Extension configurations are parsed safely with error handling
 - Authentication tokens are stored securely in the `.gemini` directory
 
+## Adding Persisted Configuration Settings
+
+To add a new configuration setting that persists across sessions, you need to modify several files:
+
+### 1. Settings Interface (`packages/cli/src/config/settings.ts`)
+Add the new setting to the `Settings` interface:
+```typescript
+export interface Settings {
+  // ... existing settings
+  yourNewSetting?: string; // or appropriate type
+}
+```
+
+### 2. CLI Option (`packages/cli/src/config/config.ts`)
+If the setting should be controllable via command line, add it to the yargs configuration in `parseArguments()`:
+```typescript
+.option('your-new-setting', {
+  type: 'string',
+  description: 'Description of your setting',
+  // Note: Don't add default here if you want settings file fallback
+})
+```
+
+And add it to the `CliArgs` interface:
+```typescript
+export interface CliArgs {
+  // ... existing args
+  yourNewSetting: string | undefined;
+}
+```
+
+### 3. Config Loading (`packages/cli/src/config/config.ts`)
+Update `loadCliConfig()` to use the setting with proper fallback order:
+```typescript
+return new Config({
+  // ... other config
+  yourNewSetting: argv.yourNewSetting || settings.yourNewSetting || 'default-value',
+});
+```
+
+### 4. Core Config (`packages/core/src/config/config.ts`)
+Add the setting to the core `ConfigParameters` interface and `Config` class:
+```typescript
+export interface ConfigParameters {
+  // ... existing parameters
+  yourNewSetting?: string;
+}
+
+export class Config {
+  private yourNewSetting: string;
+
+  constructor(params: ConfigParameters) {
+    // ... existing constructor
+    this.yourNewSetting = params.yourNewSetting || 'default-value';
+  }
+
+  getYourNewSetting(): string {
+    return this.yourNewSetting;
+  }
+}
+```
+
+### 5. Persistence Logic
+If the setting should be updatable at runtime (like `selectedAgent`), add persistence logic where the setting is changed:
+```typescript
+// In a command or UI component
+settings.setValue(SettingScope.User, 'yourNewSetting', newValue);
+```
+
+### Example: selectedAgent Implementation
+The `selectedAgent` setting follows this pattern:
+
+1. **Settings interface**: `selectedAgent?: string` in `Settings`
+2. **CLI option**: `--agent` option without default value
+3. **Config loading**: `agent: argv.agent || settings.selectedAgent || 'default'`
+4. **Core config**: Stored as `agent` property in `Config` class
+5. **Persistence**: `/agent` command calls `settings.setValue()` to save changes
+
+This ensures the setting:
+- Can be set via CLI flag (highest priority)
+- Persists in settings.json (middle priority)
+- Has a reasonable default (lowest priority)
+- Is available throughout the application via the Config object
+
 ## Debugging Startup Issues
 
 To debug startup issues:
