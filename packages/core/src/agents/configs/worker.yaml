@@ -1,0 +1,38 @@
+# Worker Agent Configuration
+name: worker
+description: daily worker agent
+methods: [] # No methods - agent will use default behavior via empty string method
+
+# Available agents that this agent can invoke
+availableAgents: []
+
+metadata:
+  supportsStreaming: false
+  supportsTools: true
+  requiresWorkspace: true
+  supportsPromptSelection: false
+  
+  languageModel:
+    preferred: gpt-4.1
+  
+  promptSupport:
+    supportsPrompts: true
+    supportsTsxMessages: false
+    promptParameterName: prompt
+  
+  toolPreferences:
+    allowedToolRegex:
+      - ".*"  # Worker agent can use all tools for autonomous operation
+  
+  specialization: autonomous-worker
+  
+  executionConfig:
+    maxRounds: 100           # High max rounds for complex autonomous tasks
+    maxContextTokens: 32000  # Max context tokens for complex tasks
+    maxToolCalls: 1000       # High tool call limit for extensive research and iteration
+
+# System prompt for the worker agent
+# Can be either a string content or a file path (relative to configs directory)
+systemPrompt:
+  type: file  # Options: 'content' for direct string, 'file' for file path
+  value: worker-prompt.md  # The content string or relative file path
