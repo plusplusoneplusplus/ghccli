@@ -78,7 +78,7 @@ describe('configCommand', () => {
         getTelemetryTarget: vi.fn().mockReturnValue(TelemetryTarget.LOCAL),
         getTelemetryOutfile: vi.fn().mockReturnValue(undefined),
         getUsageStatisticsEnabled: vi.fn().mockReturnValue(true),
-        getEnableOpenAILogging: vi.fn().mockReturnValue(false),
+        getEnableOpenAILogging: vi.fn().mockReturnValue(true),
         getProxy: vi.fn().mockReturnValue(undefined),
         getNoBrowser: vi.fn().mockReturnValue(false),
         getExtensions: vi.fn().mockReturnValue([]),
@@ -158,7 +158,7 @@ describe('configCommand', () => {
 
       expect(message).toContain('telemetry.enabled: \u001b[32mfalse\u001b[0m');
       expect(message).toContain('usageStatisticsEnabled: \u001b[32mtrue\u001b[0m');
-      expect(message).toContain('enableOpenAILogging: \u001b[32mfalse\u001b[0m');
+      expect(message).toContain('enableOpenAILogging: \u001b[32mtrue\u001b[0m');
     });
 
     it('should display paths', async () => {
@@ -325,7 +325,7 @@ describe('configCommand', () => {
         getTelemetryTarget: vi.fn().mockReturnValue(TelemetryTarget.LOCAL),
         getTelemetryOutfile: vi.fn().mockReturnValue(undefined),
         getUsageStatisticsEnabled: vi.fn().mockReturnValue(true),
-        getEnableOpenAILogging: vi.fn().mockReturnValue(false),
+        getEnableOpenAILogging: vi.fn().mockReturnValue(true),
         getProxy: vi.fn().mockReturnValue(undefined),
         getNoBrowser: vi.fn().mockReturnValue(false),
         getExtensions: vi.fn().mockReturnValue([]),
@@ -389,7 +389,7 @@ describe('configCommand', () => {
         getTelemetryTarget: vi.fn().mockReturnValue(TelemetryTarget.LOCAL),
         getTelemetryOutfile: vi.fn().mockReturnValue(undefined),
         getUsageStatisticsEnabled: vi.fn().mockReturnValue(true),
-        getEnableOpenAILogging: vi.fn().mockReturnValue(false),
+        getEnableOpenAILogging: vi.fn().mockReturnValue(true),
         getProxy: vi.fn().mockReturnValue(undefined),
         getNoBrowser: vi.fn().mockReturnValue(false),
         getExtensions: vi.fn().mockReturnValue([
@@ -461,7 +461,7 @@ describe('configCommand', () => {
         getTelemetryTarget: vi.fn().mockReturnValue(TelemetryTarget.LOCAL),
         getTelemetryOutfile: vi.fn().mockReturnValue(undefined),
         getUsageStatisticsEnabled: vi.fn().mockReturnValue(true),
-        getEnableOpenAILogging: vi.fn().mockReturnValue(false),
+        getEnableOpenAILogging: vi.fn().mockReturnValue(true),
         getProxy: vi.fn().mockReturnValue(undefined),
         getNoBrowser: vi.fn().mockReturnValue(false),
         getExtensions: vi.fn().mockReturnValue([]),

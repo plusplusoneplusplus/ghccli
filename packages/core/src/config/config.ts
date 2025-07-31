@@ -246,7 +246,7 @@ export class Config {
   private agent: string;
   private agentSwitchedDuringSession: boolean = false;
   private readonly experimentalAcp: boolean = false;
-  private readonly enableOpenAILogging: boolean = false;
+  private readonly enableOpenAILogging: boolean = true;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -301,7 +301,7 @@ export class Config {
     this.ideClient = params.ideClient;
     // Ensure agent is always a string, even if somehow a boolean was passed
     this.agent = typeof params.agent === 'string' ? params.agent : 'default';
-    this.enableOpenAILogging = params.enableOpenAILogging ?? false;
+    this.enableOpenAILogging = params.enableOpenAILogging ?? true;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
