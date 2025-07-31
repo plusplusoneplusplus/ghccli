@@ -264,6 +264,63 @@ describe('loadCliConfig', () => {
   });
 });
 
+describe('loadCliConfig approvalMode', () => {
+  const originalArgv = process.argv;
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(os.homedir).mockReturnValue('/mock/home/user');
+    process.env.GEMINI_API_KEY = 'test-api-key';
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+    process.env = originalEnv;
+    vi.restoreAllMocks();
+  });
+
+  it('should set approvalMode to DEFAULT when no settings or flags are provided', async () => {
+    process.argv = ['node', 'script.js'];
+    const argv = await parseArguments();
+    const settings: Settings = {};
+    const config = await loadCliConfig(settings, [], 'test-session', argv);
+    expect(config.getApprovalMode()).toBe('default');
+  });
+
+  it('should set approvalMode to AUTO_EDIT when settings.approvalMode is "autoEdit"', async () => {
+    process.argv = ['node', 'script.js'];
+    const argv = await parseArguments();
+    const settings: Settings = { approvalMode: 'autoEdit' };
+    const config = await loadCliConfig(settings, [], 'test-session', argv);
+    expect(config.getApprovalMode()).toBe('autoEdit');
+  });
+
+  it('should set approvalMode to YOLO when settings.approvalMode is "yolo"', async () => {
+    process.argv = ['node', 'script.js'];
+    const argv = await parseArguments();
+    const settings: Settings = { approvalMode: 'yolo' };
+    const config = await loadCliConfig(settings, [], 'test-session', argv);
+    expect(config.getApprovalMode()).toBe('yolo');
+  });
+
+  it('should prioritize --yolo flag over settings.approvalMode', async () => {
+    process.argv = ['node', 'script.js', '--yolo'];
+    const argv = await parseArguments();
+    const settings: Settings = { approvalMode: 'default' };
+    const config = await loadCliConfig(settings, [], 'test-session', argv);
+    expect(config.getApprovalMode()).toBe('yolo');
+  });
+
+  it('should use DEFAULT when settings.approvalMode has invalid value', async () => {
+    process.argv = ['node', 'script.js'];
+    const argv = await parseArguments();
+    const settings: Settings = { approvalMode: 'invalid' as any };
+    const config = await loadCliConfig(settings, [], 'test-session', argv);
+    expect(config.getApprovalMode()).toBe('default');
+  });
+});
+
 describe('loadCliConfig telemetry', () => {
   const originalArgv = process.argv;
   const originalEnv = { ...process.env };

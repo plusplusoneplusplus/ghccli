@@ -107,6 +107,9 @@ export interface Settings {
   
   // OpenAI logging setting
   enableOpenAILogging?: boolean;
+
+  // Approval mode setting for automatic confirmation of tool calls
+  approvalMode?: 'default' | 'autoEdit' | 'yolo';
 }
 
 export interface SettingsError {

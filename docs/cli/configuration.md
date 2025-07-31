@@ -240,6 +240,19 @@ In addition to a project settings file, a project's `.gemini` directory can cont
     }
     ```
 
+- **`approvalMode`** (string):
+  - **Description:** Sets the default approval mode for tool calls, controlling whether confirmations are required for file edits and other operations.
+  - **Options:** 
+    - `"default"` - Show confirmation prompts for all tool calls
+    - `"autoEdit"` - Automatically approve file editing tools (`edit`, `write_file`) but prompt for others
+    - `"yolo"` - Automatically approve all tool calls without confirmation
+  - **Default:** `"default"`
+  - **Note:** The `--yolo` command-line flag will override this setting
+  - **Example:**
+    ```json
+    "approvalMode": "autoEdit"
+    ```
+
 ### Example `settings.json`:
 
 ```json
@@ -271,7 +284,8 @@ In addition to a project settings file, a project's `.gemini` directory can cont
     "run_shell_command": {
       "tokenBudget": 100
     }
-  }
+  },
+  "approvalMode": "autoEdit"
 }
 ```
 
