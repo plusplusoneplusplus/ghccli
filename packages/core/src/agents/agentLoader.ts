@@ -96,4 +96,35 @@ export class AgentLoader {
     }
     return false;
   }
+
+  /**
+   * Resolves agent names from patterns (can be exact names or regex patterns)
+   */
+  async resolveAvailableAgents(patterns: string[]): Promise<string[]> {
+    const resolvedAgents = new Set<string>();
+    const allAvailableAgents = await this.listAvailableAgents();
+    
+    for (const pattern of patterns) {
+      // First try exact match
+      if (await this.agentExists(pattern)) {
+        resolvedAgents.add(pattern);
+        continue;
+      }
+      
+      // Then try as regex pattern
+      try {
+        const regex = new RegExp(pattern);
+        for (const agentName of allAvailableAgents) {
+          if (regex.test(agentName)) {
+            resolvedAgents.add(agentName);
+          }
+        }
+      } catch (error) {
+        // Skip invalid regex patterns
+        console.warn(`Invalid regex pattern in availableAgents: ${pattern}`, error);
+      }
+    }
+    
+    return Array.from(resolvedAgents).sort();
+  }
 }
