@@ -40,6 +40,7 @@ export class OpenAILogger {
   private initialized: boolean = false;
   private sessionId: string;
   private sessionStartTime: string;
+  private sessionLogFilePath: string;
 
   /**
    * Creates a new OpenAI logger
@@ -53,6 +54,38 @@ export class OpenAILogger {
     this.sessionStartTime = `${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}_${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}_${String(now.getMinutes()).padStart(2, '0')}_${String(now.getSeconds()).padStart(2, '0')}`;
     
     this.logDir = customLogDir || path.join(os.homedir(), GEMINI_DIR, 'tmp', 'sessions');
+    this.sessionLogFilePath = path.join(this.logDir, `${this.sessionStartTime}_${this.sessionId}.jsonl`);
+    void this.logInitialization();
+  
+  }
+
+  /**
+   * Appends a log entry as a single JSON line to the specified file
+   */
+  private async appendLogLine(filePath: string, logEntry: object): Promise<void> {
+    await fs.mkdir(this.logDir, { recursive: true });
+    const logLine = JSON.stringify(logEntry) + '\n';
+    await fs.appendFile(filePath, logLine, 'utf-8');
+  }
+
+  /**
+   * Writes an initialization entry to the JSONL log file
+   */
+  private async logInitialization(): Promise<void> {
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      sessionId: this.sessionId,
+      interactionId: 'init',
+      model: 'N/A',
+      tokenUsage: undefined,
+      request: {
+        message: 'Logger initialized',
+        logDir: this.logDir
+      },
+      response: null,
+      error: undefined
+    };
+    await this.appendLogLine(this.sessionLogFilePath, logEntry);
   }
 
   /**
@@ -91,8 +124,6 @@ export class OpenAILogger {
     }
 
     const interactionId = uuidv4().slice(0, 8);
-    const filename = `${this.sessionStartTime}_${this.sessionId}.jsonl`;
-    const filePath = path.join(this.logDir, filename);
 
     const logEntry: LogEntry = {
       timestamp: new Date().toISOString(),
@@ -111,10 +142,8 @@ export class OpenAILogger {
     };
 
     try {
-      // Append to JSONL file (one JSON object per line)
-      const logLine = JSON.stringify(logEntry) + '\n';
-      await fs.appendFile(filePath, logLine, 'utf-8');
-      return filePath;
+      await this.appendLogLine(this.sessionLogFilePath, logEntry);
+      return this.sessionLogFilePath;
     } catch (writeError) {
       console.error('Failed to write OpenAI log file:', writeError);
       throw new Error(`Failed to write OpenAI log file: ${writeError}`);
@@ -169,7 +198,7 @@ export class OpenAILogger {
    * @returns The path to the current session's log file
    */
   getSessionLogPath(): string {
-    return path.join(this.logDir, `${this.sessionStartTime}_${this.sessionId}.jsonl`);
+    return this.sessionLogFilePath;
   }
 
   /**
