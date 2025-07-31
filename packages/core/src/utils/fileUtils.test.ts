@@ -424,7 +424,7 @@ describe('fileUtils', () => {
       expect(result.llmContent).toContain(
         '[File content truncated: showing lines 6-10 of 20 total lines. Use offset/limit parameters to view more.]',
       );
-      expect(result.returnDisplay).toBe('(truncated)');
+      expect(result.returnDisplay).toBe('(lines 6-10 of 20)');
       expect(result.isTruncated).toBe(true);
       expect(result.originalLineCount).toBe(20);
       expect(result.linesShown).toEqual([6, 10]);

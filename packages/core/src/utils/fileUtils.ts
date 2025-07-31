@@ -317,7 +317,7 @@ export async function processSingleFileContent(
 
         return {
           llmContent: llmTextContent,
-          returnDisplay: isTruncated ? '(truncated)' : '',
+          returnDisplay: isTruncated ? `(lines ${actualStartLine + 1}-${endLine} of ${originalLineCount})` : '',
           isTruncated,
           originalLineCount,
           linesShown: [actualStartLine + 1, endLine],
