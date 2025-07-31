@@ -446,6 +446,8 @@ export async function discoverTools(
         continue;
       }
 
+      const fullyQualifiedToolName = `${mcpServerName}.${funcDecl.name}`;
+
       discoveredTools.push(
         new DiscoveredMCPTool(
           mcpCallableTool,
@@ -455,6 +457,7 @@ export async function discoverTools(
           funcDecl.parametersJsonSchema ?? { type: 'object', properties: {} },
           mcpServerConfig.timeout ?? MCP_DEFAULT_TIMEOUT_MSEC,
           mcpServerConfig.trust,
+          fullyQualifiedToolName,
         ),
       );
     }
