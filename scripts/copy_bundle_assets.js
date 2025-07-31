@@ -45,4 +45,19 @@ for (const file of vsixFiles) {
   copyFileSync(join(root, file), join(bundleDir, basename(file)));
 }
 
+// Copy agent configs to bundle directory
+const agentConfigsDir = join(bundleDir, 'agents', 'configs');
+if (!existsSync(agentConfigsDir)) {
+  mkdirSync(agentConfigsDir, { recursive: true });
+}
+
+const agentConfigFiles = glob.sync('packages/core/src/agents/configs/**/*', {
+  cwd: root,
+  nodir: true,
+});
+for (const file of agentConfigFiles) {
+  const filename = basename(file);
+  copyFileSync(join(root, file), join(agentConfigsDir, filename));
+}
+
 console.log('Assets copied to bundle/');

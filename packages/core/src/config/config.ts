@@ -5,6 +5,7 @@
  */
 
 import * as path from 'node:path';
+import * as fs from 'node:fs';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import {
@@ -559,19 +560,48 @@ export class Config {
   }
 
   getAgentConfigsDir(): string[] {
+    console.debug('[DEBUG] [Config] getAgentConfigsDir() called');
     const directories: string[] = [];
     
     // User-level agents directory (~/.ghccli/agents)
-    directories.push(getUserAgentsDir());
+    const userAgentsDir = getUserAgentsDir();
+    console.debug('[DEBUG] [Config] Adding user agents directory:', userAgentsDir);
+    directories.push(userAgentsDir);
     
     // Project-level agents directory (<project>/.ghccli/agents)
-    directories.push(getProjectAgentsDir(this.cwd));
+    const projectAgentsDir = getProjectAgentsDir(this.cwd);
+    console.debug('[DEBUG] [Config] Adding project agents directory:', projectAgentsDir);
+    directories.push(projectAgentsDir);
     
-    // Built-in agents directory (packages/core/src/agents/configs)
-    const currentDir = path.dirname(fileURLToPath(import.meta.url));
-    const builtinConfigsDir = path.join(currentDir, '..', 'agents', 'configs');
+    // Built-in agents directory
+    // In bundled environments, esbuild sets globalThis.__dirname to the bundle directory
+    // In development, we use import.meta.url resolution
+    let currentDir: string;
+    if (typeof globalThis !== 'undefined' && (globalThis as any).__dirname) {
+      currentDir = (globalThis as any).__dirname;
+    } else {
+      const currentModulePath = fileURLToPath(import.meta.url);
+      currentDir = path.dirname(currentModulePath);
+    }
+    
+    // In the bundled package, agent configs are in the same directory as the executable
+    // In development, they're in the source tree
+    let builtinConfigsDir: string;
+    const bundledConfigsDir = path.join(currentDir, 'agents', 'configs');
+    const sourceConfigsDir = path.join(currentDir, '..', 'agents', 'configs');
+    
+    // Check if we're in a bundled package (configs next to executable) or development (configs in source tree)
+    if (fs.existsSync(bundledConfigsDir)) {
+      builtinConfigsDir = bundledConfigsDir;
+    } else {
+      builtinConfigsDir = sourceConfigsDir;
+    }
+    
+    console.debug('[DEBUG] [Config] Adding built-in agents directory:', builtinConfigsDir);
+    
     directories.push(builtinConfigsDir);
     
+    console.debug('[DEBUG] [Config] getAgentConfigsDir() returning directories:', directories);
     return directories;
   }
 

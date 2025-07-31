@@ -11,7 +11,8 @@
       "Bash(grep:*)",
       "Bash(sed:*)",
       "Bash(mkdir:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }

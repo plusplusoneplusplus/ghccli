@@ -52,11 +52,11 @@ export class OpenAILogger {
     // Generate timestamp in yyyy_MM_dd_hh_mm_ss format
     const now = new Date();
     this.sessionStartTime = `${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}_${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}_${String(now.getMinutes()).padStart(2, '0')}_${String(now.getSeconds()).padStart(2, '0')}`;
-    
+
     this.logDir = customLogDir || path.join(os.homedir(), GEMINI_DIR, 'tmp', 'sessions');
     this.sessionLogFilePath = path.join(this.logDir, `${this.sessionStartTime}_${this.sessionId}.jsonl`);
     void this.logInitialization();
-  
+
   }
 
   /**
@@ -135,9 +135,9 @@ export class OpenAILogger {
       response: response || null,
       error: error
         ? {
-            message: error.message,
-            stack: error.stack,
-          }
+          message: error.message,
+          stack: error.stack,
+        }
         : undefined,
     };
 
