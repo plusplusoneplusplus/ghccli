@@ -20,7 +20,9 @@ import { Config } from '../config/config.js';
 import { OpenAIContentGenerator } from './openaiContentGenerator.js';
 import { getCoreSystemPrompt } from '../core/prompts.js';
 import OpenAI from 'openai';
+import { createLogger, LogLevel } from '../utils/logging.js';
 
+const logger = createLogger('GitHubCopilotContentGenerator');
 let globalTokenManager: GitHubCopilotTokenManager | null = null;
 
 /**
@@ -147,7 +149,7 @@ export async function createGitHubCopilotContentGenerator(
     }
 
     const currentModel = config.getModel() || 'gpt-4';
-    console.log(`GitHub Copilot content generator initialized successfully with model: ${currentModel}`);
+    logger.debug(`GitHub Copilot content generator initialized successfully with model: ${currentModel}`, LogLevel.NORMAL);
   }
 
   return new GitHubCopilotGeminiServer(globalTokenManager, config);

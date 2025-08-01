@@ -10,12 +10,9 @@ import * as os from 'node:os';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { GEMINI_DIR } from '../utils/paths.js';
+import { createLogger, LogLevel } from '../utils/logging.js';
 
-const logger = {
-  debug: (...args: any[]) => console.debug('[DEBUG]', ...args),
-  warn: (...args: any[]) => console.warn('[WARN]', ...args),
-  error: (...args: any[]) => console.error('[ERROR]', ...args),
-};
+const logger = createLogger('GitHubCopilotAuth');
 
 const execAsync = promisify(exec);
 
@@ -108,7 +105,7 @@ export class GitHubCopilotTokenManager {
 
   async validateToken(): Promise<boolean> {
     try {
-      logger.debug('Validating GitHub token...');
+      logger.debug('Validating GitHub token...', LogLevel.NORMAL);
       const response = await fetch(`${this.config.baseUrl}/user`, {
         headers: {
           'Authorization': `token ${this.config.token}`,
@@ -118,14 +115,14 @@ export class GitHubCopilotTokenManager {
 
       if (response.ok) {
         const userInfo = await response.json();
-        logger.debug('Token validation successful for user:', userInfo.login || 'unknown');
+        logger.debug(`Token validation successful for user: ${userInfo.login || 'unknown'}`, LogLevel.NORMAL);
         return true;
       } else {
-        logger.debug('Token validation failed with status:', response.status);
+        logger.debug(`Token validation failed with status: ${response.status}`, LogLevel.NORMAL);
         return false;
       }
     } catch (error) {
-      logger.debug('Token validation error:', error);
+      logger.debug(`Token validation error: ${error}`, LogLevel.NORMAL);
       return false;
     }
   }
@@ -174,11 +171,11 @@ export class GitHubCopilotTokenManager {
         isVscodeTeamMember: false,
       };
 
-      logger.debug('Token expiration info: expires_at =', adjustedExpiresAt, 'refresh_in =', tokenInfo.refresh_in);
+      logger.debug(`Token expiration info: expires_at = ${adjustedExpiresAt} refresh_in = ${tokenInfo.refresh_in}`, LogLevel.NORMAL);
 
       return extendedInfo;
     } catch (error) {
-      logger.debug('Token request failed:', error);
+      logger.debug(`Token request failed: ${error}`, LogLevel.NORMAL);
       return null;
     }
   }
@@ -199,12 +196,12 @@ export class GitHubCopilotTokenManager {
 
     try {
       this.fetchInProgress = true;
-      logger.debug('Fetching fresh token');
+      logger.debug('Fetching fresh token', LogLevel.NORMAL);
 
       const token = await this.getCopilotToken();
       if (token) {
         this.cachedToken = token;
-        logger.debug('Token cached');
+        logger.debug('Token cached', LogLevel.NORMAL);
       }
 
       return token;
@@ -284,27 +281,27 @@ export class GitHubCopilotTokenManager {
       }),
     });
 
-    logger.debug('Device code response status:', deviceCodeResponse.status);
+    logger.debug(`Device code response status: ${deviceCodeResponse.status}`, LogLevel.VERBOSE);
     if (!deviceCodeResponse.ok) {
       const errorText = await deviceCodeResponse.text();
-      logger.error('Device code request failed:', errorText);
+      logger.error(`Device code request failed: ${errorText}`);
       throw new Error(`Failed to get device code: ${deviceCodeResponse.status} ${errorText}`);
     }
 
     const deviceData: DeviceFlowResponse = await deviceCodeResponse.json();
-    logger.debug('Device flow response received:', {
+    logger.debug(`Device flow response received: ${JSON.stringify({
       hasDeviceCode: !!deviceData.device_code,
       hasUserCode: !!deviceData.user_code,
       hasVerificationUri: !!deviceData.verification_uri,
       expiresIn: deviceData.expires_in
-    });
+    })}`, LogLevel.VERBOSE);
     
     if (!deviceData.device_code || !deviceData.user_code || !deviceData.verification_uri) {
-      logger.error('Invalid device flow response:', deviceData);
+      logger.error(`Invalid device flow response: ${JSON.stringify(deviceData)}`);
       throw new Error(`Invalid response from GitHub: ${JSON.stringify(deviceData)}`);
     }
 
-    logger.debug('Device flow initialized successfully');
+    logger.debug('Device flow initialized successfully', LogLevel.NORMAL);
     return {
       deviceCode: deviceData.device_code,
       userCode: deviceData.user_code,
@@ -472,12 +469,12 @@ export class GitHubCopilotTokenManager {
       if (fs.existsSync(this.tokenFilePath)) {
         const token = fs.readFileSync(this.tokenFilePath, 'utf8').trim();
         if (token) {
-          logger.debug('Token loaded from file');
+          logger.debug('Token loaded from file', LogLevel.NORMAL);
           return token;
         }
       }
     } catch (error) {
-      logger.debug('Error reading token file:', error);
+      logger.debug(`Error reading token file: ${error}`, LogLevel.VERBOSE);
     }
     return null;
   }
@@ -533,10 +530,10 @@ export class GitHubCopilotChatClient {
       const copilotTokenInfo = await this.tokenManager.getCopilotToken();
       if (copilotTokenInfo) {
         this.currentCopilotToken = copilotTokenInfo.token;
-        logger.debug('Successfully obtained Copilot token for chat');
+        logger.debug('Successfully obtained Copilot token for chat', LogLevel.NORMAL);
         return true;
       } else {
-        logger.debug('Failed to obtain Copilot token for chat');
+        logger.debug('Failed to obtain Copilot token for chat', LogLevel.NORMAL);
         return false;
       }
     }
@@ -622,7 +619,7 @@ export class GitHubCopilotChatClient {
 
   clearHistory(): void {
     this.chatMessages = [];
-    logger.debug('Chat history cleared');
+    logger.debug('Chat history cleared', LogLevel.VERBOSE);
   }
 
   getHistory(): Array<{ content: string; role: string }> {

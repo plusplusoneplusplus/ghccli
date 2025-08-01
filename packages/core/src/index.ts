@@ -44,6 +44,7 @@ export * from './utils/systemEncoding.js';
 export * from './utils/command-parser.js';
 export * from './utils/textUtils.js';
 export * from './utils/formatters.js';
+export * from './utils/logging.js';
 
 // Export services
 export * from './services/fileDiscoveryService.js';

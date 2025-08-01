@@ -20,6 +20,8 @@ import {
   TelemetryTarget,
   FileFilteringOptions,
   IdeClient,
+  LogLevel,
+  setGlobalLoggerConfig,
 } from '@google/gemini-cli-core';
 import { Settings } from './settings.js';
 
@@ -27,21 +29,16 @@ import { Extension, annotateActiveExtensions } from './extension.js';
 import { getCliVersion } from '../utils/version.js';
 import { loadSandboxConfig } from './sandboxConfig.js';
 
-// Simple console logger for now - replace with actual logger if available
-const logger = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  debug: (...args: any[]) => console.debug('[DEBUG]', ...args),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  warn: (...args: any[]) => console.warn('[WARN]', ...args),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  error: (...args: any[]) => console.error('[ERROR]', ...args),
-};
+import { createLogger } from '@google/gemini-cli-core';
+
+const logger = createLogger('CLI');
 
 export interface CliArgs {
   model: string | undefined;
   sandbox: boolean | string | undefined;
   sandboxImage: string | undefined;
   debug: boolean | undefined;
+  debugLevel: string | undefined;
   prompt: string | undefined;
   promptInteractive: string | undefined;
   allFiles: boolean | undefined;
@@ -103,6 +100,12 @@ export async function parseArguments(): Promise<CliArgs> {
       type: 'boolean',
       description: 'Run in debug mode?',
       default: false,
+    })
+    .option('debug-level', {
+      type: 'string',
+      choices: ['minimal', 'normal', 'verbose'],
+      description: 'Set debug logging verbosity level',
+      default: 'minimal',
     })
     .option('all-files', {
       alias: ['a'],
@@ -241,7 +244,7 @@ export async function loadHierarchicalGeminiMemory(
 ): Promise<{ memoryContent: string; fileCount: number }> {
   if (debugMode) {
     logger.debug(
-      `CLI: Delegating hierarchical memory load to server for CWD: ${currentWorkingDirectory}`,
+      `Delegating hierarchical memory load to server for CWD: ${currentWorkingDirectory}`,
     );
   }
 
@@ -268,6 +271,19 @@ export async function loadCliConfig(
     [process.env.DEBUG, process.env.DEBUG_MODE].some(
       (v) => v === 'true' || v === '1',
     );
+
+  // Determine debug level
+  const debugLevel = (argv.debugLevel as LogLevel) || LogLevel.MINIMAL;
+  
+  // Determine if we're in non-interactive mode
+  const isNonInteractive = !process.stdin.isTTY || !!argv.prompt;
+
+  // Set up global logger configuration
+  setGlobalLoggerConfig({
+    debugEnabled: debugMode,
+    debugLevel,
+    isNonInteractive,
+  });
 
   const ideMode =
     (argv.ideMode ?? settings.ideMode ?? false) &&

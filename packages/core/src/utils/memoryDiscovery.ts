@@ -19,19 +19,9 @@ import {
   DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
   FileFilteringOptions,
 } from '../config/config.js';
+import { createLogger, LogLevel } from './logging.js';
 
-// Simple console logger, similar to the one previously in CLI's config.ts
-// TODO: Integrate with a more robust server-side logger if available/appropriate.
-const logger = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  debug: (...args: any[]) =>
-    console.debug('[DEBUG] [MemoryDiscovery]', ...args),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  warn: (...args: any[]) => console.warn('[WARN] [MemoryDiscovery]', ...args),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  error: (...args: any[]) =>
-    console.error('[ERROR] [MemoryDiscovery]', ...args),
-};
+const logger = createLogger('MemoryDiscovery');
 
 interface GeminiFileContent {
   filePath: string;
@@ -105,8 +95,9 @@ async function getGeminiMdFilePathsInternal(
     if (debugMode)
       logger.debug(
         `Searching for ${geminiMdFilename} starting from CWD: ${resolvedCwd}`,
+        LogLevel.VERBOSE,
       );
-    if (debugMode) logger.debug(`User home directory: ${resolvedHome}`);
+    if (debugMode) logger.debug(`User home directory: ${resolvedHome}`, LogLevel.VERBOSE);
 
     try {
       await fs.access(globalMemoryPath, fsSync.constants.R_OK);
@@ -114,17 +105,19 @@ async function getGeminiMdFilePathsInternal(
       if (debugMode)
         logger.debug(
           `Found readable global ${geminiMdFilename}: ${globalMemoryPath}`,
+          LogLevel.NORMAL,
         );
     } catch {
       if (debugMode)
         logger.debug(
           `Global ${geminiMdFilename} not found or not readable: ${globalMemoryPath}`,
+          LogLevel.VERBOSE,
         );
     }
 
     const projectRoot = await findProjectRoot(resolvedCwd);
     if (debugMode)
-      logger.debug(`Determined project root: ${projectRoot ?? 'None'}`);
+      logger.debug(`Determined project root: ${projectRoot ?? 'None'}`, LogLevel.NORMAL);
 
     const upwardPaths: string[] = [];
     let currentDir = resolvedCwd;
@@ -138,6 +131,7 @@ async function getGeminiMdFilePathsInternal(
       if (debugMode) {
         logger.debug(
           `Checking for ${geminiMdFilename} in (upward scan): ${currentDir}`,
+          LogLevel.VERBOSE,
         );
       }
 
@@ -147,6 +141,7 @@ async function getGeminiMdFilePathsInternal(
         if (debugMode) {
           logger.debug(
             `Upward scan reached global config dir path, stopping upward search here: ${currentDir}`,
+            LogLevel.VERBOSE,
           );
         }
         break;
@@ -161,6 +156,7 @@ async function getGeminiMdFilePathsInternal(
           if (debugMode) {
             logger.debug(
               `Found readable upward ${geminiMdFilename}: ${potentialPath}`,
+              LogLevel.NORMAL,
             );
           }
         }
@@ -168,6 +164,7 @@ async function getGeminiMdFilePathsInternal(
         if (debugMode) {
           logger.debug(
             `Upward ${geminiMdFilename} not found or not readable in: ${currentDir}`,
+            LogLevel.VERBOSE,
           );
         }
       }
@@ -177,6 +174,7 @@ async function getGeminiMdFilePathsInternal(
         if (debugMode)
           logger.debug(
             `Reached ultimate stop directory for upward scan: ${currentDir}`,
+            LogLevel.VERBOSE,
           );
         break;
       }
@@ -204,6 +202,7 @@ async function getGeminiMdFilePathsInternal(
         `Found downward ${geminiMdFilename} files (sorted): ${JSON.stringify(
           downwardPaths,
         )}`,
+        LogLevel.NORMAL,
       );
     // Add downward paths only if they haven't been included already (e.g. from upward scan)
     for (const dPath of downwardPaths) {
@@ -223,6 +222,7 @@ async function getGeminiMdFilePathsInternal(
       `Final ordered ${getAllGeminiMdFilenames()} paths to read: ${JSON.stringify(
         finalPaths,
       )}`,
+      LogLevel.NORMAL,
     );
   return finalPaths;
 }
@@ -247,6 +247,7 @@ async function readGeminiMdFiles(
       if (debugMode)
         logger.debug(
           `Successfully read and processed imports: ${filePath} (Length: ${processedContent.length})`,
+          LogLevel.NORMAL,
         );
     } catch (error: unknown) {
       const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST;
@@ -257,7 +258,7 @@ async function readGeminiMdFiles(
         );
       }
       results.push({ filePath, content: null }); // Still include it with null content
-      if (debugMode) logger.debug(`Failed to read: ${filePath}`);
+      if (debugMode) logger.debug(`Failed to read: ${filePath}`, LogLevel.VERBOSE);
     }
   }
   return results;
@@ -299,6 +300,7 @@ export async function loadServerHierarchicalMemory(
   if (debugMode)
     logger.debug(
       `Loading server hierarchical memory for CWD: ${currentWorkingDirectory}`,
+      LogLevel.NORMAL,
     );
 
   // For the server, homedir() refers to the server process's home.
@@ -314,7 +316,7 @@ export async function loadServerHierarchicalMemory(
     maxDirs,
   );
   if (filePaths.length === 0) {
-    if (debugMode) logger.debug('No GEMINI.md files found in hierarchy.');
+    if (debugMode) logger.debug('No GEMINI.md files found in hierarchy.', LogLevel.NORMAL);
     return { memoryContent: '', fileCount: 0 };
   }
   const contentsWithPaths = await readGeminiMdFiles(filePaths, debugMode);
@@ -326,10 +328,12 @@ export async function loadServerHierarchicalMemory(
   if (debugMode)
     logger.debug(
       `Combined instructions length: ${combinedInstructions.length}`,
+      LogLevel.NORMAL,
     );
   if (debugMode && combinedInstructions.length > 0)
     logger.debug(
       `Combined instructions (snippet): ${combinedInstructions.substring(0, 500)}...`,
+      LogLevel.VERBOSE,
     );
   return { memoryContent: combinedInstructions, fileCount: filePaths.length };
 }

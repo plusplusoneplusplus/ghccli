@@ -9,12 +9,9 @@ import * as path from 'path';
 import { Dirent } from 'fs';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { FileFilteringOptions } from '../config/config.js';
-// Simple console logger for now.
-// TODO: Integrate with a more robust server-side logger.
-const logger = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  debug: (...args: any[]) => console.debug('[DEBUG] [BfsFileSearch]', ...args),
-};
+import { createLogger, LogLevel } from './logging.js';
+
+const logger = createLogger('BfsFileSearch');
 
 interface BfsFileSearchOptions {
   fileName: string;
@@ -57,7 +54,7 @@ export async function bfsFileSearch(
     scannedDirCount++;
 
     if (debug) {
-      logger.debug(`Scanning [${scannedDirCount}/${maxDirs}]: ${currentDir}`);
+      logger.debug(`Scanning [${scannedDirCount}/${maxDirs}]: ${currentDir}`, LogLevel.VERBOSE);
     }
 
     let entries: Dirent[];

@@ -50,9 +50,12 @@ import { ClearcutLogger } from '../telemetry/clearcut-logger/clearcut-logger.js'
 import { shouldAttemptBrowserLaunch } from '../utils/browser.js';
 import { MCPOAuthConfig } from '../mcp/oauth-provider.js';
 import { IdeClient } from '../ide/ide-client.js';
+import { createLogger, LogLevel } from '../utils/logging.js';
 
 // Re-export OAuth config type
 export type { MCPOAuthConfig };
+
+const logger = createLogger('Config');
 
 export enum ApprovalMode {
   DEFAULT = 'default',
@@ -563,17 +566,17 @@ export class Config {
   }
 
   getAgentConfigsDir(): string[] {
-    console.debug('[DEBUG] [Config] getAgentConfigsDir() called');
+    logger.debug('[Config] getAgentConfigsDir() called', LogLevel.VERBOSE);
     const directories: string[] = [];
     
     // User-level agents directory (~/.ghccli/agents)
     const userAgentsDir = getUserAgentsDir();
-    console.debug('[DEBUG] [Config] Adding user agents directory:', userAgentsDir);
+    logger.debug(`[Config] Adding user agents directory: ${userAgentsDir}`, LogLevel.VERBOSE);
     directories.push(userAgentsDir);
     
     // Project-level agents directory (<project>/.ghccli/agents)
     const projectAgentsDir = getProjectAgentsDir(this.cwd);
-    console.debug('[DEBUG] [Config] Adding project agents directory:', projectAgentsDir);
+    logger.debug(`[Config] Adding project agents directory: ${projectAgentsDir}`, LogLevel.VERBOSE);
     directories.push(projectAgentsDir);
     
     // Built-in agents directory
@@ -600,11 +603,11 @@ export class Config {
       builtinConfigsDir = sourceConfigsDir;
     }
     
-    console.debug('[DEBUG] [Config] Adding built-in agents directory:', builtinConfigsDir);
+    logger.debug(`[Config] Adding built-in agents directory: ${builtinConfigsDir}`, LogLevel.VERBOSE);
     
     directories.push(builtinConfigsDir);
     
-    console.debug('[DEBUG] [Config] getAgentConfigsDir() returning directories:', directories);
+    logger.debug(`[Config] getAgentConfigsDir() returning directories: ${JSON.stringify(directories)}`, LogLevel.VERBOSE);
     return directories;
   }
 

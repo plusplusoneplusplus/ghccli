@@ -27,10 +27,13 @@ import {
     ChatCompletionChunk,
   } from 'openai/resources/chat/index.js';
   import { logApiResponse } from '../telemetry/loggers.js';
+  import { createLogger, LogLevel } from '../utils/logging.js';
   import { ApiResponseEvent } from '../telemetry/types.js';
   import { Config } from '../config/config.js';
   import { createSessionLogger } from '../utils/openaiLogger.js';
   import { Agent as UndiciAgent } from 'undici';
+
+  const logger = createLogger('OpenAIContentGenerator');
   
   // OpenAI API type definitions for logging
   interface OpenAIToolCall {
@@ -309,7 +312,7 @@ import {
           );
         }
   
-        console.error('OpenAI API Error:', errorMessage);
+        logger.error(`OpenAI API Error: ${errorMessage}`);
   
         // Provide helpful timeout-specific error message
         if (isTimeoutError) {
@@ -538,7 +541,7 @@ import {
         );
         logApiResponse(this.config, errorEvent);
   
-        console.error('OpenAI API Streaming Error:', errorMessage);
+        logger.error(`OpenAI API Streaming Error: ${errorMessage}`);
   
         // Provide helpful timeout-specific error message for streaming setup
         if (isTimeoutError) {
@@ -692,7 +695,7 @@ import {
           ],
         };
       } catch (error) {
-        console.error('OpenAI API Embedding Error:', error);
+        logger.error(`OpenAI API Embedding Error: ${error}`);
         throw new Error(
           `OpenAI API error: ${error instanceof Error ? error.message : String(error)}`,
         );
@@ -1187,7 +1190,7 @@ import {
               try {
                 args = JSON.parse(toolCall.function.arguments);
               } catch (error) {
-                console.error('Failed to parse function arguments:', error);
+                logger.error(`Failed to parse function arguments: ${error}`);
                 args = {};
               }
             }
@@ -1305,9 +1308,8 @@ import {
                 try {
                   args = JSON.parse(accumulatedCall.arguments);
                 } catch (error) {
-                  console.error(
-                    'Failed to parse final tool call arguments:',
-                    error,
+                  logger.error(
+                    `Failed to parse final tool call arguments: ${error}`,
                   );
                 }
               }
