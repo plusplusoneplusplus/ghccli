@@ -62,6 +62,7 @@ export interface CliArgs {
   ideMode: boolean | undefined;
   proxy: string | undefined;
   agent: string | undefined;
+  outputLoggerFile: string | undefined;
 }
 
 export async function parseArguments(): Promise<CliArgs> {
@@ -204,6 +205,10 @@ export async function parseArguments(): Promise<CliArgs> {
       alias: 'g',
       type: 'string',
       description: 'Select the agent to launch',
+    })
+    .option('output-logger-file', {
+      type: 'string',
+      description: 'Custom file path for OpenAI API logging',
     })
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
@@ -434,7 +439,8 @@ export async function loadCliConfig(
     ideMode,
     ideClient,
     agent: argv.agent || settings.selectedAgent || 'default',
-    enableOpenAILogging: settings.enableOpenAILogging ?? true
+    enableOpenAILogging: settings.enableOpenAILogging ?? true,
+    outputLoggerFile: argv.outputLoggerFile
   });
 }
 

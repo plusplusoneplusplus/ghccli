@@ -312,4 +312,59 @@ describe('Server Config (config.ts)', () => {
       expect(config.getTelemetryOtlpEndpoint()).toBe(DEFAULT_OTLP_ENDPOINT);
     });
   });
+
+  describe('outputLoggerFile configuration', () => {
+    it('should return undefined when outputLoggerFile is not provided', () => {
+      const config = new Config(baseParams);
+      expect(config.getOutputLoggerFile()).toBeUndefined();
+    });
+
+    it('should return the provided outputLoggerFile path', () => {
+      const testPath = '/path/to/custom/output.jsonl';
+      const paramsWithOutputLogger: ConfigParameters = {
+        ...baseParams,
+        outputLoggerFile: testPath,
+      };
+      const config = new Config(paramsWithOutputLogger);
+      expect(config.getOutputLoggerFile()).toBe(testPath);
+    });
+
+    it('should handle outputLoggerFile with relative path', () => {
+      const testPath = './logs/relative-output.log';
+      const paramsWithOutputLogger: ConfigParameters = {
+        ...baseParams,
+        outputLoggerFile: testPath,
+      };
+      const config = new Config(paramsWithOutputLogger);
+      expect(config.getOutputLoggerFile()).toBe(testPath);
+    });
+
+    it('should handle outputLoggerFile with directory path', () => {
+      const testPath = '/custom/log/directory';
+      const paramsWithOutputLogger: ConfigParameters = {
+        ...baseParams,
+        outputLoggerFile: testPath,
+      };
+      const config = new Config(paramsWithOutputLogger);
+      expect(config.getOutputLoggerFile()).toBe(testPath);
+    });
+
+    it('should handle outputLoggerFile with empty string', () => {
+      const paramsWithOutputLogger: ConfigParameters = {
+        ...baseParams,
+        outputLoggerFile: '',
+      };
+      const config = new Config(paramsWithOutputLogger);
+      expect(config.getOutputLoggerFile()).toBe('');
+    });
+
+    it('should handle outputLoggerFile with undefined explicitly', () => {
+      const paramsWithOutputLogger: ConfigParameters = {
+        ...baseParams,
+        outputLoggerFile: undefined,
+      };
+      const config = new Config(paramsWithOutputLogger);
+      expect(config.getOutputLoggerFile()).toBeUndefined();
+    });
+  });
 });

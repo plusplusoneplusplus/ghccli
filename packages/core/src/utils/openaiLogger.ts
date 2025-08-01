@@ -45,18 +45,31 @@ export class OpenAILogger {
   /**
    * Creates a new OpenAI logger
    * @param sessionId Session identifier for this logging session
-   * @param customLogDir Optional custom log directory path
+   * @param customLogPath Optional custom log file path or directory path
    */
-  constructor(sessionId?: string, customLogDir?: string) {
+  constructor(sessionId?: string, customLogPath?: string) {
     this.sessionId = sessionId || uuidv4();
     // Generate timestamp in yyyy_MM_dd_hh_mm_ss format
     const now = new Date();
     this.sessionStartTime = `${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}_${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}_${String(now.getMinutes()).padStart(2, '0')}_${String(now.getSeconds()).padStart(2, '0')}`;
 
-    this.logDir = customLogDir || path.join(os.homedir(), GEMINI_DIR, 'tmp', 'sessions');
-    this.sessionLogFilePath = path.join(this.logDir, `${this.sessionStartTime}_${this.sessionId}.jsonl`);
+    if (customLogPath) {
+      // If the custom path ends with .jsonl or .log, treat it as a complete file path
+      if (customLogPath.endsWith('.jsonl') || customLogPath.endsWith('.log')) {
+        this.sessionLogFilePath = customLogPath;
+        this.logDir = path.dirname(customLogPath);
+      } else {
+        // Otherwise, treat it as a directory path
+        this.logDir = customLogPath;
+        this.sessionLogFilePath = path.join(this.logDir, `${this.sessionStartTime}_${this.sessionId}.jsonl`);
+      }
+    } else {
+      // Default behavior
+      this.logDir = path.join(os.homedir(), GEMINI_DIR, 'tmp', 'sessions');
+      this.sessionLogFilePath = path.join(this.logDir, `${this.sessionStartTime}_${this.sessionId}.jsonl`);
+    }
+    
     void this.logInitialization();
-
   }
 
   /**
@@ -211,8 +224,8 @@ export class OpenAILogger {
 }
 
 // Session-aware logger factory
-export function createSessionLogger(sessionId?: string): OpenAILogger {
-  return new OpenAILogger(sessionId);
+export function createSessionLogger(sessionId?: string, customLogPath?: string): OpenAILogger {
+  return new OpenAILogger(sessionId, customLogPath);
 }
 
 // Create a default instance for backward compatibility

@@ -105,9 +105,10 @@ describe('OpenAILogger', () => {
 
       const content = await fs.readFile(filePath, 'utf-8');
       const lines = content.trim().split('\n');
-      expect(lines).toHaveLength(1);
+      expect(lines).toHaveLength(2); // 1 initialization + 1 interaction
 
-      const logEntry = JSON.parse(lines[0]);
+      // Check the interaction entry (second line)
+      const logEntry = JSON.parse(lines[1]);
       expect(logEntry).toMatchObject({
         sessionId: testSessionId,
         model: 'gpt-4',
@@ -126,10 +127,10 @@ describe('OpenAILogger', () => {
 
       const content = await fs.readFile(logger.getSessionLogPath(), 'utf-8');
       const lines = content.trim().split('\n');
-      expect(lines).toHaveLength(2);
+      expect(lines).toHaveLength(3); // 1 initialization + 2 interactions
 
-      const entry1 = JSON.parse(lines[0]);
-      const entry2 = JSON.parse(lines[1]);
+      const entry1 = JSON.parse(lines[1]); // First interaction
+      const entry2 = JSON.parse(lines[2]); // Second interaction
       expect(entry1.interactionId).not.toBe(entry2.interactionId);
       expect(entry1.sessionId).toBe(entry2.sessionId);
     });
@@ -138,24 +139,24 @@ describe('OpenAILogger', () => {
       await logger.logInteraction(mockRequest, mockResponse, 'gpt-4');
 
       const entries = await logger.readLogFile(logger.getSessionLogPath());
-      expect(entries).toHaveLength(1);
-      expect(entries[0].tokenUsage).toBeUndefined();
+      expect(entries).toHaveLength(2); // 1 initialization + 1 interaction
+      expect(entries[1].tokenUsage).toBeUndefined();
     });
 
     it('should log interaction without model', async () => {
       await logger.logInteraction(mockRequest, mockResponse);
 
       const entries = await logger.readLogFile(logger.getSessionLogPath());
-      expect(entries).toHaveLength(1);
-      expect(entries[0].model).toBe('unknown');
+      expect(entries).toHaveLength(2); // 1 initialization + 1 interaction
+      expect(entries[1].model).toBe('unknown');
     });
 
     it('should handle null response', async () => {
       await logger.logInteraction(mockRequest, null, 'gpt-4', mockTokenUsage);
 
       const entries = await logger.readLogFile(logger.getSessionLogPath());
-      expect(entries).toHaveLength(1);
-      expect(entries[0].response).toBe(null);
+      expect(entries).toHaveLength(2); // 1 initialization + 1 interaction
+      expect(entries[1].response).toBe(null);
     });
   });
 
@@ -174,8 +175,8 @@ describe('OpenAILogger', () => {
       );
 
       const entries = await logger.readLogFile(logger.getSessionLogPath());
-      expect(entries).toHaveLength(1);
-      expect(entries[0]).toMatchObject({
+      expect(entries).toHaveLength(2); // 1 initialization + 1 interaction
+      expect(entries[1]).toMatchObject({
         request: mockRequest,
         response: null,
         model: 'gpt-4',
@@ -195,7 +196,7 @@ describe('OpenAILogger', () => {
       await logger.logInteraction(mockRequest, undefined, 'gpt-4', undefined, mockError);
 
       const entries = await logger.readLogFile(logger.getSessionLogPath());
-      expect(entries[0].error).toEqual({
+      expect(entries[1].error).toEqual({
         message: 'Simple error',
         stack: undefined
       });
@@ -214,15 +215,17 @@ describe('OpenAILogger', () => {
       }
 
       const entries = await logger.readLogFile(logger.getSessionLogPath());
-      expect(entries).toHaveLength(2);
-      expect(entries[0].request).toEqual({ test: 1 });
-      expect(entries[1].request).toEqual({ test: 2 });
+      expect(entries).toHaveLength(3); // 1 initialization + 2 interactions
+      expect(entries[1].request).toEqual({ test: 1 });
+      expect(entries[2].request).toEqual({ test: 2 });
     });
 
     it('should handle empty log file', async () => {
-      await fs.writeFile(logger.getSessionLogPath(), '', 'utf-8');
+      // Create a new logger that won't auto-initialize
+      const emptyFilePath = path.join(tempDir, 'empty.jsonl');
+      await fs.writeFile(emptyFilePath, '', 'utf-8');
       
-      const entries = await logger.readLogFile(logger.getSessionLogPath());
+      const entries = await logger.readLogFile(emptyFilePath);
       expect(entries).toEqual([]);
     });
 
@@ -235,9 +238,10 @@ describe('OpenAILogger', () => {
         request: { test: true }
       });
 
-      await fs.writeFile(logger.getSessionLogPath(), `${validEntry}\n\n\n${validEntry}\n`, 'utf-8');
+      const testFilePath = path.join(tempDir, 'empty-lines.jsonl');
+      await fs.writeFile(testFilePath, `${validEntry}\n\n\n${validEntry}\n`, 'utf-8');
       
-      const entries = await logger.readLogFile(logger.getSessionLogPath());
+      const entries = await logger.readLogFile(testFilePath);
       expect(entries).toHaveLength(2);
     });
 
@@ -262,7 +266,7 @@ describe('OpenAILogger', () => {
       await logger2.logInteraction({ test: 2 });
 
       const logFiles = await logger.getLogFiles();
-      expect(logFiles).toHaveLength(2);
+      expect(logFiles).toHaveLength(3); // Original logger + 2 new loggers
       expect(logFiles.some(f => f.includes('session-1'))).toBe(true);
       expect(logFiles.some(f => f.includes('session-2'))).toBe(true);
     });
@@ -314,10 +318,12 @@ describe('OpenAILogger', () => {
       const entries1 = await logger1.readLogFile(logger1.getSessionLogPath());
       const entries2 = await logger2.readLogFile(logger2.getSessionLogPath());
 
-      expect(entries1[0].sessionId).toBe('session-1');
-      expect(entries2[0].sessionId).toBe('session-2');
-      expect(entries1[0].request).toEqual({ from: 'session-1' });
-      expect(entries2[0].request).toEqual({ from: 'session-2' });
+      expect(entries1[0].sessionId).toBe('session-1'); // Initialization entry
+      expect(entries2[0].sessionId).toBe('session-2'); // Initialization entry
+      expect(entries1[1].sessionId).toBe('session-1'); // Interaction entry
+      expect(entries2[1].sessionId).toBe('session-2'); // Interaction entry
+      expect(entries1[1].request).toEqual({ from: 'session-1' }); // Interaction entry
+      expect(entries2[1].request).toEqual({ from: 'session-2' }); // Interaction entry
     });
 
     it('should return correct session log path', () => {
@@ -341,6 +347,85 @@ describe('OpenAILogger', () => {
       const sessionLogger = createSessionLogger();
       expect(sessionLogger.getSessionId()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     });
+
+    it('should create logger with custom log path', () => {
+      const customPath = '/custom/log/path';
+      const sessionLogger = createSessionLogger('test-session', customPath);
+      expect(sessionLogger.getSessionId()).toBe('test-session');
+      const logPath = sessionLogger.getSessionLogPath();
+      expect(logPath.startsWith(customPath)).toBe(true);
+    });
+  });
+
+  describe('custom file path handling', () => {
+    it('should use complete file path when path ends with .jsonl', async () => {
+      const customFilePath = path.join(tempDir, 'custom-openai-log.jsonl');
+      const logger = new OpenAILogger('test-session', customFilePath);
+      
+      expect(logger.getSessionLogPath()).toBe(customFilePath);
+      
+      await logger.logInteraction({ test: 'request' }, { test: 'response' });
+      
+      const fileExists = await fs.access(customFilePath).then(() => true).catch(() => false);
+      expect(fileExists).toBe(true);
+    });
+
+    it('should use complete file path when path ends with .log', async () => {
+      const customFilePath = path.join(tempDir, 'custom-openai-log.log');
+      const logger = new OpenAILogger('test-session', customFilePath);
+      
+      expect(logger.getSessionLogPath()).toBe(customFilePath);
+      
+      await logger.logInteraction({ test: 'request' }, { test: 'response' });
+      
+      const fileExists = await fs.access(customFilePath).then(() => true).catch(() => false);
+      expect(fileExists).toBe(true);
+    });
+
+    it('should treat path as directory when not ending with .jsonl or .log', async () => {
+      const customDir = path.join(tempDir, 'custom-logs');
+      const logger = new OpenAILogger('test-session', customDir);
+      
+      const sessionLogPath = logger.getSessionLogPath();
+      expect(sessionLogPath.startsWith(customDir)).toBe(true);
+      expect(sessionLogPath).toMatch(/\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}_test-session\.jsonl$/);
+      
+      await logger.logInteraction({ test: 'request' }, { test: 'response' });
+      
+      const fileExists = await fs.access(sessionLogPath).then(() => true).catch(() => false);
+      expect(fileExists).toBe(true);
+    });
+
+    it('should create directory structure for custom file path', async () => {
+      const nestedPath = path.join(tempDir, 'nested', 'deep', 'custom.jsonl');
+      const logger = new OpenAILogger('test-session', nestedPath);
+      
+      await logger.logInteraction({ test: 'request' }, { test: 'response' });
+      
+      const fileExists = await fs.access(nestedPath).then(() => true).catch(() => false);
+      expect(fileExists).toBe(true);
+      
+      const content = await fs.readFile(nestedPath, 'utf-8');
+      const lines = content.trim().split('\n');
+      expect(lines).toHaveLength(2); // 1 initialization + 1 interaction
+      
+      const logEntry = JSON.parse(lines[1]); // Check interaction entry
+      expect(logEntry.sessionId).toBe('test-session');
+    });
+
+    it('should handle createSessionLogger with custom file path', async () => {
+      const customFilePath = path.join(tempDir, 'factory-custom.jsonl');
+      const logger = createSessionLogger('factory-session', customFilePath);
+      
+      expect(logger.getSessionLogPath()).toBe(customFilePath);
+      
+      await logger.logInteraction({ factory: 'test' });
+      
+      const entries = await logger.readLogFile(customFilePath);
+      expect(entries).toHaveLength(2); // 1 initialization + 1 interaction
+      expect(entries[1].sessionId).toBe('factory-session');
+      expect(entries[1].request).toEqual({ factory: 'test' });
+    });
   });
 
   describe('token usage tracking', () => {
@@ -360,7 +445,7 @@ describe('OpenAILogger', () => {
       );
 
       const entries = await logger.readLogFile(logger.getSessionLogPath());
-      expect(entries[0].tokenUsage).toEqual(tokenUsage);
+      expect(entries[1].tokenUsage).toEqual(tokenUsage); // Check interaction entry
     });
 
     it('should handle partial token usage information', async () => {
@@ -379,8 +464,8 @@ describe('OpenAILogger', () => {
       );
 
       const entries = await logger.readLogFile(logger.getSessionLogPath());
-      expect(entries[0].tokenUsage).toEqual(tokenUsage);
-      expect(entries[0].tokenUsage?.cachedTokens).toBeUndefined();
+      expect(entries[1].tokenUsage).toEqual(tokenUsage); // Check interaction entry
+      expect(entries[1].tokenUsage?.cachedTokens).toBeUndefined();
     });
   });
 
@@ -406,9 +491,9 @@ describe('OpenAILogger', () => {
       await logger.logInteraction(largeRequest, largeResponse, 'gpt-4');
 
       const entries = await logger.readLogFile(logger.getSessionLogPath());
-      expect(entries).toHaveLength(1);
-      expect(entries[0].request).toEqual(largeRequest);
-      expect(entries[0].response).toEqual(largeResponse);
+      expect(entries).toHaveLength(2); // 1 initialization + 1 interaction
+      expect(entries[1].request).toEqual(largeRequest);
+      expect(entries[1].response).toEqual(largeResponse);
     });
   });
 
@@ -426,10 +511,10 @@ describe('OpenAILogger', () => {
       await Promise.all(promises);
 
       const entries = await logger.readLogFile(logger.getSessionLogPath());
-      expect(entries).toHaveLength(10);
+      expect(entries).toHaveLength(11); // 1 initialization + 10 interactions
 
-      // Verify all entries are unique and properly formatted
-      const requestIds = entries.map(e => (e.request as any).requestId);
+      // Verify all interaction entries are unique and properly formatted (skip initialization entry)
+      const requestIds = entries.slice(1).map(e => (e.request as any).requestId);
       expect(new Set(requestIds).size).toBe(10);
     });
   });

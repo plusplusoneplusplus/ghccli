@@ -188,6 +188,7 @@ export interface ConfigParameters {
   ideClient?: IdeClient;
   agent?: string;
   enableOpenAILogging?: boolean;
+  outputLoggerFile?: string;
 }
 
 export class Config {
@@ -248,6 +249,7 @@ export class Config {
   private agentSwitchedDuringSession: boolean = false;
   private readonly experimentalAcp: boolean = false;
   private readonly enableOpenAILogging: boolean = true;
+  private readonly outputLoggerFile: string | undefined;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -303,6 +305,7 @@ export class Config {
     // Ensure agent is always a string, even if somehow a boolean was passed
     this.agent = typeof params.agent === 'string' ? params.agent : 'default';
     this.enableOpenAILogging = params.enableOpenAILogging ?? true;
+    this.outputLoggerFile = params.outputLoggerFile;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -668,6 +671,10 @@ export class Config {
 
   getEnableOpenAILogging(): boolean {
     return this.enableOpenAILogging;
+  }
+
+  getOutputLoggerFile(): string | undefined {
+    return this.outputLoggerFile;
   }
 
   async getGitService(): Promise<GitService> {

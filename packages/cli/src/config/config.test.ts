@@ -1068,4 +1068,63 @@ describe('loadCliConfig ideMode', () => {
     const config = await loadCliConfig(settings, [], 'test-session', argv);
     expect(config.getIdeMode()).toBe(false);
   });
+
+  describe('outputLoggerFile configuration', () => {
+    it('should parse --output-logger-file argument correctly', async () => {
+      const testPath = '/path/to/custom/openai.jsonl';
+      process.argv = ['node', 'script.js', '--output-logger-file', testPath];
+      const argv = await parseArguments();
+      expect(argv.outputLoggerFile).toBe(testPath);
+    });
+
+    it('should be undefined when --output-logger-file is not provided', async () => {
+      process.argv = ['node', 'script.js'];
+      const argv = await parseArguments();
+      expect(argv.outputLoggerFile).toBeUndefined();
+    });
+
+    it('should pass outputLoggerFile from CLI args to config', async () => {
+      const testPath = '/custom/logger/file.jsonl';
+      process.argv = ['node', 'script.js', '--output-logger-file', testPath];
+      const argv = await parseArguments();
+      const settings: Settings = {};
+      const config = await loadCliConfig(settings, [], 'test-session', argv);
+      expect(config.getOutputLoggerFile()).toBe(testPath);
+    });
+
+    it('should return undefined from config when no outputLoggerFile is provided', async () => {
+      process.argv = ['node', 'script.js'];
+      const argv = await parseArguments();
+      const settings: Settings = {};
+      const config = await loadCliConfig(settings, [], 'test-session', argv);
+      expect(config.getOutputLoggerFile()).toBeUndefined();
+    });
+
+    it('should handle outputLoggerFile with spaces in path', async () => {
+      const testPath = '/path with spaces/custom openai.jsonl';
+      process.argv = ['node', 'script.js', '--output-logger-file', testPath];
+      const argv = await parseArguments();
+      const settings: Settings = {};
+      const config = await loadCliConfig(settings, [], 'test-session', argv);
+      expect(config.getOutputLoggerFile()).toBe(testPath);
+    });
+
+    it('should handle outputLoggerFile with relative path', async () => {
+      const testPath = './logs/custom.log';
+      process.argv = ['node', 'script.js', '--output-logger-file', testPath];
+      const argv = await parseArguments();
+      const settings: Settings = {};
+      const config = await loadCliConfig(settings, [], 'test-session', argv);
+      expect(config.getOutputLoggerFile()).toBe(testPath);
+    });
+
+    it('should handle outputLoggerFile with directory path', async () => {
+      const testPath = '/custom/log/directory';
+      process.argv = ['node', 'script.js', '--output-logger-file', testPath];
+      const argv = await parseArguments();
+      const settings: Settings = {};
+      const config = await loadCliConfig(settings, [], 'test-session', argv);
+      expect(config.getOutputLoggerFile()).toBe(testPath);
+    });
+  });
 });
