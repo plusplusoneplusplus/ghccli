@@ -215,6 +215,27 @@ describe('GlobTool', () => {
       expect(llmContent).not.toContain('[Results truncated');
       expect(result.returnDisplay).toBe('Found 2 matching file(s)');
     });
+
+    it('should show detailed error messages in both llmContent and returnDisplay', async () => {
+      // Test with a non-existent path to trigger filesystem error
+      const params: GlobToolParams = { 
+        pattern: '*.txt',
+        path: '/this/path/definitely/does/not/exist/anywhere'
+      };
+      const result = await globTool.execute(params, abortSignal);
+
+      expect(result.llmContent).toContain('Error: Invalid parameters provided');
+      expect(result.returnDisplay).toContain('Search path does not exist');
+    });
+
+    it('should show error details for validation errors', async () => {
+      // Test with empty pattern to trigger validation error
+      const params: GlobToolParams = { pattern: '' };
+      const result = await globTool.execute(params, abortSignal);
+
+      expect(result.llmContent).toContain('Error: Invalid parameters provided');
+      expect(result.returnDisplay).toContain("The 'pattern' parameter cannot be empty");
+    });
   });
 
   describe('validateToolParams', () => {

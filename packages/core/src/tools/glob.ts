@@ -313,7 +313,7 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
       console.error(`GlobLogic execute Error: ${errorMessage}`, error);
       return {
         llmContent: `Error during glob search operation: ${errorMessage}`,
-        returnDisplay: `Error: An unexpected error occurred.`,
+        returnDisplay: `Error: ${errorMessage}`,
       };
     }
   }
