@@ -9,9 +9,10 @@ import { DependencyResolver } from './DependencyResolver.js';
 import { WorkflowContext } from './WorkflowContext.js';
 import { StepExecutor } from './StepExecutor.js';
 import { ScriptStepExecutor } from './ScriptStepExecutor.js';
-import { AgentStepExecutor } from './AgentStepExecutor.js';
+import { AgentStepExecutor, AgentStepExecutorConfig } from './AgentStepExecutor.js';
 import { WorkflowStatusReporter, WorkflowExecutionReport } from './WorkflowStatusReporter.js';
 import { ParallelExecutor } from './ParallelExecutor.js';
+import { Config } from '../config/config.js';
 
 export enum WorkflowStatus {
   PENDING = 'pending',
@@ -38,14 +39,25 @@ export class WorkflowRunner {
   private statusReporter: WorkflowStatusReporter = new WorkflowStatusReporter();
   private startTime: number = 0;
   private cancelled: boolean = false;
+  private config?: Config;
 
-  constructor() {
+  constructor(config?: Config) {
     this.dependencyResolver = new DependencyResolver();
     this.stepExecutors = new Map();
+    this.config = config;
     
     // Register built-in step executors
     this.registerStepExecutor('script', new ScriptStepExecutor());
-    this.registerStepExecutor('agent', new AgentStepExecutor());
+    
+    // Only register AgentStepExecutor if we have a config
+    if (config) {
+      const agentExecutorConfig: AgentStepExecutorConfig = {
+        config,
+        defaultTimeout: 60000,
+        maxRounds: 10
+      };
+      this.registerStepExecutor('agent', new AgentStepExecutor(agentExecutorConfig));
+    }
     
     // Initialize parallel executor
     this.parallelExecutor = new ParallelExecutor(this.stepExecutors);

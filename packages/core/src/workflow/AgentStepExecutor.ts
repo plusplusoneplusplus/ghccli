@@ -7,6 +7,15 @@
 import { WorkflowStep, AgentConfig } from './types.js';
 import { WorkflowContext } from './WorkflowContext.js';
 import { StepExecutor } from './StepExecutor.js';
+import { AgentLoader } from '../agents/agentLoader.js';
+import { createContentGenerator } from '../core/contentGenerator.js';
+import { Config } from '../config/config.js';
+import { Logger } from '../core/logger.js';
+import { getResponseText } from '../utils/generateContentResponseUtilities.js';
+import { CoreToolScheduler } from '../core/coreToolScheduler.js';
+import { ApprovalMode } from '../config/config.js';
+import { ToolCallRequestInfo } from '../core/turn.js';
+import { Part } from '@google/genai';
 
 export interface AgentExecutionResult {
   agentId: string;
@@ -15,13 +24,37 @@ export interface AgentExecutionResult {
   metadata?: Record<string, unknown>;
 }
 
+export interface AgentStepExecutorConfig {
+  config: Config;
+  agentConfigsDir?: string | string[];
+  defaultTimeout?: number;
+  maxRounds?: number;
+}
+
 /**
  * Executor for agent-type workflow steps
  * Integrates with the existing agent system to execute agent-based tasks
  */
 export class AgentStepExecutor extends StepExecutor {
+  private executorConfig?: AgentStepExecutorConfig;
+
+  constructor(executorConfig?: AgentStepExecutorConfig) {
+    super();
+    this.executorConfig = executorConfig;
+  }
+
   getSupportedType(): string {
     return 'agent';
+  }
+
+  /**
+   * Get the executor configuration with defaults
+   */
+  private getExecutorConfig(): AgentStepExecutorConfig {
+    if (!this.executorConfig) {
+      throw new Error('AgentStepExecutor requires a configuration to be provided. Please provide an AgentStepExecutorConfig when creating the executor.');
+    }
+    return this.executorConfig;
   }
 
   validate(step: WorkflowStep): { valid: boolean; errors: string[] } {
@@ -63,10 +96,6 @@ export class AgentStepExecutor extends StepExecutor {
     const startTime = Date.now();
 
     try {
-      // For now, this is a placeholder implementation
-      // In the actual implementation, this would integrate with the existing agent system
-      // located in packages/core/src/agents/
-      
       const agentResult = await this.executeAgent(config, context);
       
       return {
@@ -85,24 +114,275 @@ export class AgentStepExecutor extends StepExecutor {
 
   /**
    * Execute the agent with the given configuration
-   * This is a placeholder that would integrate with the actual agent system
+   * Integrates with the actual agent system from packages/core/src/agents/
    */
   private async executeAgent(config: AgentConfig, context: WorkflowContext): Promise<unknown> {
-    // TODO: Integrate with the actual agent system from packages/core/src/agents/
-    // This would involve:
-    // 1. Loading the specified agent configuration
-    // 2. Creating an agent instance
-    // 3. Executing the agent with the provided prompt and parameters
-    // 4. Handling agent-specific timeout and error scenarios
+    const executorConfig = this.getExecutorConfig();
+    const agentConfigsDir = executorConfig.agentConfigsDir || executorConfig.config.getAgentConfigsDir();
+    const agentLoader = new AgentLoader(agentConfigsDir);
     
-    // For now, return a placeholder response
+    // Load agent configuration
+    const loadedAgentConfig = await agentLoader.loadAgentConfig(config.agent);
+    if (!loadedAgentConfig) {
+      throw new Error(`Agent '${config.agent}' not found`);
+    }
+
+    // Create content generator
+    const contentGenerator = await createContentGenerator(
+      executorConfig.config.getContentGeneratorConfig(),
+      executorConfig.config,
+      executorConfig.config.getSessionId()
+    );
+
+    // Get tool registry and apply agent-specific tool filtering
+    const toolRegistry = await executorConfig.config.getToolRegistry();
+    const toolDeclarations = toolRegistry.getFunctionDeclarations();
+    
+    // Get allowed and blocked tool regex patterns from agent configuration
+    const allowedToolRegex = loadedAgentConfig.metadata.toolPreferences?.allowedToolRegex || [];
+    const blockedToolsRegex = loadedAgentConfig.metadata.toolPreferences?.blockedToolsRegex || [];
+    
+    // Filter tools based on agent's tool preferences
+    const filteredToolDeclarations = (allowedToolRegex.length > 0 || blockedToolsRegex.length > 0)
+      ? toolRegistry.getFilteredFunctionDeclarationsWithBlocking(allowedToolRegex, blockedToolsRegex)
+      : toolDeclarations;
+    
+    const filteredTools = [{ functionDeclarations: filteredToolDeclarations }];
+
+    // Dynamically import AgentChat to avoid circular dependency
+    const { AgentChat } = await import('../agents/agentChat.js');
+
+    // Create agent chat instance with filtered tools
+    const agentChat = await AgentChat.fromAgentConfig(
+      executorConfig.config,
+      contentGenerator,
+      config.agent,
+      agentConfigsDir,
+      {
+        tools: filteredTools,
+      },
+    );
+
+    // Resolve prompt template with context variables
+    const resolvedPrompt = config.prompt ? this.resolvePromptTemplate(config.prompt, context) : 'Execute your task based on the workflow context.';
+    
+    // Create execution ID for this workflow step
+    const executionId = `workflow-${context.getWorkflowId ? context.getWorkflowId() : 'unknown'}-step-${Date.now()}`;
+    
+    // Set up timeout handling
+    const timeout = config.timeout || executorConfig.defaultTimeout || 60000; // Default to 60 seconds
+    const maxRounds = executorConfig.maxRounds || loadedAgentConfig.metadata.executionConfig.maxRounds || 10;
+    
+    // Execute the agent with complete tool calling support
+    const responseText = await this.executeAgentWithToolSupport(
+      agentChat,
+      resolvedPrompt,
+      executionId,
+      timeout,
+      maxRounds
+    );
+
+    // Save chat history automatically using execution ID as tag
+    try {
+      const logger = new Logger(executorConfig.config.getSessionId());
+      await logger.initialize();
+      const chatHistory = agentChat.getHistory();
+      await logger.saveCheckpoint(chatHistory, executionId);
+    } catch (saveError) {
+      // Log error but don't fail the agent execution
+      context.log(`Failed to save chat history for agent ${config.agent}: ${saveError}`, 'warn');
+    }
+
     return {
       agent: config.agent,
-      prompt: config.prompt || 'No prompt provided',
+      prompt: resolvedPrompt,
       parameters: config.parameters || {},
-      contextVariables: context.getVariables(),
-      message: 'Agent execution placeholder - to be integrated with actual agent system'
+      response: responseText,
+      executionId: executionId,
+      agentConfig: {
+        name: loadedAgentConfig.name,
+        description: loadedAgentConfig.description,
+        specialization: loadedAgentConfig.metadata.specialization
+      }
     };
+  }
+
+  /**
+   * Execute an agent with full tool calling support, handling multiple rounds of conversation
+   * until the agent provides a final response without tool calls.
+   */
+  private async executeAgentWithToolSupport(
+    agentChat: any, // AgentChat type
+    message: string,
+    executionId: string,
+    timeout: number,
+    maxRounds: number,
+  ): Promise<string> {
+    return new Promise(async (resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new Error(`Agent execution timed out after ${timeout}ms`));
+      }, timeout);
+
+      try {
+        let currentMessage = message;
+        let fullResponseText = '';
+        let conversationRound = 0;
+
+        while (conversationRound < maxRounds) {
+          conversationRound++;
+          
+          // Send message to the agent
+          const responseStream = await agentChat.sendMessageStream(
+            { message: currentMessage },
+            `${executionId}-round-${conversationRound}`,
+          );
+
+          // Collect response parts and check for tool calls
+          const responseParts: Part[] = [];
+          let roundResponseText = '';
+
+          for await (const resp of responseStream) {
+            if (resp.candidates?.[0]?.content?.parts) {
+              for (const part of resp.candidates[0].content.parts) {
+                responseParts.push(part);
+                
+                // Collect text parts
+                const textPart = getResponseText(resp);
+                if (textPart) {
+                  roundResponseText += textPart;
+                }
+              }
+            }
+          }
+
+          // Add the round's text to the full response
+          if (roundResponseText.trim()) {
+            fullResponseText += (fullResponseText ? '\n\n' : '') + roundResponseText;
+          }
+
+          // Extract tool calls from the response parts
+          const toolCalls = this.extractToolCallsFromParts(responseParts);
+          
+          if (toolCalls.length === 0) {
+            // No tool calls, we're done
+            break;
+          }
+
+          // Execute tool calls using CoreToolScheduler
+          const toolResults = await this.executeToolCalls(toolCalls);
+          
+          // Convert tool results back to message format for the next round
+          currentMessage = this.formatToolResultsAsMessage(toolResults);
+        }
+
+        if (conversationRound >= maxRounds) {
+          fullResponseText += '\n\n[Warning: Agent conversation reached maximum rounds limit]';
+        }
+
+        clearTimeout(timeoutId);
+        resolve(fullResponseText);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Extract tool calls from response parts
+   */
+  private extractToolCallsFromParts(parts: Part[]): ToolCallRequestInfo[] {
+    const toolCalls: ToolCallRequestInfo[] = [];
+    
+    for (const part of parts) {
+      if ('functionCall' in part && part.functionCall) {
+        const fc = part.functionCall;
+        toolCalls.push({
+          callId: fc.id || `call_${toolCalls.length}`,
+          name: fc.name || '',
+          args: fc.args || {},
+          isClientInitiated: false, // These are agent-initiated tool calls
+          prompt_id: `agent-tool-${Date.now()}-${toolCalls.length}`,
+        });
+      }
+    }
+    
+    return toolCalls;
+  }
+
+  /**
+   * Execute tool calls using CoreToolScheduler
+   */
+  private async executeToolCalls(
+    toolCalls: ToolCallRequestInfo[],
+  ): Promise<any[]> {
+    return new Promise((resolve, reject) => {
+      const results: any[] = [];
+      
+      const executorConfig = this.getExecutorConfig();
+      const toolScheduler = new CoreToolScheduler({
+        toolRegistry: executorConfig.config.getToolRegistry(),
+        approvalMode: ApprovalMode.YOLO, // Auto-approve tools for workflow agents
+        getPreferredEditor: () => undefined,
+        config: executorConfig.config,
+        onAllToolCallsComplete: (completedCalls) => {
+          // Extract results from completed calls
+          for (const call of completedCalls) {
+            if (call.status === 'success') {
+              let result = 'Tool executed successfully';
+              
+              // Extract result from responseParts
+              if (call.response?.responseParts) {
+                const responseParts = call.response.responseParts;
+                if (typeof responseParts === 'object' && 'functionResponse' in responseParts) {
+                  result = (responseParts as any).functionResponse?.response || result;
+                } else if (Array.isArray(responseParts) && responseParts.length > 0) {
+                  const firstPart = responseParts[0];
+                  if (typeof firstPart === 'object' && 'functionResponse' in firstPart) {
+                    result = (firstPart as any).functionResponse?.response || result;
+                  }
+                }
+              }
+              
+              results.push({
+                callId: call.request.callId,
+                name: call.request.name,
+                result: result,
+                success: true,
+              });
+            } else {
+              results.push({
+                callId: call.request.callId,
+                name: call.request.name,
+                error: call.response?.error?.message || 'Tool execution failed',
+                success: false,
+              });
+            }
+          }
+          resolve(results);
+        },
+      });
+
+      // Schedule the tool calls
+      toolScheduler.schedule(toolCalls, new AbortController().signal).catch(reject);
+    });
+  }
+
+  /**
+   * Format tool results as a message for the next conversation round
+   */
+  private formatToolResultsAsMessage(toolResults: any[]): string {
+    const resultSummary = toolResults
+      .map((result) => {
+        if (result.success) {
+          return `Tool ${result.name} executed successfully: ${JSON.stringify(result.result)}`;
+        } else {
+          return `Tool ${result.name} failed: ${result.error}`;
+        }
+      })
+      .join('\n');
+    
+    return `Tool execution results:\n${resultSummary}\n\nPlease continue with your response based on these results.`;
   }
 
   /**
@@ -154,12 +434,17 @@ export class AgentStepExecutor extends StepExecutor {
     
     if (config.prompt) {
       const resolvedPrompt = this.resolvePromptTemplate(config.prompt, context);
-      context.log(`Prompt: ${resolvedPrompt}`);
+      context.log(`Resolved prompt: ${resolvedPrompt.length > 200 ? resolvedPrompt.substring(0, 200) + '...' : resolvedPrompt}`);
     }
     
     if (config.parameters) {
       context.log(`Parameters: ${JSON.stringify(config.parameters, null, 2)}`);
     }
+
+    // Log timeout and execution config
+    const executorConfig = this.getExecutorConfig();
+    const timeout = config.timeout || executorConfig.defaultTimeout || 60000;
+    context.log(`Timeout: ${timeout}ms`);
   }
 
   protected async afterExecute(step: WorkflowStep, context: WorkflowContext, result: unknown): Promise<void> {
