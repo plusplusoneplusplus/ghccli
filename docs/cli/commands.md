@@ -122,6 +122,29 @@ Slash commands provide meta-level control over the CLI itself.
     - **Persistent setting:** Vim mode preference is saved to `~/.gemini/settings.json` and restored between sessions
   - **Status indicator:** When enabled, shows `[NORMAL]` or `[INSERT]` in the footer
 
+- [**`/workflow`**](../workflow/README.md)
+  - **Description:** Manage and execute automation workflows defined in YAML files. Provides interactive workflow management with progress reporting and status tracking.
+  - **Sub-commands:**
+    - **`run <name> [variables]`**:
+      - **Description:** Execute a workflow by name with optional JSON variables.
+      - **Usage:** `/workflow run my-workflow {"key": "value"}`
+      - **Features:** Real-time progress reporting, interactive parameter input
+    - **`list [path]`**:
+      - **Description:** List available workflows in the current directory or specified path.
+      - **Usage:** `/workflow list` or `/workflow list ./workflows`
+      - **Output:** Shows workflow names, versions, descriptions, and step counts
+    - **`status <name>`**:
+      - **Description:** Show execution status and progress for a running workflow.
+      - **Usage:** `/workflow status my-workflow`
+      - **Output:** Current status, progress percentage, completed steps
+    - **`validate <name>`**:
+      - **Description:** Validate workflow definition syntax and configuration.
+      - **Usage:** `/workflow validate my-workflow`
+      - **Note:** Placeholder for future implementation
+  - **Tab Completion:** Supports auto-completion for subcommands and workflow names
+  - **Error Handling:** User-friendly error messages for invalid syntax, missing workflows, and execution failures
+  - **See Also:** [Workflow System Documentation](../workflow/README.md) for YAML syntax and advanced features
+
 ### Custom Commands
 
 For a quick start, see the [example](#example-a-pure-function-refactoring-command) below.

@@ -60,6 +60,38 @@ steps:
 
 ### 2. Execute the Workflow
 
+#### Using the CLI Slash Command (Recommended)
+
+The easiest way to execute workflows is through the CLI `/workflow` command:
+
+```bash
+# List available workflows in current directory
+/workflow list
+
+# Execute a workflow with variables
+/workflow run my-workflow {"buildNumber": "123", "environment": "staging"}
+
+# Check workflow execution status
+/workflow status my-workflow
+
+# Execute workflow without variables
+/workflow run simple-build
+
+# List workflows in specific directory
+/workflow list ./ci-workflows
+```
+
+**CLI Features:**
+- **Real-time Progress**: Shows execution progress with pending item updates
+- **Tab Completion**: Auto-completes workflow names and subcommands
+- **Interactive Variables**: Accepts JSON format for workflow variables
+- **Error Handling**: User-friendly error messages and validation
+- **Status Tracking**: Monitor running workflows with live progress updates
+
+#### Using the Programmatic API
+
+For advanced use cases and integrations:
+
 ```typescript
 import { WorkflowRunner, validateWorkflowDefinition } from '@google/gemini-cli-core/workflow';
 
@@ -1016,6 +1048,133 @@ This workflow demonstrates:
 - **Mixed sequential and parallel** execution patterns
 - **Environment and variable usage** in parallel contexts
 - **Complex dependency chains** that still allow parallelization
+
+## CLI Integration
+
+### Workflow Discovery
+
+The CLI automatically discovers workflows from YAML files (`.yml` or `.yaml` extensions) in the current directory and subdirectories. Workflows must have a valid structure with `name` and `steps` properties.
+
+### Command Reference
+
+#### `/workflow list [path]`
+
+Lists all available workflows with their metadata:
+
+```bash
+# List workflows in current directory
+/workflow list
+
+# List workflows in specific directory
+/workflow list ./ci-workflows
+
+# Output example:
+# Available Workflows
+# 
+# Found 3 workflows in /current/directory:
+# 
+# ## build-and-test
+# - Version: 1.0.0
+# - Description: Build and test the application
+# - Steps: 5
+# 
+# ## deploy-staging
+# - Version: 2.1.0  
+# - Description: Deploy to staging environment
+# - Steps: 8
+```
+
+#### `/workflow run <name> [variables]`
+
+Executes a workflow with optional JSON variables:
+
+```bash
+# Basic execution
+/workflow run build-and-test
+
+# With variables (JSON format)
+/workflow run deploy-staging {"environment": "staging", "version": "1.2.3"}
+
+# Complex variables
+/workflow run integration-tests {"config": {"timeout": 300, "retries": 3}, "parallel": true}
+```
+
+**Features:**
+- Real-time progress updates in the CLI
+- Interactive error reporting
+- Automatic workflow validation before execution
+- Support for complex JSON variable structures
+
+#### `/workflow status <name>`
+
+Shows the current execution status of a workflow:
+
+```bash
+/workflow status build-and-test
+
+# Output example:
+# Workflow Status
+# 
+# Name: build-and-test
+# Status: 🔄 running
+# Progress: 60%
+# Completed Steps: 3
+```
+
+**Status Indicators:**
+- ⏳ pending - Workflow not yet started
+- 🔄 running - Currently executing
+- ✅ completed - Finished successfully
+- ❌ failed - Execution failed
+- 🚫 cancelled - Workflow was cancelled
+
+#### `/workflow validate <name>`
+
+Validates workflow definition syntax and configuration:
+
+```bash
+/workflow validate my-workflow
+
+# Note: Currently shows placeholder message
+# Future implementation will provide detailed validation results
+```
+
+### Tab Completion
+
+The `/workflow` command supports intelligent tab completion:
+
+- **Subcommands**: Type `/workflow ` and press Tab to see available subcommands (`run`, `list`, `status`, `validate`)
+- **Workflow Names**: Type `/workflow run ` and press Tab to see available workflow names
+- **Partial Matching**: Type `/workflow run bui` and press Tab to complete matching workflow names
+
+### Error Handling
+
+The CLI provides user-friendly error messages for common issues:
+
+```bash
+# Missing workflow
+/workflow run nonexistent
+# Error: Workflow "nonexistent" not found. Available workflows: build, test, deploy
+
+# Invalid JSON variables
+/workflow run deploy {"invalid": json}
+# Error: Invalid variables format. Use JSON format: {"key": "value"}
+
+# Missing required arguments
+/workflow status
+# Error: Usage: /workflow status <name>
+```
+
+### Integration with Workflow Tool
+
+The CLI `/workflow` command integrates with the core `WorkflowTool` to provide:
+- Automatic workflow discovery from filesystem
+- YAML parsing and validation
+- Execution progress tracking
+- Result formatting and display
+- Error handling and user feedback
+
+For advanced programmatic usage, see the [Programmatic API](#using-the-programmatic-api) section above.
 
 ## Best Practices
 
