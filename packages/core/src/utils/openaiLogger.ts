@@ -228,7 +228,21 @@ export function createSessionLogger(sessionId?: string, customLogPath?: string):
   return new OpenAILogger(sessionId, customLogPath);
 }
 
-// Create a default instance for backward compatibility
+// Create a default instance for backward compatibility (lazy initialization)
 // Note: This will use a generated session ID. For session-specific logging,
 // use createSessionLogger() with the actual session ID.
-export const openaiLogger = new OpenAILogger();
+let _defaultLogger: OpenAILogger | null = null;
+export const openaiLogger = {
+  get instance(): OpenAILogger {
+    if (!_defaultLogger) {
+      _defaultLogger = new OpenAILogger();
+    }
+    return _defaultLogger;
+  },
+  // Legacy methods for backward compatibility
+  logInteraction: (...args: Parameters<OpenAILogger['logInteraction']>) => openaiLogger.instance.logInteraction(...args),
+  readLogFile: (...args: Parameters<OpenAILogger['readLogFile']>) => openaiLogger.instance.readLogFile(...args),
+  getLogFiles: (...args: Parameters<OpenAILogger['getLogFiles']>) => openaiLogger.instance.getLogFiles(...args),
+  getSessionLogPath: () => openaiLogger.instance.getSessionLogPath(),
+  getSessionId: () => openaiLogger.instance.getSessionId(),
+};

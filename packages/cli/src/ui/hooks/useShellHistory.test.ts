@@ -9,10 +9,14 @@ vi.mock('node:os', () => ({
   homedir: vi.fn(() => '/mock/home'),
 }));
 
-vi.mock('node:path', () => ({
-  join: vi.fn((...parts) => parts.join('/')),
-  dirname: vi.fn((path) => path.split('/').slice(0, -1).join('/')),
-}));
+vi.mock('node:path', async (importOriginal) => {
+  const actual = await importOriginal() as any;
+  return {
+    ...actual,
+    join: vi.fn((...parts) => parts.join('/')),
+    dirname: vi.fn((path) => path.split('/').slice(0, -1).join('/')),
+  };
+});
 
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useShellHistory } from './useShellHistory.js';
@@ -27,7 +31,7 @@ vi.mock('crypto');
 
 // Mock the getProjectTempDir function from core package
 vi.mock('@google/gemini-cli-core', async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = await importOriginal() as any;
   return {
     ...actual,
     getProjectTempDir: vi.fn(() => '/test/home/.ghccli/tmp/mocked_hash'),
