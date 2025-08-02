@@ -28,6 +28,7 @@ const mockConfig = {
   getModel: vi.fn().mockReturnValue('gemini-2.0-flash-exp'),
   getContentGeneratorConfig: vi.fn().mockReturnValue(undefined),
   getSessionId: vi.fn().mockReturnValue('test-session-id'),
+  getOutputLoggerFile: vi.fn().mockReturnValue(undefined),
 } as unknown as Config;
 
 // Helper to create a ReadableStream from chunks
