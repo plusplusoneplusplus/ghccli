@@ -84,7 +84,7 @@ describe('ParallelExecutor', () => {
 
       const executionOrder: string[] = [];
       const mockExecutor = mockStepExecutors.get('script')!;
-      (mockExecutor.execute as any).mockImplementation(async (step) => {
+      (mockExecutor.execute as any).mockImplementation(async (step: WorkflowStep) => {
         executionOrder.push(`${step.id}-start`);
         await new Promise(resolve => setTimeout(resolve, 50));
         executionOrder.push(`${step.id}-end`);
@@ -156,7 +156,7 @@ describe('ParallelExecutor', () => {
 
     it('should handle step failures with error isolation', async () => {
       const mockExecutor = mockStepExecutors.get('script')!;
-      (mockExecutor.execute as any).mockImplementation(async (step) => {
+      (mockExecutor.execute as any).mockImplementation(async (step: WorkflowStep) => {
         if (step.id === 'failing-step') {
           throw new Error('Step failed');
         }
@@ -204,7 +204,7 @@ describe('ParallelExecutor', () => {
 
       const executionOrder: string[] = [];
       const mockExecutor = mockStepExecutors.get('script')!;
-      (mockExecutor.execute as any).mockImplementation(async (step) => {
+      (mockExecutor.execute as any).mockImplementation(async (step: WorkflowStep) => {
         executionOrder.push(step.id);
         await new Promise(resolve => setTimeout(resolve, 10));
         return `Output from ${step.id}`;
@@ -251,7 +251,7 @@ describe('ParallelExecutor', () => {
 
       // Mock long-running execution
       const mockExecutor = mockStepExecutors.get('script')!;
-      (mockExecutor.execute as any).mockImplementation(async (step) => {
+      (mockExecutor.execute as any).mockImplementation(async (step: WorkflowStep) => {
         for (let i = 0; i < 100; i++) {
           if (shouldCancel()) {
             throw new Error('Execution cancelled');
@@ -333,8 +333,8 @@ describe('ParallelExecutor', () => {
       expect(results['slow-step'].executionTime).toBeGreaterThan(0);
       
       // Slow step should take longer than fast step
-      expect(results['slow-step'].executionTime).toBeGreaterThan(
-        results['fast-step'].executionTime
+      expect(results['slow-step'].executionTime!).toBeGreaterThan(
+        results['fast-step'].executionTime!
       );
     });
 
@@ -408,7 +408,7 @@ function createMockStep(id: string, type: string, resource?: string): WorkflowSt
   return {
     id,
     name: `Step ${id}`,
-    type,
+    type: type as 'script' | 'agent',
     config: {
       command: 'echo',
       args: [id]
