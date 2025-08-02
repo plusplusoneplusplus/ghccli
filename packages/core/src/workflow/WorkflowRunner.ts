@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { WorkflowDefinition, WorkflowResult, WorkflowExecutionContext, StepResult } from './types.js';
+import { WorkflowDefinition, WorkflowResult, WorkflowExecutionContext, StepResult, WorkflowStep } from './types.js';
 import { DependencyResolver } from './DependencyResolver.js';
 import { WorkflowContext } from './WorkflowContext.js';
 import { StepExecutor } from './StepExecutor.js';
@@ -13,6 +13,18 @@ import { AgentStepExecutor, AgentStepExecutorConfig } from './AgentStepExecutor.
 import { WorkflowStatusReporter, WorkflowExecutionReport } from './WorkflowStatusReporter.js';
 import { ParallelExecutor } from './ParallelExecutor.js';
 import { Config } from '../config/config.js';
+import { 
+  WorkflowError, 
+  WorkflowStepError, 
+  WorkflowTimeoutError,
+  WorkflowCancelledError,
+  WorkflowExecutorError,
+  createWorkflowError 
+} from './errors.js';
+import { WorkflowLogger, createWorkflowLogger } from './logging.js';
+import { WorkflowRetryManager, createWorkflowRetryManager, WorkflowRetryOptions } from './retry.js';
+import { WorkflowShutdownManager, GlobalWorkflowShutdownManager } from './shutdown.js';
+import { WorkflowMetricsCollector, createWorkflowMetricsCollector, WorkflowExecutionMetrics } from './metrics.js';
 
 export enum WorkflowStatus {
   PENDING = 'pending',
@@ -28,6 +40,11 @@ export interface WorkflowExecutionOptions {
   variables?: Record<string, unknown>;
   parallelEnabled?: boolean;
   maxConcurrency?: number;
+  enableLogging?: boolean;
+  enableTelemetry?: boolean;
+  enableMetrics?: boolean;
+  retryOptions?: WorkflowRetryOptions;
+  enableGracefulShutdown?: boolean;
 }
 
 export class WorkflowRunner {
@@ -40,6 +57,11 @@ export class WorkflowRunner {
   private startTime: number = 0;
   private cancelled: boolean = false;
   private config?: Config;
+  private logger?: WorkflowLogger;
+  private retryManager?: WorkflowRetryManager;
+  private shutdownManager?: WorkflowShutdownManager;
+  private metricsCollector?: WorkflowMetricsCollector;
+  private currentWorkflowId?: string;
 
   constructor(config?: Config) {
     this.dependencyResolver = new DependencyResolver();
@@ -82,14 +104,22 @@ export class WorkflowRunner {
     this.startTime = Date.now();
     this.status = WorkflowStatus.RUNNING;
     this.cancelled = false;
+    this.currentWorkflowId = `${workflow.name}-${Date.now()}`;
 
     try {
+      // Initialize logging and monitoring
+      this.initializeInfrastructure(workflow, options);
+
       // Create workflow context
       this.context = new WorkflowContext(
         workflow.name,
         options.variables || {},
         workflow.env || {}
       );
+
+      // Log workflow start
+      this.logger?.initialize(workflow);
+      this.logger?.logExecutionStart(options as Record<string, unknown>);
 
       // Initialize status reporter
       this.statusReporter.initialize(workflow, this.context);
@@ -115,7 +145,7 @@ export class WorkflowRunner {
       this.status = success ? WorkflowStatus.COMPLETED : WorkflowStatus.FAILED;
       this.statusReporter.updateWorkflowStatus(this.status);
 
-      return {
+      const result: WorkflowResult = {
         success,
         stepResults,
         executionTime: Date.now() - this.startTime,
@@ -123,27 +153,84 @@ export class WorkflowRunner {
         parallelStats: shouldUseParallelExecution ? this.parallelExecutor.getParallelStats() : undefined
       };
 
+      // Complete logging and metrics
+      this.logger?.logWorkflowComplete(result);
+      const metrics = this.metricsCollector?.complete(result);
+
+      // Add metrics to result if available
+      if (metrics) {
+        (result as any).metrics = metrics;
+      }
+
+      return result;
+
     } catch (error) {
       this.status = WorkflowStatus.FAILED;
       this.statusReporter.updateWorkflowStatus(WorkflowStatus.FAILED);
-      const errorMessage = error instanceof Error ? error.message : String(error);
       
-      return {
+      const workflowError = createWorkflowError(
+        error instanceof Error ? error : new Error(String(error)),
+        undefined,
+        this.currentWorkflowId
+      );
+
+      this.logger?.logStepFailure(
+        { id: 'workflow', name: workflow.name, type: 'script', config: { command: 'workflow-execution' } },
+        workflowError,
+        Date.now() - this.startTime
+      );
+
+      const result: WorkflowResult = {
         success: false,
         stepResults: {},
         executionTime: Date.now() - this.startTime,
-        error: errorMessage
+        error: workflowError.message
       };
+
+      // Complete metrics even on failure
+      const metrics = this.metricsCollector?.complete(result);
+      if (metrics) {
+        (result as any).metrics = metrics;
+      }
+
+      return result;
+    } finally {
+      // Cleanup
+      this.cleanupInfrastructure();
     }
   }
 
   /**
    * Cancel the current workflow execution
    */
-  cancel(): void {
+  async cancel(reason: string = 'User requested cancellation'): Promise<void> {
     this.cancelled = true;
     this.status = WorkflowStatus.CANCELLED;
     this.statusReporter.updateWorkflowStatus(WorkflowStatus.CANCELLED);
+    this.logger?.logWorkflowCancelled(reason);
+
+    // Graceful shutdown if enabled
+    if (this.shutdownManager && this.context) {
+      try {
+        await this.shutdownManager.shutdown(
+          { name: 'current_workflow', version: '1.0.0', steps: [] } as WorkflowDefinition,
+          this.context,
+          {},
+          undefined,
+          { gracePeriodMs: 5000 }
+        );
+      } catch (error) {
+        // Log error but don't throw as cancellation should succeed
+        this.logger?.logStepFailure(
+          { id: 'cancel', name: 'Cancel Operation', type: 'script', config: { command: 'cancel' } },
+          createWorkflowError(
+            error instanceof Error ? error : new Error(String(error)),
+            undefined,
+            this.currentWorkflowId
+          )
+        );
+      }
+    }
   }
 
   /**
@@ -256,10 +343,14 @@ export class WorkflowRunner {
     const stepResults: Record<string, StepResult> = {};
     
     for (const step of executionOrder) {
-      if (this.cancelled) {
+      if (this.isCancelledOrShuttingDown()) {
         this.status = WorkflowStatus.CANCELLED;
         this.statusReporter.updateWorkflowStatus(WorkflowStatus.CANCELLED);
-        throw new Error('Workflow execution was cancelled');
+        throw new WorkflowCancelledError(
+          'Workflow execution was cancelled',
+          this.currentWorkflowId,
+          step.id
+        );
       }
 
       // Check if step should be executed based on conditions
@@ -277,6 +368,8 @@ export class WorkflowRunner {
             error: errorMsg
           };
           this.statusReporter.markStepSkipped(step.id, errorMsg);
+          this.logger?.logStepSkipped(step, errorMsg);
+          this.metricsCollector?.recordStepSkipped(step, errorMsg);
           continue;
         }
       }
@@ -287,40 +380,61 @@ export class WorkflowRunner {
         // Get appropriate executor
         const executor = this.stepExecutors.get(step.type);
         if (!executor) {
-          throw new Error(`No executor found for step type: ${step.type}`);
+          throw new WorkflowExecutorError(
+            `No executor found for step type: ${step.type}`,
+            step.type,
+            this.currentWorkflowId,
+            step.id
+          );
         }
 
         // Mark step as started
         this.context!.setCurrentStepId(step.id);
         this.statusReporter.markStepStarted(step.id);
+        this.logger?.logStepStart(step);
+        this.metricsCollector?.recordStepStart(step);
 
-        // Execute step
+        // Execute step with retry logic
         const stepTimeout = step.config.timeout || workflow.timeout || options.timeout;
-        const stepResult = await this.executeWithTimeout(
+        const stepResult = await this.executeStepWithRetryAndTimeout(
           () => executor.execute(step, this.context!),
+          step,
           stepTimeout
         );
 
-        stepResults[step.id] = {
+        const result: StepResult = {
           success: true,
           output: stepResult,
           executionTime: Date.now() - stepStartTime
         };
 
+        stepResults[step.id] = result;
+
         // Update context with step output
         this.context!.setStepOutput(step.id, stepResult);
         this.statusReporter.markStepCompleted(step.id, stepResult);
+        this.logger?.logStepComplete(step, result);
+        this.metricsCollector?.recordStepComplete(step, result);
 
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
         const executionTime = Date.now() - stepStartTime;
-        stepResults[step.id] = {
+        const workflowError = createWorkflowError(
+          error instanceof Error ? error : new Error(String(error)),
+          step,
+          this.currentWorkflowId
+        );
+
+        const result: StepResult = {
           success: false,
-          error: errorMessage,
+          error: workflowError.message,
           executionTime
         };
 
-        this.statusReporter.markStepFailed(step.id, errorMessage);
+        stepResults[step.id] = result;
+
+        this.statusReporter.markStepFailed(step.id, workflowError.message);
+        this.logger?.logStepFailure(step, workflowError, executionTime);
+        this.metricsCollector?.recordStepFailure(step, workflowError, executionTime);
 
         // Stop execution if continueOnError is false
         if (!step.continueOnError && !options.continueOnError) {
@@ -384,5 +498,114 @@ export class WorkflowRunner {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Initialize logging, monitoring, and infrastructure
+   */
+  private initializeInfrastructure(
+    workflow: WorkflowDefinition,
+    options: WorkflowExecutionOptions
+  ): void {
+    // Initialize logger
+    if (options.enableLogging !== false) {
+      this.logger = createWorkflowLogger(
+        this.currentWorkflowId!,
+        workflow.name,
+        options.enableTelemetry !== false
+      );
+    }
+
+    // Initialize retry manager
+    if (options.retryOptions || options.retryOptions !== false) {
+      this.retryManager = createWorkflowRetryManager(options.retryOptions);
+    }
+
+    // Initialize shutdown manager
+    if (options.enableGracefulShutdown !== false) {
+      this.shutdownManager = new WorkflowShutdownManager(
+        this.currentWorkflowId!,
+        this.logger
+      );
+      
+      // Register with global shutdown manager
+      GlobalWorkflowShutdownManager.getInstance().registerWorkflow(
+        this.currentWorkflowId!,
+        this.shutdownManager
+      );
+    }
+
+    // Initialize metrics collector
+    if (options.enableMetrics !== false) {
+      this.metricsCollector = createWorkflowMetricsCollector(
+        workflow,
+        this.currentWorkflowId!
+      );
+    }
+  }
+
+  /**
+   * Cleanup infrastructure resources
+   */
+  private cleanupInfrastructure(): void {
+    // Unregister from global shutdown manager
+    if (this.currentWorkflowId) {
+      GlobalWorkflowShutdownManager.getInstance().unregisterWorkflow(
+        this.currentWorkflowId
+      );
+    }
+
+    // Clear references
+    this.logger = undefined;
+    this.retryManager = undefined;
+    this.shutdownManager = undefined;
+    this.metricsCollector = undefined;
+  }
+
+  /**
+   * Execute step with retry logic and timeout
+   */
+  private async executeStepWithRetryAndTimeout<T>(
+    fn: () => Promise<T>,
+    step: WorkflowStep,
+    timeout?: number
+  ): Promise<T> {
+    const executeWithTimeout = timeout ? 
+      () => this.executeWithTimeout(fn, timeout) : 
+      fn;
+
+    if (this.retryManager) {
+      return await this.retryManager.executeWithRetry(
+        executeWithTimeout,
+        {
+          workflowId: this.currentWorkflowId!,
+          step,
+          logger: this.logger
+        }
+      );
+    }
+
+    return await executeWithTimeout();
+  }
+
+  /**
+   * Get current workflow metrics
+   */
+  getMetrics(): WorkflowExecutionMetrics | undefined {
+    return this.metricsCollector?.getCurrentMetrics();
+  }
+
+  /**
+   * Get workflow logger
+   */
+  getLogger(): WorkflowLogger | undefined {
+    return this.logger;
+  }
+
+  /**
+   * Check if workflow is cancelled or shutdown is in progress
+   */
+  private isCancelledOrShuttingDown(): boolean {
+    return this.cancelled || this.shutdownManager?.isShutdownInProgress() || false;
   }
 }
