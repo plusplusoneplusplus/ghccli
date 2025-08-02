@@ -31,6 +31,7 @@ import {
 } from '../tools/memoryTool.js';
 import { WebSearchTool } from '../tools/web-search.js';
 import { AgentInvocationTool } from '../tools/agent-invocation.js';
+import { WorkflowTool } from '../tools/workflow-tool.js';
 import { GeminiClient } from '../core/client.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { GitService } from '../services/gitService.js';
@@ -736,6 +737,7 @@ export class Config {
     registerCoreTool(MemoryTool);
     registerCoreTool(WebSearchTool, this);
     registerCoreTool(AgentInvocationTool, this);
+    registerCoreTool(WorkflowTool, this);
 
     await registry.discoverAllTools();
     return registry;
