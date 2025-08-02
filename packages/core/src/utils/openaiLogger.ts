@@ -41,6 +41,7 @@ export class OpenAILogger {
   private sessionId: string;
   private sessionStartTime: string;
   private sessionLogFilePath: string;
+  private initializationPromise: Promise<void>;
 
   /**
    * Creates a new OpenAI logger
@@ -69,7 +70,7 @@ export class OpenAILogger {
       this.sessionLogFilePath = path.join(this.logDir, `${this.sessionStartTime}_${this.sessionId}.jsonl`);
     }
     
-    void this.logInitialization();
+    this.initializationPromise = this.logInitialization();
   }
 
   /**
@@ -132,6 +133,9 @@ export class OpenAILogger {
     tokenUsage?: TokenUsage,
     error?: Error,
   ): Promise<string> {
+    // Wait for initialization logging to complete first
+    await this.initializationPromise;
+    
     if (!this.initialized) {
       await this.initialize();
     }
