@@ -212,6 +212,59 @@ export class DependencyResolver {
   }
 
   /**
+   * Get enhanced parallel groups with configuration and resource constraints
+   */
+  getEnhancedParallelGroups(steps: WorkflowStep[], defaultMaxConcurrency = 4): Array<{
+    id: number;
+    steps: WorkflowStep[];
+    maxConcurrency: number;
+    resource?: string;
+  }> {
+    const basicGroups = this.getParallelGroups(steps);
+    
+    return basicGroups.map((group, index) => {
+      // Calculate max concurrency for the group
+      let maxConcurrency = defaultMaxConcurrency;
+      let resource: string | undefined;
+
+      // If all steps in the group have parallel config, use the most restrictive
+      const parallelConfigs = group
+        .map(step => step.parallel)
+        .filter(config => config?.enabled);
+
+      if (parallelConfigs.length > 0) {
+        // Use the minimum max concurrency if specified
+        const maxConcurrencies = parallelConfigs
+          .map(config => config!.maxConcurrency)
+          .filter(max => max !== undefined) as number[];
+        
+        if (maxConcurrencies.length > 0) {
+          maxConcurrency = Math.min(maxConcurrency, ...maxConcurrencies);
+        }
+
+        // Use common resource if all steps share the same resource
+        const resources = parallelConfigs
+          .map(config => config!.resource)
+          .filter(res => res !== undefined);
+        
+        if (resources.length > 0 && resources.every(res => res === resources[0])) {
+          resource = resources[0];
+        }
+      }
+
+      // Limit concurrency to the number of steps in the group
+      maxConcurrency = Math.min(maxConcurrency, group.length);
+
+      return {
+        id: index,
+        steps: group,
+        maxConcurrency,
+        resource
+      };
+    });
+  }
+
+  /**
    * Check if two steps have the same dependency level (depth in dependency graph)
    */
   private haveSameDependencyLevel(steps: WorkflowStep[], step1: WorkflowStep, step2: WorkflowStep): boolean {

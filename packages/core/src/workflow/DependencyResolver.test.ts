@@ -343,4 +343,233 @@ describe('DependencyResolver', () => {
       expect(groups[1][0].id).toBe('step3');
     });
   });
+
+  describe('getEnhancedParallelGroups', () => {
+    it('should create enhanced parallel groups with default configuration', () => {
+      const steps: WorkflowStep[] = [
+        {
+          id: 'step1',
+          name: 'Step 1',
+          type: 'script',
+          config: { command: 'echo' }
+        },
+        {
+          id: 'step2',
+          name: 'Step 2',
+          type: 'script',
+          config: { command: 'echo' }
+        },
+        {
+          id: 'step3',
+          name: 'Step 3',
+          type: 'script',
+          config: { command: 'echo' },
+          dependsOn: ['step1']
+        }
+      ];
+
+      const enhancedGroups = resolver.getEnhancedParallelGroups(steps, 4);
+      
+      expect(enhancedGroups).toHaveLength(2);
+      
+      // First group: step1 and step2 (independent)
+      expect(enhancedGroups[0].id).toBe(0);
+      expect(enhancedGroups[0].steps).toHaveLength(2);
+      expect(enhancedGroups[0].maxConcurrency).toBe(2); // Limited by number of steps
+      expect(enhancedGroups[0].resource).toBeUndefined();
+      
+      // Second group: step3 (depends on step1)
+      expect(enhancedGroups[1].id).toBe(1);
+      expect(enhancedGroups[1].steps).toHaveLength(1);
+      expect(enhancedGroups[1].steps[0].id).toBe('step3');
+      expect(enhancedGroups[1].maxConcurrency).toBe(1);
+    });
+
+    it('should respect parallel configuration from steps', () => {
+      const steps: WorkflowStep[] = [
+        {
+          id: 'step1',
+          name: 'Step 1',
+          type: 'script',
+          config: { command: 'echo' },
+          parallel: {
+            enabled: true,
+            maxConcurrency: 2,
+            resource: 'cpu'
+          }
+        },
+        {
+          id: 'step2',
+          name: 'Step 2',
+          type: 'script',
+          config: { command: 'echo' },
+          parallel: {
+            enabled: true,
+            maxConcurrency: 2,
+            resource: 'cpu'
+          }
+        },
+        {
+          id: 'step3',
+          name: 'Step 3',
+          type: 'script',
+          config: { command: 'echo' },
+          parallel: {
+            enabled: true,
+            maxConcurrency: 3,
+            resource: 'cpu'
+          }
+        }
+      ];
+
+      const enhancedGroups = resolver.getEnhancedParallelGroups(steps, 10);
+      
+      expect(enhancedGroups).toHaveLength(1);
+      expect(enhancedGroups[0].maxConcurrency).toBe(2); // Most restrictive
+      expect(enhancedGroups[0].resource).toBe('cpu'); // Common resource
+    });
+
+    it('should handle mixed resource configurations', () => {
+      const steps: WorkflowStep[] = [
+        {
+          id: 'step1',
+          name: 'Step 1',
+          type: 'script',
+          config: { command: 'echo' },
+          parallel: {
+            enabled: true,
+            resource: 'cpu'
+          }
+        },
+        {
+          id: 'step2',
+          name: 'Step 2',
+          type: 'script',
+          config: { command: 'echo' },
+          parallel: {
+            enabled: true,
+            resource: 'memory'
+          }
+        }
+      ];
+
+      const enhancedGroups = resolver.getEnhancedParallelGroups(steps, 5);
+      
+      expect(enhancedGroups).toHaveLength(1);
+      expect(enhancedGroups[0].resource).toBeUndefined(); // No common resource
+    });
+
+    it('should limit concurrency to step count', () => {
+      const steps: WorkflowStep[] = [
+        {
+          id: 'step1',
+          name: 'Step 1',
+          type: 'script',
+          config: { command: 'echo' }
+        },
+        {
+          id: 'step2',
+          name: 'Step 2',
+          type: 'script',
+          config: { command: 'echo' }
+        }
+      ];
+
+      const enhancedGroups = resolver.getEnhancedParallelGroups(steps, 10);
+      
+      expect(enhancedGroups).toHaveLength(1);
+      expect(enhancedGroups[0].maxConcurrency).toBe(2); // Limited by step count, not default
+    });
+
+    it('should handle complex dependency with parallel configuration', () => {
+      const steps: WorkflowStep[] = [
+        {
+          id: 'root1',
+          name: 'Root 1',
+          type: 'script',
+          config: { command: 'echo' },
+          parallel: { enabled: true, maxConcurrency: 1 }
+        },
+        {
+          id: 'root2',
+          name: 'Root 2',
+          type: 'script',
+          config: { command: 'echo' },
+          parallel: { enabled: true, maxConcurrency: 1 }
+        },
+        {
+          id: 'middle1',
+          name: 'Middle 1',
+          type: 'script',
+          config: { command: 'echo' },
+          dependsOn: ['root1'],
+          parallel: { enabled: true, maxConcurrency: 2 }
+        },
+        {
+          id: 'middle2',
+          name: 'Middle 2',
+          type: 'script',
+          config: { command: 'echo' },
+          dependsOn: ['root2'],
+          parallel: { enabled: true, maxConcurrency: 2 }
+        },
+        {
+          id: 'final',
+          name: 'Final',
+          type: 'script',
+          config: { command: 'echo' },
+          dependsOn: ['middle1', 'middle2'],
+          parallel: { enabled: true }
+        }
+      ];
+
+      const enhancedGroups = resolver.getEnhancedParallelGroups(steps, 4);
+      
+      expect(enhancedGroups).toHaveLength(3);
+      
+      // First group: root1, root2
+      expect(enhancedGroups[0].steps).toHaveLength(2);
+      expect(enhancedGroups[0].maxConcurrency).toBe(1); // Most restrictive
+      
+      // Second group: middle1, middle2
+      expect(enhancedGroups[1].steps).toHaveLength(2);
+      expect(enhancedGroups[1].maxConcurrency).toBe(2);
+      
+      // Third group: final
+      expect(enhancedGroups[2].steps).toHaveLength(1);
+      expect(enhancedGroups[2].maxConcurrency).toBe(1);
+    });
+
+    it('should assign unique group IDs', () => {
+      const steps: WorkflowStep[] = [
+        {
+          id: 'step1',
+          name: 'Step 1',
+          type: 'script',
+          config: { command: 'echo' }
+        },
+        {
+          id: 'step2',
+          name: 'Step 2',
+          type: 'script',
+          config: { command: 'echo' },
+          dependsOn: ['step1']
+        },
+        {
+          id: 'step3',
+          name: 'Step 3',
+          type: 'script',
+          config: { command: 'echo' },
+          dependsOn: ['step2']
+        }
+      ];
+
+      const enhancedGroups = resolver.getEnhancedParallelGroups(steps);
+      
+      expect(enhancedGroups).toHaveLength(3);
+      expect(enhancedGroups[0].id).toBe(0);
+      expect(enhancedGroups[1].id).toBe(1);
+      expect(enhancedGroups[2].id).toBe(2);
+    });
+  });
 });

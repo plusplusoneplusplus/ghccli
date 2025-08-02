@@ -21,6 +21,13 @@ export interface AgentConfig {
 
 export type WorkflowStepConfig = ScriptConfig | AgentConfig;
 
+export interface ParallelConfig {
+  enabled: boolean;
+  maxConcurrency?: number;
+  resource?: string;
+  isolateErrors?: boolean;
+}
+
 export interface WorkflowStep {
   id: string;
   name: string;
@@ -29,6 +36,13 @@ export interface WorkflowStep {
   dependsOn?: string[];
   condition?: string;
   continueOnError?: boolean;
+  parallel?: ParallelConfig;
+}
+
+export interface WorkflowParallelConfig {
+  enabled: boolean;
+  defaultMaxConcurrency?: number;
+  resources?: Record<string, number>;
 }
 
 export interface WorkflowDefinition {
@@ -39,6 +53,7 @@ export interface WorkflowDefinition {
   timeout?: number;
   env?: Record<string, string>;
   metadata?: Record<string, unknown>;
+  parallel?: WorkflowParallelConfig;
 }
 
 export interface WorkflowExecutionContext {
@@ -48,9 +63,22 @@ export interface WorkflowExecutionContext {
   outputs: Record<string, unknown>;
 }
 
+export interface StepResult {
+  success: boolean;
+  output?: unknown;
+  error?: string;
+  executionTime?: number;
+  parallelGroup?: number;
+}
+
 export interface WorkflowResult {
   success: boolean;
-  stepResults: Record<string, { success: boolean; output?: unknown; error?: string }>;
+  stepResults: Record<string, StepResult>;
   executionTime: number;
   error?: string;
+  parallelStats?: {
+    totalGroups: number;
+    maxConcurrentSteps: number;
+    resourceUtilization?: Record<string, number>;
+  };
 }
