@@ -6,3 +6,10 @@
 
 export * from './types.js';
 export * from './schema.js';
+export * from './WorkflowRunner.js';
+export * from './DependencyResolver.js';
+export * from './WorkflowContext.js';
+export * from './StepExecutor.js';
+export * from './ScriptStepExecutor.js';
+export * from './AgentStepExecutor.js';
+export * from './WorkflowStatusReporter.js';
