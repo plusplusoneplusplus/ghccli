@@ -1,0 +1,45 @@
+name: Agent-based Analysis Workflow
+description: Workflow using agents for code analysis and documentation
+version: 1.2.0
+
+timeout: 1800
+
+metadata:
+  author: development-team
+  tags: ["analysis", "documentation", "automation"]
+
+steps:
+  - id: analyze-code
+    name: Analyze Codebase
+    type: agent
+    config:
+      agent: code-analyzer
+      prompt: "Analyze the codebase for potential issues and improvements"
+      parameters:
+        depth: "full"
+        includeTests: true
+        formats: ["json", "markdown"]
+      timeout: 900
+
+  - id: generate-docs
+    name: Generate Documentation
+    type: agent
+    config:
+      agent: documentation-generator
+      prompt: "Generate comprehensive documentation based on code analysis"
+      parameters:
+        format: "markdown"
+        includeExamples: true
+        outputPath: "./docs"
+    dependsOn: ["analyze-code"]
+    continueOnError: true
+
+  - id: review-quality
+    name: Quality Review
+    type: script
+    config:
+      command: npm
+      args: ["run", "quality-check"]
+      env:
+        ANALYSIS_REPORT: "./analysis-report.json"
+    dependsOn: ["analyze-code", "generate-docs"]
