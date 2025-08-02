@@ -13,3 +13,5 @@ export * from './StepExecutor.js';
 export * from './ScriptStepExecutor.js';
 export * from './AgentStepExecutor.js';
 export * from './WorkflowStatusReporter.js';
+export * from './WorkflowLoader.js';
+export * from './WorkflowCache.js';
