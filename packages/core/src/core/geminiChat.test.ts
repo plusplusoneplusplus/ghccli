@@ -12,6 +12,12 @@ import {
   Part,
   GenerateContentResponse,
 } from '@google/genai';
+
+// Mock the agents module to prevent circular dependency during testing
+vi.mock('../agents/agentChat.js', () => ({
+  AgentChat: class MockAgentChat {}
+}));
+
 import { GeminiChat } from './geminiChat.js';
 import { Config } from '../config/config.js';
 import { setSimulate429 } from '../utils/testUtils.js';

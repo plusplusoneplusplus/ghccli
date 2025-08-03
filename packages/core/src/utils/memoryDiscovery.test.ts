@@ -320,16 +320,19 @@ My code memory
   });
 
   it('should respect the maxDirs parameter during downward scan', async () => {
-    const consoleDebugSpy = vi
-      .spyOn(console, 'debug')
-      .mockImplementation(() => {});
-
+    // Create 100 directories but only scan up to 50
     for (let i = 0; i < 100; i++) {
       await createEmptyDir(path.join(cwd, `deep_dir_${i}`));
     }
+    
+    // Add a GEMINI.md file in the 75th directory to test that the limit prevents scanning it
+    await fsPromises.writeFile(path.join(cwd, 'deep_dir_75', 'GEMINI.md'), 'Should not be found');
+    
+    // Add a GEMINI.md file in the 10th directory to ensure search finds at least something
+    await fsPromises.writeFile(path.join(cwd, 'deep_dir_10', 'GEMINI.md'), 'Should be found');
 
     // Pass the custom limit directly to the function
-    await loadServerHierarchicalMemory(
+    const result = await loadServerHierarchicalMemory(
       cwd,
       true,
       new FileDiscoveryService(projectRoot),
@@ -341,13 +344,12 @@ My code memory
       50, // maxDirs
     );
 
-    expect(consoleDebugSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[DEBUG] [BfsFileSearch]'),
-      expect.stringContaining('Scanning [50/50]:'),
-    );
+    // Should find the file in deep_dir_10 but not in deep_dir_75 due to maxDirs limit
+    expect(result.memoryContent).toContain('Should be found');
+    expect(result.memoryContent).not.toContain('Should not be found');
+  });
 
-    vi.mocked(console.debug).mockRestore();
-
+  it('should load context files correctly after maxDirs test', async () => {
     const result = await loadServerHierarchicalMemory(
       cwd,
       false,

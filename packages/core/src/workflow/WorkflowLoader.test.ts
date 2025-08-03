@@ -301,7 +301,10 @@ steps:
       // Get the already mocked watch function and configure it
       vi.mocked(fs.watch).mockReturnValue(mockWatcher as any);
       
-      loader = new WorkflowLoader({ enableWatching: true });
+      loader = new WorkflowLoader({ 
+        enableWatching: true,
+        workflowDirectory: '/workflows'
+      });
       
       mockGlob
         .mockResolvedValueOnce(['/workflows/test-workflow.yaml'])  // .yaml pattern
