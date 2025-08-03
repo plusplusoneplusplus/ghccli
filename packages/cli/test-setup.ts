@@ -1,17 +1,15 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 Yiheng Tao
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import { vi } from 'vitest';
-import { setSimulate429 } from './src/utils/testUtils.js';
 
-// Disable 429 simulation globally for all tests
-setSimulate429(false);
-
-// Mock the OpenAI Logger to prevent file system operations during tests
-vi.mock('./src/utils/openaiLogger.js', () => {
+// Mock the OpenAI Logger from the core package to prevent file system operations during tests
+vi.mock('@google/gemini-cli-core', async () => {
+  const actual = await vi.importActual('@google/gemini-cli-core');
+  
   const mockLogger = {
     logInteraction: vi.fn().mockResolvedValue('mock-log-path'),
     getSessionId: vi.fn().mockReturnValue('mock-session-id'),
@@ -21,7 +19,7 @@ vi.mock('./src/utils/openaiLogger.js', () => {
   };
 
   return {
-    OpenAILogger: vi.fn().mockImplementation(() => mockLogger),
+    ...actual,
     createSessionLogger: vi.fn().mockReturnValue(mockLogger),
     openaiLogger: {
       instance: mockLogger,
