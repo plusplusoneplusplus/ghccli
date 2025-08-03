@@ -213,7 +213,7 @@ export class WorkflowCache {
     let lruTime: Date | null = null;
     
     for (const [key, entry] of this.cache.entries()) {
-      if (!lruTime || entry.lastAccessed < lruTime) {
+      if (!lruTime || entry.lastAccessed.getTime() < lruTime.getTime()) {
         lruTime = entry.lastAccessed;
         lruKey = key;
       }

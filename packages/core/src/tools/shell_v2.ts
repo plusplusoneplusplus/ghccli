@@ -478,8 +478,8 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
       if (this.config.getDebugMode()) {
         returnDisplayMessage = llmContent;
       } else {
-        if (output.trim()) {
-          returnDisplayMessage = output;
+        if (stdout.trim()) {
+          returnDisplayMessage = stdout;
         } else {
           // Output is empty, let's provide a reason if the command failed or was cancelled
           if (signal.aborted) {
@@ -638,8 +638,8 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     if (this.config.getDebugMode()) {
       returnDisplayMessage = llmContent;
     } else {
-      if (output.trim()) {
-        returnDisplayMessage = output;
+      if (stdout.trim()) {
+        returnDisplayMessage = stdout;
       } else {
         // Output is empty, let's provide a reason if the command failed or was cancelled
         if (signal.aborted) {

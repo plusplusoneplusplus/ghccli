@@ -222,11 +222,14 @@ describe('WorkflowCache', () => {
       const workflow3 = createMockWorkflow('Workflow 3', '/path/to/workflow3.yaml');
       
       cache.set('/path/to/workflow1.yaml', workflow1);
+      vi.advanceTimersByTime(1); // Advance time to create different timestamps
       cache.set('/path/to/workflow2.yaml', workflow2);
       
+      vi.advanceTimersByTime(1); // Advance time before access
       // Access workflow1 to make it more recently used
       cache.get('/path/to/workflow1.yaml');
       
+      vi.advanceTimersByTime(1); // Advance time before adding workflow3
       // Adding workflow3 should evict workflow2 (least recently used)
       cache.set('/path/to/workflow3.yaml', workflow3);
       
