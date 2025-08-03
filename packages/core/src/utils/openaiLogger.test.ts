@@ -10,6 +10,9 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { OpenAILogger, createSessionLogger } from './openaiLogger.js';
 
+// Unmock the OpenAI logger for this test file since we want to test the actual implementation
+vi.unmock('./openaiLogger.js');
+
 describe('OpenAILogger', () => {
   let tempDir: string;
   let logger: OpenAILogger;
@@ -40,8 +43,8 @@ describe('OpenAILogger', () => {
       expect(loggerWithoutSession.getSessionId()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     });
 
-    it('should use custom log directory', () => {
-      const customDir = '/custom/path';
+    it('should use custom log directory', async () => {
+      const customDir = path.join(tempDir, 'custom-path');
       const customLogger = new OpenAILogger('session', customDir);
       const sessionLogPath = customLogger.getSessionLogPath();
       // Should be in the custom directory and match the new filename pattern
@@ -61,7 +64,9 @@ describe('OpenAILogger', () => {
     });
 
     it('should handle initialization errors gracefully', async () => {
-      const invalidLogger = new OpenAILogger('test', '/invalid/readonly/path');
+      const invalidPath = path.join(tempDir, 'readonly');
+      await fs.mkdir(invalidPath, { mode: 0o444 }); // Read-only directory
+      const invalidLogger = new OpenAILogger('test', path.join(invalidPath, 'nested'));
       
       await expect(invalidLogger.logInteraction({})).rejects.toThrow();
     });
@@ -285,7 +290,8 @@ describe('OpenAILogger', () => {
     });
 
     it('should return empty array for non-existent directory', async () => {
-      const nonExistentLogger = new OpenAILogger('test', '/non/existent/dir');
+      const nonExistentPath = path.join(tempDir, 'non-existent-dir');
+      const nonExistentLogger = new OpenAILogger('test', nonExistentPath);
       
       // This should handle the case gracefully and return empty array
       await expect(nonExistentLogger.getLogFiles()).resolves.toEqual([]);
@@ -349,7 +355,7 @@ describe('OpenAILogger', () => {
     });
 
     it('should create logger with custom log path', () => {
-      const customPath = '/custom/log/path';
+      const customPath = path.join(tempDir, 'custom-log-path');
       const sessionLogger = createSessionLogger('test-session', customPath);
       expect(sessionLogger.getSessionId()).toBe('test-session');
       const logPath = sessionLogger.getSessionLogPath();
