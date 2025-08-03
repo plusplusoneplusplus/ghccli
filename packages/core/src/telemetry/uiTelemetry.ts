@@ -15,8 +15,8 @@ import {
   ApiErrorEvent,
   ApiResponseEvent,
   ToolCallEvent,
-  ToolCallDecision,
 } from './types.js';
+import { ToolCallDecision } from './enums.js';
 
 export type UiEvent =
   | (ApiResponseEvent & { 'event.name': typeof EVENT_API_RESPONSE })
@@ -28,11 +28,7 @@ export interface ToolCallStats {
   success: number;
   fail: number;
   durationMs: number;
-  decisions: {
-    [ToolCallDecision.ACCEPT]: number;
-    [ToolCallDecision.REJECT]: number;
-    [ToolCallDecision.MODIFY]: number;
-  };
+  decisions: Record<ToolCallDecision, number>;
 }
 
 export interface ModelMetrics {
@@ -58,11 +54,7 @@ export interface SessionMetrics {
     totalSuccess: number;
     totalFail: number;
     totalDurationMs: number;
-    totalDecisions: {
-      [ToolCallDecision.ACCEPT]: number;
-      [ToolCallDecision.REJECT]: number;
-      [ToolCallDecision.MODIFY]: number;
-    };
+    totalDecisions: Record<ToolCallDecision, number>;
     byName: Record<string, ToolCallStats>;
   };
 }
@@ -83,21 +75,24 @@ const createInitialModelMetrics = (): ModelMetrics => ({
   },
 });
 
-const createInitialMetrics = (): SessionMetrics => ({
-  models: {},
-  tools: {
-    totalCalls: 0,
-    totalSuccess: 0,
-    totalFail: 0,
-    totalDurationMs: 0,
-    totalDecisions: {
-      [ToolCallDecision.ACCEPT]: 0,
-      [ToolCallDecision.REJECT]: 0,
-      [ToolCallDecision.MODIFY]: 0,
+const createInitialMetrics = (): SessionMetrics => {
+  const totalDecisions: Record<string, number> = {};
+  totalDecisions[ToolCallDecision.ACCEPT] = 0;
+  totalDecisions[ToolCallDecision.REJECT] = 0;
+  totalDecisions[ToolCallDecision.MODIFY] = 0;
+
+  return {
+    models: {},
+    tools: {
+      totalCalls: 0,
+      totalSuccess: 0,
+      totalFail: 0,
+      totalDurationMs: 0,
+      totalDecisions: totalDecisions as Record<ToolCallDecision, number>,
+      byName: {},
     },
-    byName: {},
-  },
-});
+  };
+};
 
 export class UiTelemetryService extends EventEmitter {
   #metrics: SessionMetrics = createInitialMetrics();

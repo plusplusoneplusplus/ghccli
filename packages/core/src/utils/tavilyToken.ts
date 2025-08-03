@@ -8,7 +8,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 
-const TAVILY_TOKEN_FILE = path.join(os.homedir(), '.ghccli', '.tavily_token');
+function getTavilyTokenFile(): string {
+  return path.join(os.homedir(), '.ghccli', '.tavily_token');
+}
 
 /**
  * Reads the Tavily API token from the cache file.
@@ -16,8 +18,9 @@ const TAVILY_TOKEN_FILE = path.join(os.homedir(), '.ghccli', '.tavily_token');
  */
 export function getTavilyToken(): string | null {
   try {
-    if (fs.existsSync(TAVILY_TOKEN_FILE)) {
-      const token = fs.readFileSync(TAVILY_TOKEN_FILE, 'utf8').trim();
+    const tokenFile = getTavilyTokenFile();
+    if (fs.existsSync(tokenFile)) {
+      const token = fs.readFileSync(tokenFile, 'utf8').trim();
       return token || null;
     }
     return null;
@@ -34,13 +37,14 @@ export function getTavilyToken(): string | null {
  */
 export function setTavilyToken(token: string): boolean {
   try {
-    const tokenDir = path.dirname(TAVILY_TOKEN_FILE);
+    const tokenFile = getTavilyTokenFile();
+    const tokenDir = path.dirname(tokenFile);
     if (!fs.existsSync(tokenDir)) {
       fs.mkdirSync(tokenDir, { recursive: true });
     }
-    fs.writeFileSync(TAVILY_TOKEN_FILE, token.trim(), 'utf8');
+    fs.writeFileSync(tokenFile, token.trim(), 'utf8');
     // Set restrictive permissions (readable only by owner)
-    fs.chmodSync(TAVILY_TOKEN_FILE, 0o600);
+    fs.chmodSync(tokenFile, 0o600);
     return true;
   } catch (error) {
     console.error('Error saving Tavily token:', error);
@@ -54,8 +58,9 @@ export function setTavilyToken(token: string): boolean {
  */
 export function clearTavilyToken(): boolean {
   try {
-    if (fs.existsSync(TAVILY_TOKEN_FILE)) {
-      fs.unlinkSync(TAVILY_TOKEN_FILE);
+    const tokenFile = getTavilyTokenFile();
+    if (fs.existsSync(tokenFile)) {
+      fs.unlinkSync(tokenFile);
     }
     return true;
   } catch (error) {

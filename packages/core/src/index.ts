@@ -4,17 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Export config
 export * from './config/config.js';
 export * from './config/supportedModels.js';
 
-// Export agents
-export * from './agents/index.js';
-
-// Export Core Logic
-export * from './core/client.js';
 export * from './core/contentGenerator.js';
 export * from './core/geminiChat.js';
+export * from './core/client.js';
 export * from './core/logger.js';
 export * from './core/prompts.js';
 export * from './core/tokenLimits.js';
@@ -22,6 +17,8 @@ export * from './core/turn.js';
 export * from './core/geminiRequest.js';
 export * from './core/coreToolScheduler.js';
 export * from './core/nonInteractiveToolExecutor.js';
+
+export * from './agents/index.js';
 
 export * from './code_assist/codeAssist.js';
 export * from './code_assist/oauth2.js';
