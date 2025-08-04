@@ -331,18 +331,70 @@ export class WorkflowTool extends BaseTool<
           const ext = extname(entry.name).toLowerCase();
           if (ext === '.yml' || ext === '.yaml') {
             try {
-              await this.loadWorkflowFile(fullPath);
+              // Check if this YAML file looks like a workflow before attempting to load it
+              const isLikelyWorkflow = await this.isLikelyWorkflowFile(fullPath);
+              if (isLikelyWorkflow) {
+                await this.loadWorkflowFile(fullPath);
+              }
             } catch (error) {
               console.warn(`Failed to load workflow file ${fullPath}:`, error);
             }
           }
-        } else if (entry.isDirectory() && !entry.name.startsWith('.')) {
-          // Recursively search subdirectories (but not hidden ones)
+        } else if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
+          // Recursively search subdirectories (but not hidden ones or node_modules)
           await this.discoverWorkflows(fullPath);
         }
       }
     } catch (error) {
       console.warn(`Failed to read directory ${path}:`, error);
+    }
+  }
+
+  /**
+   * Performs a lightweight check to determine if a YAML file is likely a workflow
+   * before attempting expensive validation. This prevents trying to parse agent
+   * configs, docker-compose files, and other YAML files as workflows.
+   */
+   private async isLikelyWorkflowFile(filePath: string): Promise<boolean> {
+    try {
+      const content = await readFile(filePath, 'utf-8');
+      const data = parseYaml(content);
+      
+      // Must be an object
+      if (!data || typeof data !== 'object') {
+        return false;
+      }
+      
+      // Must have essential workflow properties
+      const hasName = 'name' in data && typeof data.name === 'string';
+      const hasSteps = 'steps' in data && Array.isArray(data.steps);
+      const hasVersion = 'version' in data && typeof data.version === 'string';
+      
+      // A workflow must have name, steps, and version
+      if (!hasName || !hasSteps || !hasVersion) {
+        return false;
+      }
+      
+      // Check if steps look like workflow steps (have id, name, type)
+      const steps = data.steps as any[];
+      if (steps.length === 0) {
+        return false;
+      }
+      
+      // At least the first step should have workflow step structure
+      const firstStep = steps[0];
+      if (!firstStep || typeof firstStep !== 'object') {
+        return false;
+      }
+      
+      const hasStepId = 'id' in firstStep;
+      const hasStepName = 'name' in firstStep;
+      const hasStepType = 'type' in firstStep;
+      
+      return hasStepId && hasStepName && hasStepType;
+    } catch {
+      // If we can't parse it, it's definitely not a workflow
+      return false;
     }
   }
 

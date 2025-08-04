@@ -19,7 +19,7 @@ steps:
         scanDepth: "surface"
         identifyPatterns: true
         flagComplexity: true
-      timeout: 600
+      timeout: 1200
 
   - id: architecture-research
     name: Architecture Research
@@ -71,7 +71,7 @@ steps:
         prioritizeFindings: true
         includeRecommendations: true
         outputFormat: "markdown"
-      timeout: 600
+      timeout: 1200
     dependsOn: ["architecture-research", "security-research", "performance-research"]
 
   - id: validation
