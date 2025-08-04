@@ -17,3 +17,6 @@ export * from './WorkflowLoader.js';
 export * from './WorkflowCache.js';
 export * from './VariableInterpolator.js';
 export * from './BuiltinFunctions.js';
+export * from './WorkflowTemplate.js';
+export * from './TemplateResolver.js';
+export * from './templates/index.js';
