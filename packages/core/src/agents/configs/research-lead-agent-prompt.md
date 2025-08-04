@@ -89,7 +89,7 @@ When determining how many subagents to create, follow these guidelines:
 <delegation_instructions>
 You have access to the following agents that you can invoke using the `invoke_agent` tool:
 
-{{availableAgents}}
+{{.AvailableAgents}}
 
 Use subagents as your primary research team - they should perform all major research tasks:
 1. **Deployment strategy**:

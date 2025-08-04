@@ -228,7 +228,7 @@ metadata:
         },
         systemPrompt: {
           type: 'content' as const,
-          value: 'You are a {{.CurrentDate}} agent with agents:\n{{availableAgents}}'
+          value: 'You are a {{.CurrentDate}} agent with agents:\n{{.AvailableAgents}}'
         }
       };
 
@@ -392,7 +392,7 @@ metadata:
       expect(systemPrompt.parts[0].text).not.toContain('Available sub-agents you can invoke:');
     });
 
-    it('should replace placeholder when {{availableAgents}} exists', async () => {
+    it('should replace placeholder when {{.AvailableAgents}} exists', async () => {
       // Set up mock for resolveAvailableAgents to return the expected agents
       vi.mocked(mockAgentLoader.resolveAvailableAgents).mockResolvedValue(['agent1', 'agent2']);
       
@@ -429,7 +429,7 @@ metadata:
         },
         systemPrompt: {
           type: 'content' as const,
-          value: 'You are a test agent with agents:\n{{availableAgents}}'
+          value: 'You are a test agent with agents:\n{{.AvailableAgents}}'
         }
       };
 
@@ -444,7 +444,7 @@ metadata:
       expect(systemPrompt).toBeDefined();
       expect(systemPrompt.parts[0].text).toContain('agent with agents:\n- agent1');
       expect(systemPrompt.parts[0].text).toContain('- agent2');
-      expect(systemPrompt.parts[0].text).not.toContain('{{availableAgents}}');
+      expect(systemPrompt.parts[0].text).not.toContain('{{.AvailableAgents}}');
       expect(systemPrompt.parts[0].text).not.toContain('Available sub-agents you can invoke:');
     });
   });

@@ -56,14 +56,14 @@ export class AgentChat extends GeminiChat {
    * Resolves variables in the prompt content
    */
   private async resolvePromptVariables(promptContent: string): Promise<string> {
-    // Check if {{availableAgents}} placeholder exists
-    const hasAvailableAgentsPlaceholder = promptContent.includes('{{availableAgents}}');
+    // Check if {{.AvailableAgents}} placeholder exists
+    const hasAvailableAgentsPlaceholder = promptContent.includes('{{.AvailableAgents}}');
     
     if (hasAvailableAgentsPlaceholder) {
       // Replace available agents placeholder with detailed information
       const availableAgentsText = await this.getAvailableAgentsAsText();
       promptContent = promptContent.replace(
-        '{{availableAgents}}',
+        '{{.AvailableAgents}}',
         availableAgentsText
       );
     } else {
