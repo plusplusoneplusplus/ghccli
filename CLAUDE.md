@@ -1,8 +1,16 @@
 # Claude Instructions for GitHub Issue Workflow
 
+## ⚠️ Fork/Merge Conflict Minimization Guidance
+
+This repository is a fork of an upstream/original repository. All changes should be made with the goal of minimizing merge conflicts when merging with the upstream repository. Please:
+- Make changes incrementally and in small, focused commits
+- Avoid unnecessary divergence from upstream (e.g., do not reformat code, rename files, or restructure unless required)
+- Regularly pull changes from upstream and resolve conflicts early
+- When planning or implementing changes, always consider how they will affect future merges
+
 This file contains instructions for Claude to efficiently work on GitHub issues by reading, planning, implementing, and closing them.
 
-## GitHub Issue Workflow
+## GitHub Issue Workflow (with Fork Awareness)
 
 When asked to work on a GitHub issue, follow these steps:
 
@@ -11,30 +19,36 @@ When asked to work on a GitHub issue, follow these steps:
 - Extract key requirements, acceptance criteria, and any linked resources
 - Identify the issue type (bug fix, feature request, enhancement, etc.)
 
+
 ### 2. Plan the Work
 - Use the TodoWrite tool to create a structured plan with specific tasks
 - Break down complex requirements into smaller, manageable steps
 - Include tasks for testing, linting, and verification
+- **When planning, consider how your changes will impact future merges with upstream. Favor approaches that minimize merge conflicts.**
 
 ### 3. Investigate the Codebase
 - Search for relevant files and code patterns using Grep and Glob tools
 - Understand existing implementations and conventions
 - Identify files that need modification or creation
 
+
 ### 4. Implement the Changes
 - Follow existing code conventions and patterns
 - Make targeted, focused changes that address the issue requirements
 - Ensure code quality and maintainability
+- **Avoid unnecessary refactoring or formatting changes that could increase merge conflicts with upstream.**
 
 ### 5. Verify the Implementation
 - Run tests using `npm test` if available
 - Run type checking with `npm run typecheck`
 - Test the changes manually if applicable
 
+
 ### 6. Commit and Push Changes
 - Stage relevant files with `git add`
 - Create a descriptive commit message that references the issue
 - Push changes to the current branch or create a new branch if needed
+- **Before pushing, consider rebasing or merging upstream changes to resolve conflicts early.**
 
 ### 7. Close the Issue
 - Use `gh issue close <issue_number>` with an appropriate comment

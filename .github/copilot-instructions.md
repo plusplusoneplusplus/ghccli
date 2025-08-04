@@ -1,5 +1,13 @@
 # Test Debugging Guidelines
 
+## ⚠️ Fork/Merge Conflict Minimization Guidance
+
+This repository is a fork of an upstream/original repository. All test and code changes should be made with the goal of minimizing merge conflicts when merging with upstream. Please:
+- Make changes incrementally and in small, focused commits
+- Avoid unnecessary divergence from upstream (e.g., do not reformat code, rename files, or restructure unless required)
+- Regularly pull changes from upstream and resolve conflicts early
+- When planning or implementing changes, always consider how they will affect future merges
+
 When encountering test failures, please follow these guidelines:
 
 ## Investigation Process
@@ -17,3 +25,4 @@ When encountering test failures, please follow these guidelines:
 - Ensure tests accurately reflect the expected behavior of the production code
 - Maintain test isolation and avoid side effects
 - Use proper mocking and stubbing when needed
+- **When editing tests or related code, avoid unnecessary changes that could increase merge conflicts with upstream.**
