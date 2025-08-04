@@ -64,3 +64,7 @@ Always include the issue number in commit messages: `fixes #123`
 ## Error Handling
 - If tests fail, fix them before closing the issue
 - If unable to complete the issue, leave detailed comments about blockers
+
+## Document Guidance
+- Include at most one example in documentation; omit examples for trivial cases.
+- Do not generate examples or documentation when making code changes unless explicitly requested.
