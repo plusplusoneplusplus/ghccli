@@ -21,3 +21,6 @@ export * from './WorkflowTemplate.js';
 export * from './TemplateResolver.js';
 export * from './templates/index.js';
 export * from './hooks/index.js';
+export * from './metrics.js';
+export * from './visualization/index.js';
+export * from './monitoring/index.js';
