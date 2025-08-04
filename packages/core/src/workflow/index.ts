@@ -15,3 +15,5 @@ export * from './AgentStepExecutor.js';
 export * from './WorkflowStatusReporter.js';
 export * from './WorkflowLoader.js';
 export * from './WorkflowCache.js';
+export * from './VariableInterpolator.js';
+export * from './BuiltinFunctions.js';

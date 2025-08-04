@@ -8,6 +8,7 @@ import { spawn } from 'child_process';
 import { WorkflowStep, ScriptConfig } from './types.js';
 import { WorkflowContext } from './WorkflowContext.js';
 import { StepExecutor } from './StepExecutor.js';
+import { VariableInterpolator } from './VariableInterpolator.js';
 
 export interface ScriptExecutionResult {
   exitCode: number;
@@ -21,6 +22,13 @@ export interface ScriptExecutionResult {
  * Runs shell commands and scripts with configurable environment and working directory
  */
 export class ScriptStepExecutor extends StepExecutor {
+  private interpolator: VariableInterpolator;
+
+  constructor() {
+    super();
+    this.interpolator = new VariableInterpolator();
+  }
+
   getSupportedType(): string {
     return 'script';
   }
@@ -71,21 +79,24 @@ export class ScriptStepExecutor extends StepExecutor {
     const config = step.config as ScriptConfig;
     const startTime = Date.now();
 
+    // Interpolate configuration values
+    const interpolatedConfig = this.interpolateConfig(config, context);
+
     // Prepare environment variables
     const env = {
       ...process.env,
       ...context.getEnvironmentVariables(),
-      ...config.env,
+      ...interpolatedConfig.env,
       // Add workflow context variables as environment variables
       ...this.contextToEnvVars(context)
     };
 
     // Prepare arguments
-    const args = config.args || [];
+    const args = interpolatedConfig.args || [];
 
     return new Promise<ScriptExecutionResult>((resolve, reject) => {
-      const child = spawn(config.command, args, {
-        cwd: config.workingDirectory || process.cwd(),
+      const child = spawn(interpolatedConfig.command, args, {
+        cwd: interpolatedConfig.workingDirectory || process.cwd(),
         env,
         stdio: ['pipe', 'pipe', 'pipe']
       });
@@ -122,13 +133,26 @@ export class ScriptStepExecutor extends StepExecutor {
       });
 
       // Handle timeout
-      if (config.timeout) {
+      if (interpolatedConfig.timeout) {
         setTimeout(() => {
           child.kill('SIGTERM');
-          reject(new Error(`Script execution timed out after ${config.timeout}ms`));
-        }, config.timeout);
+          reject(new Error(`Script execution timed out after ${interpolatedConfig.timeout}ms`));
+        }, interpolatedConfig.timeout);
       }
     });
+  }
+
+  /**
+   * Interpolate variables in script configuration
+   */
+  private interpolateConfig(config: ScriptConfig, context: WorkflowContext): ScriptConfig {
+    const result = this.interpolator.interpolateValue(config, context);
+    
+    if (!result.success) {
+      context.log(`Warning: Variable interpolation had errors: ${result.errors.join(', ')}`, 'warn');
+    }
+    
+    return result.value as ScriptConfig;
   }
 
   /**

@@ -7,6 +7,7 @@
 import { WorkflowStep, AgentConfig } from './types.js';
 import { WorkflowContext } from './WorkflowContext.js';
 import { StepExecutor } from './StepExecutor.js';
+import { VariableInterpolator } from './VariableInterpolator.js';
 import { AgentLoader } from '../agents/agentLoader.js';
 import { createContentGenerator } from '../core/contentGenerator.js';
 import { Config } from '../config/config.js';
@@ -37,10 +38,12 @@ export interface AgentStepExecutorConfig {
  */
 export class AgentStepExecutor extends StepExecutor {
   private executorConfig?: AgentStepExecutorConfig;
+  private interpolator: VariableInterpolator;
 
   constructor(executorConfig?: AgentStepExecutorConfig) {
     super();
     this.executorConfig = executorConfig;
+    this.interpolator = new VariableInterpolator();
   }
 
   getSupportedType(): string {
@@ -95,21 +98,37 @@ export class AgentStepExecutor extends StepExecutor {
     const config = step.config as AgentConfig;
     const startTime = Date.now();
 
+    // Interpolate configuration values
+    const interpolatedConfig = this.interpolateConfig(config, context);
+
     try {
-      const agentResult = await this.executeAgent(config, context);
+      const agentResult = await this.executeAgent(interpolatedConfig, context);
       
       return {
-        agentId: config.agent,
+        agentId: interpolatedConfig.agent,
         response: agentResult,
         executionTime: Date.now() - startTime,
         metadata: {
-          prompt: config.prompt,
-          parameters: config.parameters
+          prompt: interpolatedConfig.prompt,
+          parameters: interpolatedConfig.parameters
         }
       };
     } catch (error) {
       throw new Error(`Agent execution failed: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+
+  /**
+   * Interpolate variables in agent configuration
+   */
+  private interpolateConfig(config: AgentConfig, context: WorkflowContext): AgentConfig {
+    const result = this.interpolator.interpolateValue(config, context);
+    
+    if (!result.success) {
+      context.log(`Warning: Variable interpolation had errors: ${result.errors.join(', ')}`, 'warn');
+    }
+    
+    return result.value as AgentConfig;
   }
 
   /**
