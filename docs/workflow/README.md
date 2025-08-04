@@ -153,18 +153,18 @@ steps: [WorkflowStep]          # Array of steps (required)
 ### Step Configuration
 
 ```yaml
-- id: unique-id               # Unique step identifier (required)
-  name: Display Name          # Human-readable name (required)
-  type: script|agent          # Step type (required)
-  config: StepConfig          # Type-specific configuration (required)
-  dependsOn: [string]         # List of step IDs this step depends on
-  condition: string           # Conditional execution expression
-  continueOnError: boolean    # Continue workflow if this step fails
-  parallel:                   # Parallel execution configuration (optional)
-    enabled: boolean          # Enable parallel execution for this step
-    maxConcurrency: number    # Max concurrent executions for this step
-    resource: string          # Named resource this step consumes
-    isolateErrors: boolean    # Isolate errors from other parallel steps
+- id: unique-id                    # Unique step identifier (required)
+  name: Display Name               # Human-readable name (required)
+  type: script|agent|condition     # Step type (required)
+  config: StepConfig               # Type-specific configuration (required)
+  dependsOn: [string]              # List of step IDs this step depends on
+  condition: string                # Conditional execution expression
+  continueOnError: boolean         # Continue workflow if this step fails
+  parallel:                        # Parallel execution configuration (optional)
+    enabled: boolean               # Enable parallel execution for this step
+    maxConcurrency: number         # Max concurrent executions for this step
+    resource: string               # Named resource this step consumes
+    isolateErrors: boolean         # Isolate errors from other parallel steps
 ```
 
 ## Step Types
@@ -222,6 +222,306 @@ Invoke AI agents with configurable parameters:
 - `prompt`: Prompt template (supports variable substitution)
 - `parameters`: Agent-specific parameters object
 - `timeout`: Agent execution timeout
+
+### Condition Steps
+
+Execute conditional logic and branching based on variables, step outputs, and complex boolean expressions:
+
+```yaml
+- id: check-build-status
+  name: Check Build Status
+  type: condition
+  config:
+    expression:
+      type: and
+      conditions:
+        - type: equals
+          left: '{{steps.build.result}}'
+          right: 'success'
+        - type: greater_than
+          left: '{{steps.test.coverage}}'
+          right: 80
+    onTrue: ['deploy-production', 'notify-success']
+    onFalse: ['rollback', 'notify-failure']
+    continueOnError: false
+    timeout: 5000
+  dependsOn: ['build', 'test']
+```
+
+**Condition Configuration Options:**
+- `expression` (required): The condition or boolean expression to evaluate
+- `onTrue`: Array of step IDs to execute if condition evaluates to true
+- `onFalse`: Array of step IDs to execute if condition evaluates to false
+- `continueOnError`: Continue workflow execution if condition evaluation fails
+- `timeout`: Condition evaluation timeout in milliseconds
+
+#### Basic Condition Operators
+
+Support for various comparison and existence operators:
+
+```yaml
+# Equality checks
+- type: equals
+  left: '{{variable.status}}'
+  right: 'success'
+
+- type: not_equals
+  left: '{{steps.build.exitCode}}'
+  right: 0
+
+# Contains checks for strings and arrays
+- type: contains
+  left: '{{steps.test.output}}'
+  right: 'PASSED'
+
+- type: not_contains
+  left: '{{variable.features}}'
+  right: 'experimental'
+
+# Existence checks
+- type: exists
+  left: '{{variable.apiKey}}'
+
+- type: not_exists
+  left: '{{steps.optional-step.result}}'
+
+# Numeric comparisons
+- type: greater_than
+  left: '{{steps.performance.score}}'
+  right: 90
+
+- type: less_than
+  left: '{{variable.timeout}}'
+  right: 300
+
+- type: greater_than_or_equal
+  left: '{{steps.test.coverage}}'
+  right: 85
+
+- type: less_than_or_equal
+  left: '{{variable.retryCount}}'
+  right: 3
+
+# Regular expression matching
+- type: matches
+  left: '{{variable.version}}'
+  right: '^v\d+\.\d+\.\d+$'
+
+- type: not_matches
+  left: '{{steps.lint.output}}'
+  right: 'error|ERROR'
+```
+
+#### Boolean Logic Expressions
+
+Combine conditions with AND, OR, and NOT operators:
+
+```yaml
+# AND: All conditions must be true
+expression:
+  type: and
+  conditions:
+    - type: equals
+      left: '{{variable.environment}}'
+      right: 'production'
+    - type: exists
+      left: '{{variable.apiKey}}'
+    - type: greater_than
+      left: '{{steps.test.coverage}}'
+      right: 80
+
+# OR: At least one condition must be true
+expression:
+  type: or
+  conditions:
+    - type: equals
+      left: '{{variable.branch}}'
+      right: 'main'
+    - type: equals
+      left: '{{variable.branch}}'
+      right: 'master'
+
+# NOT: Inverts the result of the condition
+expression:
+  type: not
+  conditions:
+    - type: equals
+      left: '{{steps.build.result}}'
+      right: 'failed'
+
+# Nested boolean expressions
+expression:
+  type: and
+  conditions:
+    - type: equals
+      left: '{{variable.environment}}'
+      right: 'production'
+    - type: or
+      conditions:
+        - type: equals
+          left: '{{variable.branch}}'
+          right: 'main'
+        - type: equals
+          left: '{{variable.branch}}'
+          right: 'release'
+    - type: not
+      conditions:
+        - type: contains
+          left: '{{steps.security-scan.issues}}'
+          right: 'critical'
+```
+
+#### Variable and Step Output References
+
+Reference workflow variables and step outputs in conditions:
+
+```yaml
+# Variable references
+- type: equals
+  left: '{{variable.deployTarget}}'
+  right: 'staging'
+
+# Nested variable references
+- type: greater_than
+  left: '{{variable.config.maxRetries}}'
+  right: 5
+
+# Step output references
+- type: equals
+  left: '{{steps.build.result}}'
+  right: 'success'
+
+# Nested step output references
+- type: contains
+  left: '{{steps.test.output.summary.failed}}'
+  right: 0
+
+# Mixed references in complex expressions
+expression:
+  type: and
+  conditions:
+    - type: equals
+      left: '{{variable.environment}}'
+      right: 'production'
+    - type: equals
+      left: '{{steps.security-check.vulnerabilities.critical}}'
+      right: 0
+    - type: greater_than
+      left: '{{steps.performance-test.metrics.responseTime}}'
+      right: 200
+```
+
+#### Branching Logic Examples
+
+Common branching patterns for different scenarios:
+
+```yaml
+# Deploy based on environment and test results
+- id: deployment-check
+  name: Check Deployment Readiness
+  type: condition
+  config:
+    expression:
+      type: and
+      conditions:
+        - type: equals
+          left: '{{variable.environment}}'
+          right: 'production'
+        - type: equals
+          left: '{{steps.tests.result}}'
+          right: 'success'
+        - type: equals
+          left: '{{steps.security-scan.vulnerabilities.critical}}'
+          right: 0
+    onTrue: ['deploy-production', 'notify-deployment']
+    onFalse: ['deploy-staging', 'notify-staging']
+  dependsOn: ['tests', 'security-scan']
+
+# Feature flag controlled execution
+- id: feature-check
+  name: Check Feature Flag
+  type: condition
+  config:
+    expression:
+      type: or
+      conditions:
+        - type: equals
+          left: '{{variable.featureEnabled}}'
+          right: true
+        - type: contains
+          left: '{{variable.enabledFeatures}}'
+          right: 'new-ui'
+    onTrue: ['run-feature-tests', 'deploy-with-feature']
+    onFalse: ['skip-feature-tests']
+
+# Error handling and retry logic
+- id: build-status-check
+  name: Check Build Status
+  type: condition
+  config:
+    expression:
+      type: not
+      conditions:
+        - type: equals
+          left: '{{steps.build.result}}'
+          right: 'failed'
+    onTrue: ['proceed-to-test']
+    onFalse: ['retry-build', 'notify-build-failure']
+    continueOnError: true  # Continue workflow even if condition evaluation fails
+
+# Multi-stage deployment approval
+- id: approval-check
+  name: Check Deployment Approval
+  type: condition
+  config:
+    expression:
+      type: and
+      conditions:
+        - type: exists
+          left: '{{variable.approvalToken}}'
+        - type: equals
+          left: '{{variable.approvedBy}}'
+          right: 'deployment-manager'
+        - type: greater_than
+          left: '{{variable.approvalTimestamp}}'
+          right: '{{variable.buildTimestamp}}'
+    onTrue: ['deploy-production']
+    onFalse: ['request-approval', 'notify-pending-approval']
+```
+
+#### Advanced Condition Features
+
+**Error Handling:**
+```yaml
+- id: resilient-condition
+  name: Resilient Condition Check
+  type: condition
+  config:
+    expression:
+      type: equals
+      left: '{{steps.flaky-service.status}}'
+      right: 'healthy'
+    onTrue: ['proceed-with-service']
+    onFalse: ['use-fallback-service']
+    continueOnError: true  # Continue on evaluation errors
+    timeout: 10000         # 10 second timeout
+```
+
+**Context Variable Setting:**
+Condition steps automatically set context variables for use by subsequent steps:
+- `condition_<step-id>_result`: Boolean result of the condition
+- `condition_<step-id>_triggered_steps`: Array of step IDs that were triggered
+
+```yaml
+# Later steps can reference condition results
+- id: cleanup
+  name: Cleanup Resources
+  type: script
+  config:
+    command: cleanup.sh
+    args: ['--mode', '{{variable.condition_deployment-check_result}}']
+  condition: '{{variable.condition_deployment-check_triggered_steps}}.includes("deploy-production")'
+```
 
 ## Dependency Management
 
@@ -712,27 +1012,150 @@ steps:
         Test results: {{steps.run-tests.output.summary}}
 ```
 
-## Conditional Execution
+## Conditional Execution and Branching
 
-Execute steps based on conditions:
+The workflow system supports sophisticated conditional execution through dedicated condition steps that can evaluate complex expressions and trigger different execution paths.
+
+### Simple Conditional Execution
+
+Use condition steps to make branching decisions:
 
 ```yaml
 steps:
+  - id: check-environment
+    name: Check Deployment Environment
+    type: condition
+    config:
+      expression:
+        type: equals
+        left: '{{variable.environment}}'
+        right: 'production'
+      onTrue: ['deploy-production', 'notify-production']
+      onFalse: ['deploy-staging']
+    dependsOn: ['run-tests']
+
   - id: deploy-production
     name: Deploy to Production
     type: script
     config:
       command: deploy-prod.sh
-    condition: "env.NODE_ENV === 'production'"  # Only run in production
-    dependsOn: ["run-tests"]
+    # This step only runs if check-environment condition is true
 
-  - id: notify-on-failure
-    name: Send Failure Notification
+  - id: deploy-staging
+    name: Deploy to Staging
+    type: script
+    config:
+      command: deploy-staging.sh
+    # This step only runs if check-environment condition is false
+```
+
+### Complex Conditional Logic
+
+Combine multiple factors for sophisticated decision making:
+
+```yaml
+steps:
+  - id: deployment-readiness-check
+    name: Check Deployment Readiness
+    type: condition
+    config:
+      expression:
+        type: and
+        conditions:
+          - type: equals
+            left: '{{steps.tests.result}}'
+            right: 'success'
+          - type: greater_than_or_equal
+            left: '{{steps.tests.coverage}}'
+            right: 85
+          - type: not_contains
+            left: '{{steps.security-scan.issues}}'
+            right: 'critical'
+          - type: or
+            conditions:
+              - type: equals
+                left: '{{variable.branch}}'
+                right: 'main'
+              - type: equals
+                left: '{{variable.branch}}'
+                right: 'release'
+      onTrue: ['deploy-production', 'update-changelog', 'notify-success']
+      onFalse: ['deploy-staging', 'create-issue', 'notify-failure']
+    dependsOn: ['tests', 'security-scan']
+    continueOnError: false
+
+  # Multiple parallel branches can be triggered
+  - id: deploy-production
+    name: Deploy to Production
+    type: script
+    config:
+      command: kubectl apply -f production/
+    parallel:
+      enabled: true
+
+  - id: update-changelog
+    name: Update Changelog
+    type: script
+    config:
+      command: update-changelog.sh
+      args: ['--version', '{{variable.version}}']
+    parallel:
+      enabled: true
+
+  - id: notify-success
+    name: Send Success Notification
     type: agent
     config:
       agent: notification-sender
-      prompt: "Build failed for commit {{variables.gitCommit}}"
-    condition: "steps.run-tests.success === false"  # Only run if tests failed
+      prompt: "🎉 Production deployment successful! Version {{variable.version}}"
+    parallel:
+      enabled: true
+```
+
+### Failure Recovery and Retry Logic
+
+Use conditions for sophisticated error handling:
+
+```yaml
+steps:
+  - id: build-project
+    name: Build Project
+    type: script
+    config:
+      command: npm run build
+    continueOnError: true
+
+  - id: check-build-result
+    name: Check Build Result
+    type: condition
+    config:
+      expression:
+        type: equals
+        left: '{{steps.build-project.result}}'
+        right: 'success'
+      onTrue: ['run-tests']
+      onFalse: ['retry-build']
+    dependsOn: ['build-project']
+
+  - id: retry-build
+    name: Retry Build with Cache Clear
+    type: script
+    config:
+      command: npm run build
+      args: ['--no-cache']
+    continueOnError: true
+
+  - id: check-retry-result
+    name: Check Retry Result
+    type: condition
+    config:
+      expression:
+        type: equals
+        left: '{{steps.retry-build.result}}'
+        right: 'success'
+      onTrue: ['run-tests']
+      onFalse: ['notify-build-failure', 'create-incident']
+    dependsOn: ['retry-build']
 ```
 
 ## Monitoring and Reporting
@@ -1004,6 +1427,26 @@ steps:
     dependsOn: ["deploy-staging"]
     condition: "variables.deployStaging === true"
 
+  - id: production-deployment-check
+    name: Check Production Deployment Readiness
+    type: condition
+    config:
+      expression:
+        type: and
+        conditions:
+          - type: equals
+            left: '{{variable.environment}}'
+            right: 'production'
+          - type: equals
+            left: '{{variable.deployProduction}}'
+            right: true
+          - type: equals
+            left: '{{steps.integration-tests.result}}'
+            right: 'success'
+      onTrue: ['deploy-production']
+      onFalse: ['skip-production-deployment']
+    dependsOn: ["integration-tests"]
+
   - id: deploy-production
     name: Deploy to Production
     type: script
@@ -1012,11 +1455,16 @@ steps:
       args: ["run", "deploy:production"]
       env:
         DEPLOY_TARGET: production
-    dependsOn: ["integration-tests"]
-    condition: "env.NODE_ENV === 'production' && variables.deployProduction === true"
     parallel:
       enabled: true
       resource: network     # Network intensive deployment
+
+  - id: skip-production-deployment
+    name: Skip Production Deployment
+    type: script
+    config:
+      command: echo
+      args: ["Skipping production deployment based on conditions"]
 
   - id: notify-success
     name: Send Success Notification
@@ -1187,6 +1635,18 @@ For advanced programmatic usage, see the [Programmatic API](#using-the-programma
 6. **Test Dependencies**: Ensure dependency chains are logical and necessary
 7. **Monitor Execution**: Use status tracking for long-running workflows
 8. **Log Appropriately**: Use context logs for debugging and auditing
+
+### Condition Step Best Practices
+1. **Use Clear Variable Names**: Choose descriptive variable and step output references
+2. **Keep Expressions Simple**: Break complex logic into multiple condition steps when needed
+3. **Test All Branches**: Ensure both onTrue and onFalse paths are tested
+4. **Handle Missing Data**: Use existence checks before value comparisons
+5. **Set Appropriate Timeouts**: Condition evaluation should be fast, but allow for complex expressions
+6. **Use continueOnError Wisely**: Consider if condition failures should stop the workflow
+7. **Document Complex Logic**: Add meaningful names and comments for complex boolean expressions
+8. **Prefer Explicit Conditions**: Use specific comparisons rather than implicit truthiness
+9. **Validate Input Data**: Ensure referenced variables and step outputs exist
+10. **Consider Edge Cases**: Account for null, undefined, and empty values in conditions
 
 ### Parallel Execution Best Practices
 1. **Design for Parallelism**: Structure workflows to maximize parallel execution opportunities
