@@ -307,7 +307,7 @@ describe('MemoryTool', () => {
       const params = { fact: 'Test fact' };
       const memoryFilePath = path.join(
         os.homedir(),
-        '.gemini',
+        '.ghccli',
         getCurrentGeminiMdFilename(),
       );
 
@@ -328,7 +328,7 @@ describe('MemoryTool', () => {
       const params = { fact: 'Test fact' };
       const memoryFilePath = path.join(
         os.homedir(),
-        '.gemini',
+        '.ghccli',
         getCurrentGeminiMdFilename(),
       );
 
@@ -357,7 +357,7 @@ describe('MemoryTool', () => {
       const params = { fact: 'Test fact' };
       const memoryFilePath = path.join(
         os.homedir(),
-        '.gemini',
+        '.ghccli',
         getCurrentGeminiMdFilename(),
       );
 
