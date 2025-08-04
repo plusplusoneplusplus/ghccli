@@ -34,6 +34,12 @@ import { createLogger } from '@google/gemini-cli-core';
 const logger = createLogger('CLI');
 
 export interface CliArgs {
+  // === CUSTOM WORKFLOW & AGENT CLI ARGS (GHCCLI Extensions) ===
+  // Keep these at the top to minimize merge conflicts with upstream changes
+  agent: string | undefined;
+  outputLoggerFile: string | undefined;
+  
+  // === ORIGINAL GEMINI CLI ARGS ===
   model: string | undefined;
   sandbox: boolean | string | undefined;
   sandboxImage: string | undefined;
@@ -58,8 +64,6 @@ export interface CliArgs {
   listExtensions: boolean | undefined;
   ideMode: boolean | undefined;
   proxy: string | undefined;
-  agent: string | undefined;
-  outputLoggerFile: string | undefined;
 }
 
 export async function parseArguments(): Promise<CliArgs> {

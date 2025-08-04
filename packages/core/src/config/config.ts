@@ -148,6 +148,14 @@ export type FlashFallbackHandler = (
 ) => Promise<boolean | string | null>;
 
 export interface ConfigParameters {
+  // === CUSTOM WORKFLOW & AGENT CONFIGURATIONS (GHCCLI Extensions) ===
+  // Keep these at the top to minimize merge conflicts with upstream changes
+  agent?: string;
+  enableOpenAILogging?: boolean;
+  outputLoggerFile?: string;
+  approvalMode?: ApprovalMode;
+  
+  // === ORIGINAL GEMINI CLI CONFIGURATIONS ===
   sessionId: string;
   embeddingModel?: string;
   sandbox?: SandboxConfig;
@@ -163,7 +171,6 @@ export interface ConfigParameters {
   mcpServers?: Record<string, MCPServerConfig>;
   userMemory?: string;
   geminiMdFileCount?: number;
-  approvalMode?: ApprovalMode;
   showMemoryUsage?: boolean;
   contextFileName?: string | string[];
   accessibility?: AccessibilitySettings;
@@ -190,12 +197,18 @@ export interface ConfigParameters {
   summarizeToolOutput?: Record<string, SummarizeToolOutputSettings>;
   ideMode?: boolean;
   ideClient?: IdeClient;
-  agent?: string;
-  enableOpenAILogging?: boolean;
-  outputLoggerFile?: string;
 }
 
 export class Config {
+  // === CUSTOM WORKFLOW & AGENT PROPERTIES (GHCCLI Extensions) ===
+  // Keep these at the top to minimize merge conflicts with upstream changes
+  private agent: string;
+  private agentSwitchedDuringSession: boolean = false;
+  private readonly enableOpenAILogging: boolean = true;
+  private readonly outputLoggerFile: string | undefined;
+  private approvalMode: ApprovalMode;
+  
+  // === ORIGINAL GEMINI CLI PROPERTIES ===
   private toolRegistry!: ToolRegistry;
   private promptRegistry!: PromptRegistry;
   private readonly sessionId: string;
@@ -214,7 +227,6 @@ export class Config {
   private readonly mcpServers: Record<string, MCPServerConfig> | undefined;
   private userMemory: string;
   private geminiMdFileCount: number;
-  private approvalMode: ApprovalMode;
   private readonly showMemoryUsage: boolean;
   private readonly accessibility: AccessibilitySettings;
   private readonly telemetrySettings: TelemetrySettings;
@@ -249,13 +261,18 @@ export class Config {
   private readonly summarizeToolOutput:
     | Record<string, SummarizeToolOutputSettings>
     | undefined;
-  private agent: string;
-  private agentSwitchedDuringSession: boolean = false;
   private readonly experimentalAcp: boolean = false;
-  private readonly enableOpenAILogging: boolean = true;
-  private readonly outputLoggerFile: string | undefined;
 
   constructor(params: ConfigParameters) {
+    // === CUSTOM WORKFLOW & AGENT INITIALIZATION (GHCCLI Extensions) ===
+    // Initialize custom features first to minimize merge conflicts
+    // Ensure agent is always a string, even if somehow a boolean was passed
+    this.agent = typeof params.agent === 'string' ? params.agent : 'default';
+    this.enableOpenAILogging = params.enableOpenAILogging ?? true;
+    this.outputLoggerFile = params.outputLoggerFile;
+    this.approvalMode = params.approvalMode ?? ApprovalMode.DEFAULT;
+    
+    // === ORIGINAL GEMINI CLI INITIALIZATION ===
     this.sessionId = params.sessionId;
     this.embeddingModel =
       params.embeddingModel ?? DEFAULT_GEMINI_EMBEDDING_MODEL;
@@ -272,7 +289,6 @@ export class Config {
     this.mcpServers = params.mcpServers;
     this.userMemory = params.userMemory ?? '';
     this.geminiMdFileCount = params.geminiMdFileCount ?? 0;
-    this.approvalMode = params.approvalMode ?? ApprovalMode.DEFAULT;
     this.showMemoryUsage = params.showMemoryUsage ?? false;
     this.accessibility = params.accessibility ?? {};
     this.telemetrySettings = {
@@ -306,10 +322,6 @@ export class Config {
     this.summarizeToolOutput = params.summarizeToolOutput;
     this.ideMode = params.ideMode ?? false;
     this.ideClient = params.ideClient;
-    // Ensure agent is always a string, even if somehow a boolean was passed
-    this.agent = typeof params.agent === 'string' ? params.agent : 'default';
-    this.enableOpenAILogging = params.enableOpenAILogging ?? true;
-    this.outputLoggerFile = params.outputLoggerFile;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -472,14 +484,6 @@ export class Config {
     this.geminiMdFileCount = count;
   }
 
-  getApprovalMode(): ApprovalMode {
-    return this.approvalMode;
-  }
-
-  setApprovalMode(mode: ApprovalMode): void {
-    this.approvalMode = mode;
-  }
-
   getShowMemoryUsage(): boolean {
     return this.showMemoryUsage;
   }
@@ -612,6 +616,22 @@ export class Config {
     return directories;
   }
 
+  getEnableOpenAILogging(): boolean {
+    return this.enableOpenAILogging;
+  }
+
+  getOutputLoggerFile(): string | undefined {
+    return this.outputLoggerFile;
+  }
+
+  getApprovalMode(): ApprovalMode {
+    return this.approvalMode;
+  }
+
+  setApprovalMode(mode: ApprovalMode): void {
+    this.approvalMode = mode;
+  }
+
   getWorkingDir(): string {
     return this.cwd;
   }
@@ -673,14 +693,6 @@ export class Config {
     return this.ideClient;
   }
 
-  getEnableOpenAILogging(): boolean {
-    return this.enableOpenAILogging;
-  }
-
-  getOutputLoggerFile(): string | undefined {
-    return this.outputLoggerFile;
-  }
-
   async getGitService(): Promise<GitService> {
     if (!this.gitService) {
       this.gitService = new GitService(this.targetDir);
@@ -725,6 +737,12 @@ export class Config {
       }
     };
 
+    // === CUSTOM WORKFLOW & AGENT TOOLS (GHCCLI Extensions) ===
+    // Register custom tools first to minimize merge conflicts
+    registerCoreTool(AgentInvocationTool, this);
+    registerCoreTool(WorkflowTool, this);
+    
+    // === ORIGINAL GEMINI CLI CORE TOOLS ===
     registerCoreTool(LSTool, this);
     registerCoreTool(ReadFileTool, this);
     registerCoreTool(GrepTool, this);
@@ -736,8 +754,6 @@ export class Config {
     registerCoreTool(ShellTool, this);
     registerCoreTool(MemoryTool);
     registerCoreTool(WebSearchTool, this);
-    registerCoreTool(AgentInvocationTool, this);
-    registerCoreTool(WorkflowTool, this);
 
     await registry.discoverAllTools();
     return registry;

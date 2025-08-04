@@ -57,11 +57,17 @@ export interface AccessibilitySettings {
 }
 
 export interface Settings {
+  // === CUSTOM WORKFLOW & AGENT SETTINGS (GHCCLI Extensions) ===
+  // Keep these at the top to minimize merge conflicts with upstream changes
+  selectedAgent?: string;
+  // Approval mode setting for automatic confirmation of tool calls
+  approvalMode?: 'default' | 'autoEdit' | 'yolo';
+  
+  // === ORIGINAL GEMINI CLI SETTINGS ===
   theme?: string;
   customThemes?: Record<string, CustomTheme>;
   selectedAuthType?: AuthType;
   selectedModel?: string;
-  selectedAgent?: string;
   sandbox?: boolean | string;
   coreTools?: string[];
   excludeTools?: string[];
@@ -107,9 +113,6 @@ export interface Settings {
   
   // OpenAI logging setting
   enableOpenAILogging?: boolean;
-
-  // Approval mode setting for automatic confirmation of tool calls
-  approvalMode?: 'default' | 'autoEdit' | 'yolo';
 }
 
 export interface SettingsError {
