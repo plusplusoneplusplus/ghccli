@@ -84,7 +84,7 @@ The Gemini CLI provides a comprehensive suite of tools for interacting with the 
 
 - **Tool name:** `search_file_content`
 - **Display name:** SearchText
-- **File:** `grep.ts`
+- **File:** `grep_v2.ts`
 - **Parameters:**
   - `pattern` (string, required): The regular expression (regex) to search for (e.g., `"function\s+myFunction"`).
   - `path` (string, optional): The absolute path to the directory to search within. Defaults to the current working directory.

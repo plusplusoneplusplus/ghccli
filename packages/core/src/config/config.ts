@@ -17,7 +17,7 @@ import { PromptRegistry } from '../prompts/prompt-registry.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
 import { LSTool } from '../tools/ls.js';
 import { ReadFileTool } from '../tools/read-file.js';
-import { GrepTool } from '../tools/grep.js';
+import { GrepTool } from '../tools/grep_v2.js';
 import { GlobTool } from '../tools/glob_v2.js';
 import { EditTool } from '../tools/edit.js';
 import { ShellTool } from '../tools/shell_v2.js';
