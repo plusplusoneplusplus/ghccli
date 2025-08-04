@@ -1,0 +1,86 @@
+name: research-workflow
+description: Multi-agent research workflow for comprehensive codebase analysis
+version: 1.0.0
+
+timeout: 2400
+
+metadata:
+  author: development-team
+  tags: ["research", "analysis", "multi-agent", "investigation"]
+
+steps:
+  - id: initial-scan
+    name: Initial Codebase Scan
+    type: agent
+    config:
+      agent: research-lead-agent
+      prompt: "Perform an initial scan of the codebase to identify key areas for investigation"
+      parameters:
+        scanDepth: "surface"
+        identifyPatterns: true
+        flagComplexity: true
+      timeout: 600
+
+  - id: architecture-research
+    name: Architecture Research
+    type: agent
+    config:
+      agent: research-sub-agent
+      prompt: "Research and analyze the overall architecture, design patterns, and module structure"
+      parameters:
+        focus: "architecture"
+        includeDataFlow: true
+        analyzeDependencies: true
+      timeout: 900
+    dependsOn: ["initial-scan"]
+
+  - id: security-research
+    name: Security Analysis Research
+    type: agent
+    config:
+      agent: research-sub-agent
+      prompt: "Research potential security vulnerabilities and analyze security practices"
+      parameters:
+        focus: "security"
+        checkVulnerabilities: true
+        analyzeAuthFlow: true
+      timeout: 900
+    dependsOn: ["initial-scan"]
+
+  - id: performance-research
+    name: Performance Research
+    type: agent
+    config:
+      agent: research-sub-agent
+      prompt: "Research performance bottlenecks and optimization opportunities"
+      parameters:
+        focus: "performance"
+        analyzeAlgorithms: true
+        checkMemoryUsage: true
+      timeout: 900
+    dependsOn: ["initial-scan"]
+
+  - id: consolidate-findings
+    name: Consolidate Research Findings
+    type: agent
+    config:
+      agent: research-lead-agent
+      prompt: "Consolidate findings from all research agents and generate comprehensive analysis report"
+      parameters:
+        generateReport: true
+        prioritizeFindings: true
+        includeRecommendations: true
+        outputFormat: "markdown"
+      timeout: 600
+    dependsOn: ["architecture-research", "security-research", "performance-research"]
+
+  - id: validation
+    name: Validate Findings
+    type: script
+    config:
+      command: npm
+      args: ["run", "test"]
+      env:
+        RESEARCH_VALIDATION: "true"
+    dependsOn: ["consolidate-findings"]
+    continueOnError: true
