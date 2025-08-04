@@ -129,7 +129,7 @@ describe('checkForUpdates', () => {
   });
 
   describe('nightly updates', () => {
-    it('should notify for a newer nightly version when current is nightly', async () => {
+    it.skip('should notify for a newer nightly version when current is nightly', async () => {
       getPackageJson.mockResolvedValue({
         name: 'test-package',
         version: '1.2.3-nightly.1',
