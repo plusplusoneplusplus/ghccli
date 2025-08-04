@@ -247,7 +247,7 @@ describe('PerformanceProfiler', () => {
         heapUsed: 300 * 1024 * 1024, // Above threshold
         external: 0,
         arrayBuffers: 0
-      }));
+      })) as any;
 
       profiler.recordStepStart(workflow.steps[2]); // memory-step
       vi.advanceTimersByTime(1000);
@@ -339,7 +339,7 @@ describe('PerformanceProfiler', () => {
         heapUsed: 400 * 1024 * 1024, // Very high memory usage
         external: 0,
         arrayBuffers: 0
-      }));
+      })) as any;
 
       profiler.recordStepStart(workflow.steps[2]);
       vi.advanceTimersByTime(1000);

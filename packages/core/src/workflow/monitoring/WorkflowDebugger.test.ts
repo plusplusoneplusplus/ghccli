@@ -17,6 +17,7 @@ import { WorkflowContext } from '../WorkflowContext.js';
 import { WorkflowExecutionReport } from '../WorkflowStatusReporter.js';
 import { WorkflowExecutionMetrics } from '../metrics.js';
 import { WorkflowStepError, WorkflowTimeoutError, WorkflowResourceError } from '../errors.js';
+import { WorkflowStatus } from '../WorkflowRunner.js';
 
 describe('WorkflowDebugger', () => {
   let workflowDebugger: WorkflowDebugger;
@@ -85,20 +86,20 @@ describe('WorkflowDebugger', () => {
       workflowDebugger.captureStepComplete(sampleStep, result);
       
       const debugInfo = workflowDebugger.getStepDebugInfo('test-step');
-      expect(debugInfo?.status).toBe('completed');
+      expect(debugInfo?.status).toBe(WorkflowStatus.COMPLETED);
       expect(debugInfo?.outputs).toEqual({ output: 'test output' });
       expect(debugInfo?.executionContext.duration).toBe(1500);
     });
 
     it('should capture step failure debug info', () => {
-      const error = new WorkflowStepError('Test error message', 'STEP_ERROR', 'debug-workflow-1', 'test-step');
+      const error = new WorkflowStepError('Test error message', sampleStep, 'debug-workflow-1');
       const duration = 2000;
 
       workflowDebugger.captureStepStart(sampleStep, {});
       workflowDebugger.captureStepFailure(sampleStep, error, duration);
       
       const debugInfo = workflowDebugger.getStepDebugInfo('test-step');
-      expect(debugInfo?.status).toBe('failed');
+      expect(debugInfo?.status).toBe(WorkflowStatus.FAILED);
       expect(debugInfo?.error?.message).toBe('Test error message');
       expect(debugInfo?.error?.code).toBe('WORKFLOW_STEP_ERROR');
       expect(debugInfo?.executionContext.duration).toBe(duration);
@@ -133,7 +134,7 @@ describe('WorkflowDebugger', () => {
       executionReport = {
         workflowId: 'debug-workflow-1',
         workflowName: 'Debug Test Workflow',
-        status: 'failed',
+        status: WorkflowStatus.FAILED,
         startTime: new Date('2023-01-01T10:00:00Z'),
         endTime: new Date('2023-01-01T10:05:00Z'),
         duration: 300000,
@@ -142,9 +143,9 @@ describe('WorkflowDebugger', () => {
         failedSteps: 2,
         skippedSteps: 0,
         stepStatuses: [
-          { stepId: 'prev-step', stepName: 'Previous Step', status: 'completed' },
-          { stepId: 'test-step', stepName: 'Test Step', status: 'failed', error: 'Timeout exceeded' },
-          { stepId: 'next-step', stepName: 'Next Step', status: 'failed', error: 'Dependency failure' }
+          { stepId: 'prev-step', stepName: 'Previous Step', status: WorkflowStatus.COMPLETED },
+          { stepId: 'test-step', stepName: 'Test Step', status: WorkflowStatus.FAILED, error: 'Timeout exceeded' },
+          { stepId: 'next-step', stepName: 'Next Step', status: WorkflowStatus.FAILED, error: 'Dependency failure' }
         ],
         logs: []
       };
@@ -173,7 +174,7 @@ describe('WorkflowDebugger', () => {
     });
 
     it('should analyze timeout failures', () => {
-      const timeoutError = new WorkflowTimeoutError('Operation timed out', 'TIMEOUT', 'debug-workflow-1', 'test-step');
+      const timeoutError = new WorkflowTimeoutError('Operation timed out', 5000, 'debug-workflow-1', 'test-step');
       workflowDebugger.captureStepStart(sampleStep, {});
       workflowDebugger.captureStepFailure(sampleStep, timeoutError);
 
@@ -185,7 +186,7 @@ describe('WorkflowDebugger', () => {
     });
 
     it('should analyze memory failures', () => {
-      const memoryError = new WorkflowResourceError('Out of memory', 'RESOURCE_ERROR', 'debug-workflow-1', 'test-step');
+      const memoryError = new WorkflowResourceError('Out of memory', 'memory', 1024, 2048, 'debug-workflow-1', 'test-step');
       workflowDebugger.captureStepStart(sampleStep, {});
       workflowDebugger.captureStepFailure(sampleStep, memoryError);
 
@@ -200,7 +201,7 @@ describe('WorkflowDebugger', () => {
     });
 
     it('should analyze dependency failures', () => {
-      const dependencyError = new WorkflowStepError('Dependency failed', 'DEPENDENCY_ERROR', 'debug-workflow-1', 'test-step');
+      const dependencyError = new WorkflowStepError('Dependency failed', sampleStep, 'debug-workflow-1');
       workflowDebugger.captureStepStart(sampleStep, {});
       workflowDebugger.captureStepFailure(sampleStep, dependencyError);
 
@@ -257,14 +258,14 @@ describe('WorkflowDebugger', () => {
       executionReport = {
         workflowId: 'debug-workflow-1',
         workflowName: 'Debug Test Workflow',
-        status: 'failed',
+        status: WorkflowStatus.FAILED,
         startTime: new Date(),
         totalSteps: 3,
         completedSteps: 1,
         failedSteps: 2,
         skippedSteps: 0,
         stepStatuses: [
-          { stepId: 'test-step', stepName: 'Test Step', status: 'failed', error: 'Test error' }
+          { stepId: 'test-step', stepName: 'Test Step', status: WorkflowStatus.FAILED, error: 'Test error' }
         ],
         logs: []
       };
@@ -336,14 +337,14 @@ describe('WorkflowDebugger', () => {
       const executionReport: WorkflowExecutionReport = {
         workflowId: 'debug-workflow-1',
         workflowName: 'Debug Test Workflow',
-        status: 'failed',
+        status: WorkflowStatus.FAILED,
         startTime: new Date(),
         totalSteps: 2,
         completedSteps: 1,
         failedSteps: 1,
         skippedSteps: 0,
         stepStatuses: [
-          { stepId: 'test-step', stepName: 'Test Step', status: 'failed', error: 'Test error', duration: 1000 }
+          { stepId: 'test-step', stepName: 'Test Step', status: WorkflowStatus.FAILED, error: 'Test error', duration: 1000 }
         ],
         logs: [
           { timestamp: new Date(), level: 'error', message: 'Step failed', stepId: 'test-step' }
@@ -373,7 +374,7 @@ describe('WorkflowDebugger', () => {
       };
 
       workflowDebugger.captureStepStart(sampleStep, {});
-      const timeoutError = new WorkflowTimeoutError('Timeout', 'TIMEOUT', 'debug-workflow-1', 'test-step');
+      const timeoutError = new WorkflowTimeoutError('Timeout', 5000, 'debug-workflow-1', 'test-step');
       workflowDebugger.captureStepFailure(sampleStep, timeoutError);
       
       const report = workflowDebugger.generateDebugReport(executionReport, metrics);
@@ -394,7 +395,7 @@ describe('WorkflowDebugger', () => {
       const successReport: WorkflowExecutionReport = {
         workflowId: 'debug-workflow-1',
         workflowName: 'Debug Test Workflow',
-        status: 'completed',
+        status: WorkflowStatus.COMPLETED,
         startTime: new Date(),
         totalSteps: 2,
         completedSteps: 2,
@@ -514,7 +515,7 @@ describe('WorkflowDebugger', () => {
       const emptyReport: WorkflowExecutionReport = {
         workflowId: 'debug-workflow-1',
         workflowName: 'Debug Test Workflow',
-        status: 'completed',
+        status: WorkflowStatus.COMPLETED,
         startTime: new Date(),
         totalSteps: 0,
         completedSteps: 0,

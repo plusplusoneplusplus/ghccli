@@ -15,6 +15,7 @@ import {
 import { WorkflowDefinition, WorkflowStep } from '../types.js';
 import { WorkflowExecutionReport } from '../WorkflowStatusReporter.js';
 import { WorkflowExecutionMetrics } from '../metrics.js';
+import { WorkflowStatus } from '../WorkflowRunner.js';
 
 describe('WorkflowVisualizer', () => {
   let sampleWorkflow: WorkflowDefinition;
@@ -75,7 +76,7 @@ describe('WorkflowVisualizer', () => {
       const executionReport: WorkflowExecutionReport = {
         workflowId: 'test-workflow-1',
         workflowName: 'Test Workflow',
-        status: 'completed',
+        status: WorkflowStatus.COMPLETED,
         startTime: new Date('2023-01-01T10:00:00Z'),
         endTime: new Date('2023-01-01T10:05:00Z'),
         duration: 300000,
@@ -164,7 +165,7 @@ describe('WorkflowVisualizer', () => {
       const executionReport: WorkflowExecutionReport = {
         workflowId: 'test-workflow-1',
         workflowName: 'Test Workflow',
-        status: 'completed',
+        status: WorkflowStatus.COMPLETED,
         startTime: new Date(),
         totalSteps: 4,
         completedSteps: 3,
@@ -217,7 +218,7 @@ describe('WorkflowVisualizer', () => {
       const executionReport: WorkflowExecutionReport = {
         workflowId: 'test-workflow-1',
         workflowName: 'Test Workflow',
-        status: 'completed',
+        status: WorkflowStatus.COMPLETED,
         startTime: new Date(),
         duration: 5000,
         totalSteps: 4,
@@ -376,7 +377,7 @@ describe('WorkflowVisualizer', () => {
 
       expect(step1).toBeDefined();
       expect(step2).toBeDefined();
-      expect(step2!.x).toBeGreaterThan(step1!.x);
+      expect(step2!.x!).toBeGreaterThan(step1!.x!);
     });
   });
 
@@ -389,7 +390,7 @@ describe('WorkflowVisualizer', () => {
           { id: 'script-step', name: 'Script Step', type: 'script', config: { command: 'echo "test"' } },
           { id: 'agent-step', name: 'Agent Step', type: 'agent', config: { agent: 'test' } },
           { id: 'condition-step', name: 'Condition Step', type: 'condition', config: { expression: { type: 'equals', left: 'a', right: 'b' } } },
-          { id: 'custom-step', name: 'Custom Step', type: 'custom', config: {} }
+          { id: 'custom-step', name: 'Custom Step', type: 'custom', config: { command: 'echo custom' } }
         ]
       };
 

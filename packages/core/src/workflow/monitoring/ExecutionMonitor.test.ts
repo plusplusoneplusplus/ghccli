@@ -117,7 +117,7 @@ describe('ExecutionMonitor', () => {
     });
 
     it('should record step failure', () => {
-      const error = new WorkflowStepError('Test error', 'STEP_ERROR', 'test-workflow-1', 'test-step');
+      const error = new WorkflowStepError('Test error', sampleStep, 'test-workflow-1');
 
       monitor.recordStepStart(sampleStep);
       expect(() => monitor.recordStepFailure(sampleStep, error)).not.toThrow();
@@ -207,7 +207,7 @@ describe('ExecutionMonitor', () => {
       monitor.start();
       monitor.recordStepStart(sampleStep);
       
-      const error = new WorkflowStepError('Test error', 'STEP_ERROR', 'test-workflow-1', 'test-step');
+      const error = new WorkflowStepError('Test error', sampleStep, 'test-workflow-1');
       monitor.recordStepFailure(sampleStep, error);
       
       const result: WorkflowResult = {
