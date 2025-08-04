@@ -27,6 +27,8 @@ import { WorkflowShutdownManager, GlobalWorkflowShutdownManager } from './shutdo
 import { WorkflowMetricsCollector, createWorkflowMetricsCollector, WorkflowExecutionMetrics } from './metrics.js';
 import { PluginRegistry, PluginLoader } from './plugins/index.js';
 import { WorkflowHooks, BuiltinHooks, type WorkflowHooksOptions, type BuiltinHooksOptions } from './hooks/index.js';
+import { WorkflowState, StepStatus } from './persistence/WorkflowState.js';
+import { StatePersistence, PersistenceConfig } from './persistence/StatePersistence.js';
 
 export enum WorkflowStatus {
   PENDING = 'pending',
@@ -53,6 +55,10 @@ export interface WorkflowExecutionOptions {
   enableHooks?: boolean;
   hooksOptions?: WorkflowHooksOptions;
   builtinHooksOptions?: BuiltinHooksOptions;
+  enablePersistence?: boolean;
+  persistenceConfig?: PersistenceConfig;
+  resumeFromState?: boolean;
+  checkpointInterval?: number; // Save state every N steps
 }
 
 export class WorkflowRunner {
@@ -74,6 +80,10 @@ export class WorkflowRunner {
   private pluginLoader?: PluginLoader;
   private workflowHooks?: WorkflowHooks;
   private builtinHooks?: BuiltinHooks;
+  private workflowState?: WorkflowState;
+  private statePersistence?: StatePersistence;
+  private checkpointInterval: number = 1;
+  private stepExecutionCount: number = 0;
 
   constructor(config?: Config) {
     this.dependencyResolver = new DependencyResolver();
@@ -166,18 +176,79 @@ export class WorkflowRunner {
   }
 
   /**
+   * Resume a workflow from saved state
+   */
+  async resume(
+    workflowId: string,
+    options: WorkflowExecutionOptions = {}
+  ): Promise<WorkflowResult> {
+    // Initialize persistence if enabled
+    if (options.enablePersistence !== false) {
+      this.statePersistence = new StatePersistence(options.persistenceConfig);
+      await this.statePersistence.initialize();
+    }
+
+    if (!this.statePersistence) {
+      throw new Error('State persistence not enabled - cannot resume workflow');
+    }
+
+    // Load saved state
+    const savedWorkflowState = await this.statePersistence.loadState(workflowId);
+    if (!savedWorkflowState || !savedWorkflowState.canResume()) {
+      throw new Error(`Cannot resume workflow ${workflowId} - no valid state found`);
+    }
+
+    this.workflowState = savedWorkflowState;
+    this.currentWorkflowId = workflowId;
+
+    const snapshot = this.workflowState.getSnapshot();
+    const workflow = snapshot.definition;
+
+    // Mark as resumed
+    this.workflowState.markResumed('User requested resume');
+    this.workflowState.updatePausedDuration();
+
+    // Execute workflow starting from where we left off
+    return this.executeInternal(workflow, { ...options, resumeFromState: true });
+  }
+
+  /**
    * Execute a workflow definition
    */
   async execute(
     workflow: WorkflowDefinition,
     options: WorkflowExecutionOptions = {}
   ): Promise<WorkflowResult> {
-    this.startTime = Date.now();
+    return this.executeInternal(workflow, options);
+  }
+
+  /**
+   * Internal execute method that handles both new execution and resume
+   */
+  private async executeInternal(
+    workflow: WorkflowDefinition,
+    options: WorkflowExecutionOptions = {}
+  ): Promise<WorkflowResult> {
+    // Handle resuming vs new execution
+    const isResuming = options.resumeFromState && this.workflowState;
+    
+    if (!isResuming) {
+      this.startTime = Date.now();
+      this.currentWorkflowId = `${workflow.name}-${Date.now()}`;
+      this.stepExecutionCount = 0;
+    }
+    
     this.status = WorkflowStatus.RUNNING;
     this.cancelled = false;
-    this.currentWorkflowId = `${workflow.name}-${Date.now()}`;
 
     try {
+      // Initialize persistence if enabled
+      if (options.enablePersistence !== false && !this.statePersistence) {
+        this.statePersistence = new StatePersistence(options.persistenceConfig);
+        await this.statePersistence.initialize();
+        this.checkpointInterval = options.checkpointInterval || 1;
+      }
+
       // Initialize logging and monitoring
       this.initializeInfrastructure(workflow, options);
 
@@ -186,12 +257,38 @@ export class WorkflowRunner {
         await this.initializePlugins(options);
       }
 
-      // Create workflow context
-      this.context = new WorkflowContext(
-        workflow.name,
-        options.variables || {},
-        workflow.env || {}
-      );
+      // Create or restore workflow context
+      if (isResuming && this.workflowState) {
+        const snapshot = this.workflowState.getSnapshot();
+        this.context = new WorkflowContext(
+          snapshot.context.workflowId,
+          snapshot.context.variables,
+          snapshot.context.environmentVariables
+        );
+        this.context.restoreFromSnapshot(snapshot.context);
+        
+        // Update workflow state status
+        this.workflowState.updateWorkflowStatus(WorkflowStatus.RUNNING);
+      } else {
+        this.context = new WorkflowContext(
+          workflow.name,
+          options.variables || {},
+          workflow.env || {}
+        );
+        
+        // Create new workflow state if persistence is enabled
+        if (this.statePersistence) {
+          const executionOrder = this.dependencyResolver.resolve(workflow.steps).map(step => step.id);
+          this.workflowState = new WorkflowState(
+            this.currentWorkflowId!,
+            workflow,
+            this.context.createSnapshot(),
+            executionOrder
+          );
+          this.workflowState.updateWorkflowStatus(WorkflowStatus.RUNNING);
+          await this.statePersistence.saveState(this.workflowState);
+        }
+      }
 
       // Initialize hooks system if enabled
       if (options.enableHooks !== false) {
@@ -205,7 +302,7 @@ export class WorkflowRunner {
       // Emit workflow start event
       if (this.workflowHooks) {
         await this.workflowHooks.emitWorkflowStart(
-          this.currentWorkflowId,
+          this.currentWorkflowId!,
           workflow,
           this.context,
           options as Record<string, unknown>
@@ -253,10 +350,21 @@ export class WorkflowRunner {
         (result as any).metrics = metrics;
       }
 
+      // Update final workflow state
+      if (this.workflowState) {
+        this.workflowState.updateWorkflowStatus(this.status);
+        this.workflowState.updateContext(this.context!.createSnapshot());
+        
+        // Save final state
+        if (this.statePersistence) {
+          await this.statePersistence.saveState(this.workflowState);
+        }
+      }
+
       // Emit workflow complete event
       if (this.workflowHooks) {
         await this.workflowHooks.emitWorkflowComplete(
-          this.currentWorkflowId,
+          this.currentWorkflowId!,
           workflow,
           this.context,
           result
@@ -294,10 +402,23 @@ export class WorkflowRunner {
         (result as any).metrics = metrics;
       }
 
+      // Update workflow state on error
+      if (this.workflowState) {
+        this.workflowState.updateWorkflowStatus(WorkflowStatus.FAILED);
+        if (this.context) {
+          this.workflowState.updateContext(this.context.createSnapshot());
+        }
+        
+        // Save error state
+        if (this.statePersistence) {
+          await this.statePersistence.saveState(this.workflowState);
+        }
+      }
+
       // Emit workflow error event
       if (this.workflowHooks && this.context) {
         await this.workflowHooks.emitWorkflowError(
-          this.currentWorkflowId,
+          this.currentWorkflowId!,
           workflow,
           this.context,
           workflowError
@@ -462,7 +583,28 @@ export class WorkflowRunner {
     const executionOrder = this.dependencyResolver.resolve(workflow.steps);
     const stepResults: Record<string, StepResult> = {};
     
-    for (const step of executionOrder) {
+    // If resuming, populate completed step results and start from current position
+    let startIndex = 0;
+    if (options.resumeFromState && this.workflowState) {
+      const snapshot = this.workflowState.getSnapshot();
+      
+      // Restore completed step results
+      for (const [stepId, stepState] of Object.entries(snapshot.stepStates)) {
+        if (stepState.status === StepStatus.COMPLETED && stepState.result) {
+          stepResults[stepId] = stepState.result;
+        }
+      }
+      
+      // Find where to resume from
+      const currentStepId = this.workflowState.getCurrentStepId();
+      if (currentStepId) {
+        startIndex = executionOrder.findIndex(step => step.id === currentStepId);
+        if (startIndex === -1) startIndex = 0;
+      }
+    }
+    
+    for (let i = startIndex; i < executionOrder.length; i++) {
+      const step = executionOrder[i];
       if (this.isCancelledOrShuttingDown()) {
         this.status = WorkflowStatus.CANCELLED;
         this.statusReporter.updateWorkflowStatus(WorkflowStatus.CANCELLED);
@@ -524,6 +666,11 @@ export class WorkflowRunner {
         this.statusReporter.markStepStarted(step.id);
         this.logger?.logStepStart(step);
         this.metricsCollector?.recordStepStart(step);
+        
+        // Update workflow state
+        if (this.workflowState) {
+          this.workflowState.updateStepState(step.id, StepStatus.RUNNING);
+        }
 
         // Emit step start event
         if (this.workflowHooks && this.context) {
@@ -556,6 +703,19 @@ export class WorkflowRunner {
         this.statusReporter.markStepCompleted(step.id, stepResult);
         this.logger?.logStepComplete(step, result);
         this.metricsCollector?.recordStepComplete(step, result);
+        
+        // Update workflow state and save checkpoint
+        if (this.workflowState) {
+          this.workflowState.updateStepState(step.id, StepStatus.COMPLETED, result);
+          this.workflowState.updateContext(this.context!.createSnapshot());
+          this.workflowState.advanceToNextStep();
+          
+          // Save state checkpoint periodically
+          this.stepExecutionCount++;
+          if (this.statePersistence && this.stepExecutionCount % this.checkpointInterval === 0) {
+            await this.statePersistence.saveState(this.workflowState);
+          }
+        }
 
         // Emit step complete event
         if (this.workflowHooks && this.context) {
@@ -587,6 +747,17 @@ export class WorkflowRunner {
         this.statusReporter.markStepFailed(step.id, workflowError.message);
         this.logger?.logStepFailure(step, workflowError, executionTime);
         this.metricsCollector?.recordStepFailure(step, workflowError, executionTime);
+        
+        // Update workflow state for failed step
+        if (this.workflowState) {
+          this.workflowState.updateStepState(step.id, StepStatus.FAILED, result);
+          this.workflowState.updateContext(this.context!.createSnapshot());
+          
+          // Save state on failure for potential recovery
+          if (this.statePersistence) {
+            await this.statePersistence.saveState(this.workflowState);
+          }
+        }
 
         // Emit step error event
         if (this.workflowHooks && this.context) {
@@ -802,5 +973,76 @@ export class WorkflowRunner {
    */
   private isCancelledOrShuttingDown(): boolean {
     return this.cancelled || this.shutdownManager?.isShutdownInProgress() || false;
+  }
+
+  /**
+   * Get current workflow state
+   */
+  getWorkflowState(): WorkflowState | undefined {
+    return this.workflowState;
+  }
+
+  /**
+   * Get state persistence instance
+   */
+  getStatePersistence(): StatePersistence | undefined {
+    return this.statePersistence;
+  }
+
+  /**
+   * List all persisted workflow states
+   */
+  async listPersistedStates(): Promise<any[]> {
+    if (!this.statePersistence) {
+      throw new Error('State persistence not enabled');
+    }
+    return this.statePersistence.listStates();
+  }
+
+  /**
+   * Delete a persisted workflow state
+   */
+  async deletePersistedState(workflowId: string): Promise<void> {
+    if (!this.statePersistence) {
+      throw new Error('State persistence not enabled');
+    }
+    await this.statePersistence.deleteState(workflowId);
+  }
+
+  /**
+   * Clean up old workflow states
+   */
+  async cleanupOldStates(): Promise<number> {
+    if (!this.statePersistence) {
+      throw new Error('State persistence not enabled');
+    }
+    return this.statePersistence.cleanup();
+  }
+
+  /**
+   * Save current workflow state checkpoint
+   */
+  async saveCheckpoint(): Promise<void> {
+    if (!this.workflowState || !this.statePersistence) {
+      throw new Error('State persistence not enabled or no active workflow');
+    }
+    
+    if (this.context) {
+      this.workflowState.updateContext(this.context.createSnapshot());
+    }
+    
+    await this.statePersistence.saveState(this.workflowState);
+  }
+
+  /**
+   * Create backup of current state
+   */
+  async createStateBackup(): Promise<void> {
+    if (!this.workflowState || !this.statePersistence) {
+      throw new Error('State persistence not enabled or no active workflow');
+    }
+    
+    const snapshot = this.workflowState.getSnapshot();
+    await this.statePersistence.createBackup(snapshot.workflowId);
   }
 }
