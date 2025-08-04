@@ -2,6 +2,8 @@
 
 This document covers the structure of workflow YAML files, step types, dependencies, variables, and branching logic for the workflow system.
 
+> 💡 **Note**: All string values in workflow configurations support [Variable Interpolation](./variable-interpolation.md) using `{{variable}}` syntax for dynamic configuration.
+
 ## Workflow Definition
 
 ### Basic Structure
