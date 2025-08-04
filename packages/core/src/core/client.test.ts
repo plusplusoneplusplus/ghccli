@@ -523,6 +523,229 @@ describe('Gemini Client (client.ts)', () => {
 
       expect(result).toEqual({ plain: 'json' });
     });
+
+    it('should handle simple enum string responses for next_speaker schema', async () => {
+      const contents = [{ role: 'user', parts: [{ text: 'hello' }] }];
+      // Schema that matches the NextSpeakerResponse schema from nextSpeakerChecker
+      const schema = {
+        type: 'object',
+        properties: {
+          reasoning: { type: 'string' },
+          next_speaker: { 
+            type: 'string',
+            enum: ['user', 'model']
+          }
+        },
+        required: ['reasoning', 'next_speaker']
+      };
+      const abortSignal = new AbortController().signal;
+
+      // Mock a response where the LLM just returns "user" instead of proper JSON
+      const mockResponse = {
+        candidates: [{
+          content: {
+            parts: [{ text: 'user' }],
+            role: 'model',
+          },
+        }],
+      } as unknown as GenerateContentResponse;
+
+      const mockGenerator: Partial<ContentGenerator> = {
+        countTokens: vi.fn().mockResolvedValue({ totalTokens: 1 }),
+        generateContent: vi.fn().mockResolvedValue(mockResponse),
+      };
+      client['contentGenerator'] = mockGenerator as ContentGenerator;
+
+      const result = await client.generateJson(contents, schema, abortSignal);
+
+      expect(result).toEqual({
+        reasoning: "Determined that 'user' should speak next.",
+        next_speaker: 'user'
+      });
+    });
+
+    it('should handle simple enum string responses for model next_speaker', async () => {
+      const contents = [{ role: 'user', parts: [{ text: 'hello' }] }];
+      const schema = {
+        type: 'object',
+        properties: {
+          reasoning: { type: 'string' },
+          next_speaker: { 
+            type: 'string',
+            enum: ['user', 'model']
+          }
+        },
+        required: ['reasoning', 'next_speaker']
+      };
+      const abortSignal = new AbortController().signal;
+
+      // Mock a response where the LLM just returns "model" instead of proper JSON
+      const mockResponse = {
+        candidates: [{
+          content: {
+            parts: [{ text: 'model' }],
+            role: 'model',
+          },
+        }],
+      } as unknown as GenerateContentResponse;
+
+      const mockGenerator: Partial<ContentGenerator> = {
+        countTokens: vi.fn().mockResolvedValue({ totalTokens: 1 }),
+        generateContent: vi.fn().mockResolvedValue(mockResponse),
+      };
+      client['contentGenerator'] = mockGenerator as ContentGenerator;
+
+      const result = await client.generateJson(contents, schema, abortSignal);
+
+      expect(result).toEqual({
+        reasoning: "Determined that 'model' should speak next.",
+        next_speaker: 'model'
+      });
+    });
+
+    it('should not handle simple string responses for schemas without next_speaker enum', async () => {
+      const contents = [{ role: 'user', parts: [{ text: 'hello' }] }];
+      const schema = {
+        type: 'object',
+        properties: {
+          some_field: { type: 'string' }
+        }
+      };
+      const abortSignal = new AbortController().signal;
+
+      // Mock a response with invalid JSON for a different schema
+      const mockResponse = {
+        candidates: [{
+          content: {
+            parts: [{ text: 'invalid' }],
+            role: 'model',
+          },
+        }],
+      } as unknown as GenerateContentResponse;
+
+      const mockGenerator: Partial<ContentGenerator> = {
+        countTokens: vi.fn().mockResolvedValue({ totalTokens: 1 }),
+        generateContent: vi.fn().mockResolvedValue(mockResponse),
+      };
+      client['contentGenerator'] = mockGenerator as ContentGenerator;
+
+      // Should throw an error since this is not a next_speaker schema
+      await expect(client.generateJson(contents, schema, abortSignal))
+        .rejects.toThrow(/Failed to parse API response as JSON/);
+    });
+
+    it('should not handle invalid enum values for next_speaker schema', async () => {
+      const contents = [{ role: 'user', parts: [{ text: 'hello' }] }];
+      const schema = {
+        type: 'object',
+        properties: {
+          reasoning: { type: 'string' },
+          next_speaker: { 
+            type: 'string',
+            enum: ['user', 'model']
+          }
+        }
+      };
+      const abortSignal = new AbortController().signal;
+
+      // Mock a response with invalid enum value
+      const mockResponse = {
+        candidates: [{
+          content: {
+            parts: [{ text: 'assistant' }], // Not in the enum
+            role: 'model',
+          },
+        }],
+      } as unknown as GenerateContentResponse;
+
+      const mockGenerator: Partial<ContentGenerator> = {
+        countTokens: vi.fn().mockResolvedValue({ totalTokens: 1 }),
+        generateContent: vi.fn().mockResolvedValue(mockResponse),
+      };
+      client['contentGenerator'] = mockGenerator as ContentGenerator;
+
+      // Should throw an error since "assistant" is not in the enum
+      await expect(client.generateJson(contents, schema, abortSignal))
+        .rejects.toThrow(/Failed to parse API response as JSON/);
+    });
+
+    it('should handle plain text response "user" for next_speaker schema', async () => {
+      const contents = [{ role: 'user', parts: [{ text: 'hello' }] }];
+      const schema = {
+        type: 'object',
+        properties: {
+          reasoning: { type: 'string' },
+          next_speaker: { 
+            type: 'string',
+            enum: ['user', 'model']
+          }
+        },
+        required: ['reasoning', 'next_speaker']
+      };
+      const abortSignal = new AbortController().signal;
+
+      // Mock a response where the LLM just returns plain text "user" (no quotes, no JSON)
+      const mockResponse = {
+        candidates: [{
+          content: {
+            parts: [{ text: 'user' }],
+            role: 'model',
+          },
+        }],
+      } as unknown as GenerateContentResponse;
+
+      const mockGenerator: Partial<ContentGenerator> = {
+        countTokens: vi.fn().mockResolvedValue({ totalTokens: 1 }),
+        generateContent: vi.fn().mockResolvedValue(mockResponse),
+      };
+      client['contentGenerator'] = mockGenerator as ContentGenerator;
+
+      const result = await client.generateJson(contents, schema, abortSignal);
+
+      expect(result).toEqual({
+        reasoning: "Determined that 'user' should speak next.",
+        next_speaker: 'user'
+      });
+    });
+
+    it('should handle plain text response "model" for next_speaker schema', async () => {
+      const contents = [{ role: 'user', parts: [{ text: 'hello' }] }];
+      const schema = {
+        type: 'object',
+        properties: {
+          reasoning: { type: 'string' },
+          next_speaker: { 
+            type: 'string',
+            enum: ['user', 'model']
+          }
+        },
+        required: ['reasoning', 'next_speaker']
+      };
+      const abortSignal = new AbortController().signal;
+
+      // Mock a response where the LLM just returns plain text "model" (no quotes, no JSON)
+      const mockResponse = {
+        candidates: [{
+          content: {
+            parts: [{ text: 'model' }],
+            role: 'model',
+          },
+        }],
+      } as unknown as GenerateContentResponse;
+
+      const mockGenerator: Partial<ContentGenerator> = {
+        countTokens: vi.fn().mockResolvedValue({ totalTokens: 1 }),
+        generateContent: vi.fn().mockResolvedValue(mockResponse),
+      };
+      client['contentGenerator'] = mockGenerator as ContentGenerator;
+
+      const result = await client.generateJson(contents, schema, abortSignal);
+
+      expect(result).toEqual({
+        reasoning: "Determined that 'model' should speak next.",
+        next_speaker: 'model'
+      });
+    });
   });
 
   describe('addHistory', () => {

@@ -602,7 +602,42 @@ export class GeminiClient {
           jsonText = jsonText.trim();
         }
         
-        return JSON.parse(jsonText);
+        // Try to parse as JSON first
+        try {
+          return JSON.parse(jsonText);
+        } catch (initialParseError) {
+          // Handle the case where the response is just a simple string value
+          // that should be part of a larger JSON structure. This is particularly
+          // common with next_speaker responses where the LLM might just return "user" or "model"
+          const trimmedResponse = jsonText.trim();
+          
+          // Check if this looks like a schema with a next_speaker field and the response
+          // is just a simple enum value
+          if (schema && 
+              typeof schema === 'object' && 
+              'properties' in schema &&
+              schema.properties &&
+              typeof schema.properties === 'object' &&
+              'next_speaker' in schema.properties) {
+            
+            const nextSpeakerSchema = schema.properties.next_speaker;
+            if (nextSpeakerSchema &&
+                typeof nextSpeakerSchema === 'object' && 
+                'enum' in nextSpeakerSchema && 
+                Array.isArray(nextSpeakerSchema.enum) &&
+                nextSpeakerSchema.enum.includes(trimmedResponse)) {
+              
+              // Create a proper response object with the simple string as next_speaker
+              return {
+                reasoning: `Determined that '${trimmedResponse}' should speak next.`,
+                next_speaker: trimmedResponse
+              };
+            }
+          }
+          
+          // If it's not a recognizable simple enum response, throw the original parse error
+          throw initialParseError;
+        }
       } catch (parseError) {
         await reportError(
           parseError,

@@ -250,4 +250,44 @@ describe('checkNextSpeaker', () => {
       .calls[0];
     expect(generateJsonCall[3]).toBe(DEFAULT_GEMINI_FLASH_LITE_MODEL);
   });
+
+  it('should handle the case where LLM returns just "user" instead of JSON', async () => {
+    (chatInstance.getHistory as Mock).mockReturnValue([
+      { role: 'model', parts: [{ text: 'I need to think about this.' }] },
+    ] as Content[]);
+
+    // Mock generateJson to return a properly formatted response when the LLM
+    // just returns "user" (this simulates the fix in client.ts)
+    (mockGeminiClient.generateJson as Mock).mockResolvedValue({
+      reasoning: "Determined that 'user' should speak next.",
+      next_speaker: 'user'
+    });
+
+    const result = await checkNextSpeaker(chatInstance, mockGeminiClient, abortSignal);
+
+    expect(result).toEqual({
+      reasoning: "Determined that 'user' should speak next.",
+      next_speaker: 'user'
+    });
+  });
+
+  it('should handle the case where LLM returns just "model" instead of JSON', async () => {
+    (chatInstance.getHistory as Mock).mockReturnValue([
+      { role: 'model', parts: [{ text: 'Let me continue with the next step...' }] },
+    ] as Content[]);
+
+    // Mock generateJson to return a properly formatted response when the LLM
+    // just returns "model" (this simulates the fix in client.ts)
+    (mockGeminiClient.generateJson as Mock).mockResolvedValue({
+      reasoning: "Determined that 'model' should speak next.",
+      next_speaker: 'model'
+    });
+
+    const result = await checkNextSpeaker(chatInstance, mockGeminiClient, abortSignal);
+
+    expect(result).toEqual({
+      reasoning: "Determined that 'model' should speak next.",
+      next_speaker: 'model'
+    });
+  });
 });
