@@ -1,4 +1,4 @@
-name: Agent-based Analysis Workflow
+name: agent-analysis-workflow
 description: Workflow using agents for code analysis and documentation
 version: 1.2.0
 
