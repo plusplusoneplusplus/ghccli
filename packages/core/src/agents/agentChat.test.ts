@@ -96,6 +96,51 @@ systemPrompt:
       expect(config.systemPrompt.value).toBe('You are a test agent');
     });
 
+    it('should resolve OS, UserName, and MachineName variables in system prompt', async () => {
+      const agentConfig = {
+        name: 'test-agent',
+        description: 'Test agent',
+        methods: [],
+        availableAgents: [],
+        metadata: {
+          supportsStreaming: false,
+          supportsTools: true,
+          requiresWorkspace: false,
+          supportsPromptSelection: false,
+          languageModel: { preferred: 'gemini-2.5-pro' },
+          promptSupport: {
+            supportsPrompts: true,
+            supportsTsxMessages: false,
+            promptParameterName: 'prompt',
+            variableResolution: true
+          },
+          specialization: 'research',
+          executionConfig: {
+            maxRounds: 10,
+            maxContextTokens: 32000
+          }
+        },
+        systemPrompt: {
+          type: 'content' as const,
+          value: 'OS={{.OS}}, User={{.UserName}}, Host={{.MachineName}}'
+        }
+      };
+
+      const chat = new AgentChat(
+        mockConfig,
+        mockContentGenerator,
+        agentConfig
+      );
+
+      const systemPrompt = await (chat as any).generateSystemPrompt();
+      expect(systemPrompt).toBeDefined();
+      // These values are dynamic, so just check that the placeholders are replaced
+      expect(systemPrompt.parts[0].text).not.toContain('{{.OS}}');
+      expect(systemPrompt.parts[0].text).not.toContain('{{.UserName}}');
+      expect(systemPrompt.parts[0].text).not.toContain('{{.MachineName}}');
+      expect(systemPrompt.parts[0].text).toMatch(/OS=.+, User=.+, Host=.+/);
+    });
+
     it('should handle arrays correctly', async () => {
       const YAML = await import('yaml');
       

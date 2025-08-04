@@ -12,6 +12,8 @@ import { AgentConfig } from './agentTypes.js';
 import { AgentLoader } from './agentLoader.js';
 import { isModelAvailable } from '../config/supportedModels.js';
 
+import os from 'os';
+
 /**
  * A specialized GeminiChat instance that loads configuration from YAML agent files
  */
@@ -69,7 +71,7 @@ export class AgentChat extends GeminiChat {
     } else {
       // Check if we have any available agents (including regex matches)
       const resolvedAgents = await this.getResolvedAvailableAgents();
-      if (resolvedAgents.length > 0) {
+      if (Array.isArray(resolvedAgents) && resolvedAgents.length > 0) {
         // If no placeholder but agents exist, append the information
         const availableAgentsText = await this.getAvailableAgentsAsText();
         promptContent += `\n\nAvailable sub-agents you can invoke:\n${availableAgentsText}`;
@@ -82,6 +84,38 @@ export class AgentChat extends GeminiChat {
       '{{.CurrentDate}}',
       currentDate
     );
+
+    // Replace OS placeholder
+    if (promptContent.includes('{{.OS}}')) {
+      const osType = os.type();
+      promptContent = promptContent.replace(
+        '{{.OS}}',
+        osType
+      );
+    }
+
+    // Replace UserName placeholder
+    if (promptContent.includes('{{.UserName}}')) {
+      let userName = '';
+      try {
+        userName = os.userInfo().username;
+      } catch (e) {
+        userName = process.env.USER || process.env.USERNAME || '';
+      }
+      promptContent = promptContent.replace(
+        '{{.UserName}}',
+        userName
+      );
+    }
+
+    // Replace MachineName placeholder
+    if (promptContent.includes('{{.MachineName}}')) {
+      const machineName = os.hostname();
+      promptContent = promptContent.replace(
+        '{{.MachineName}}',
+        machineName
+      );
+    }
 
     return promptContent;
   }
