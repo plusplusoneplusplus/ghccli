@@ -341,7 +341,6 @@ export class AgentStepExecutor extends StepExecutor {
       const executorConfig = this.getExecutorConfig();
       const toolScheduler = new CoreToolScheduler({
         toolRegistry: executorConfig.config.getToolRegistry(),
-        approvalMode: ApprovalMode.YOLO, // Auto-approve tools for workflow agents
         getPreferredEditor: () => undefined,
         config: executorConfig.config,
         onAllToolCallsComplete: (completedCalls) => {

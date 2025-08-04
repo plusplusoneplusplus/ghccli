@@ -86,7 +86,7 @@ export async function bfsFileSearch(
           `[WARN] Skipping unreadable directory: ${currentDir} (${message})`,
         );
         if (debug) {
-          logger.debug(`Full error for ${currentDir}:`, error);
+          logger.debug(`Full error for ${currentDir}: ${(error as Error)?.message ?? 'Unknown error'}`, LogLevel.VERBOSE);
         }
         return { currentDir, entries: [] };
       }

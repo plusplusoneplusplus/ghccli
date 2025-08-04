@@ -11,7 +11,16 @@ import { getPackageJson } from '../../utils/package.js';
 // Set to false to disable update checks
 const UPDATE_CHECK_ENABLED = false;
 
-export async function checkForUpdates(): Promise<string | null> {
+export interface UpdateObject {
+  message: string;
+  update: {
+    name: string;
+    latest: string;
+    current: string;
+  };
+}
+
+export async function checkForUpdates(): Promise<UpdateObject | null> {
   try {
     return null;
   } catch (e) {

@@ -559,7 +559,6 @@ export class AgentInvocationTool extends BaseTool<
       
       const toolScheduler = new CoreToolScheduler({
         toolRegistry: this.config.getToolRegistry(),
-        approvalMode: ApprovalMode.YOLO, // Auto-approve tools for sub-agents
         getPreferredEditor: () => undefined,
         config: this.config,
         onAllToolCallsComplete: (completedCalls) => {
