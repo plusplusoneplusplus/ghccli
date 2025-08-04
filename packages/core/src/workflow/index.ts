@@ -20,3 +20,4 @@ export * from './BuiltinFunctions.js';
 export * from './WorkflowTemplate.js';
 export * from './TemplateResolver.js';
 export * from './templates/index.js';
+export * from './hooks/index.js';

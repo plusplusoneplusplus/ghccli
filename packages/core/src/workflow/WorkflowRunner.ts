@@ -26,6 +26,7 @@ import { WorkflowRetryManager, createWorkflowRetryManager, WorkflowRetryOptions 
 import { WorkflowShutdownManager, GlobalWorkflowShutdownManager } from './shutdown.js';
 import { WorkflowMetricsCollector, createWorkflowMetricsCollector, WorkflowExecutionMetrics } from './metrics.js';
 import { PluginRegistry, PluginLoader } from './plugins/index.js';
+import { WorkflowHooks, BuiltinHooks, type WorkflowHooksOptions, type BuiltinHooksOptions } from './hooks/index.js';
 
 export enum WorkflowStatus {
   PENDING = 'pending',
@@ -49,6 +50,9 @@ export interface WorkflowExecutionOptions {
   pluginRegistry?: PluginRegistry;
   enablePluginAutoDiscovery?: boolean;
   pluginSearchPaths?: string[];
+  enableHooks?: boolean;
+  hooksOptions?: WorkflowHooksOptions;
+  builtinHooksOptions?: BuiltinHooksOptions;
 }
 
 export class WorkflowRunner {
@@ -68,6 +72,8 @@ export class WorkflowRunner {
   private currentWorkflowId?: string;
   private pluginRegistry?: PluginRegistry;
   private pluginLoader?: PluginLoader;
+  private workflowHooks?: WorkflowHooks;
+  private builtinHooks?: BuiltinHooks;
 
   constructor(config?: Config) {
     this.dependencyResolver = new DependencyResolver();
@@ -187,9 +193,24 @@ export class WorkflowRunner {
         workflow.env || {}
       );
 
+      // Initialize hooks system if enabled
+      if (options.enableHooks !== false) {
+        this.initializeHooks(options);
+      }
+
       // Log workflow start
       this.logger?.initialize(workflow);
       this.logger?.logExecutionStart(options as Record<string, unknown>);
+
+      // Emit workflow start event
+      if (this.workflowHooks) {
+        await this.workflowHooks.emitWorkflowStart(
+          this.currentWorkflowId,
+          workflow,
+          this.context,
+          options as Record<string, unknown>
+        );
+      }
 
       // Initialize status reporter
       this.statusReporter.initialize(workflow, this.context);
@@ -232,6 +253,16 @@ export class WorkflowRunner {
         (result as any).metrics = metrics;
       }
 
+      // Emit workflow complete event
+      if (this.workflowHooks) {
+        await this.workflowHooks.emitWorkflowComplete(
+          this.currentWorkflowId,
+          workflow,
+          this.context,
+          result
+        );
+      }
+
       return result;
 
     } catch (error) {
@@ -263,6 +294,16 @@ export class WorkflowRunner {
         (result as any).metrics = metrics;
       }
 
+      // Emit workflow error event
+      if (this.workflowHooks && this.context) {
+        await this.workflowHooks.emitWorkflowError(
+          this.currentWorkflowId,
+          workflow,
+          this.context,
+          workflowError
+        );
+      }
+
       return result;
     } finally {
       // Cleanup
@@ -278,6 +319,15 @@ export class WorkflowRunner {
     this.status = WorkflowStatus.CANCELLED;
     this.statusReporter.updateWorkflowStatus(WorkflowStatus.CANCELLED);
     this.logger?.logWorkflowCancelled(reason);
+
+    // Emit workflow cancelled event
+    if (this.workflowHooks && this.context) {
+      await this.workflowHooks.emitWorkflowCancelled(
+        this.currentWorkflowId!,
+        { name: 'current_workflow', version: '1.0.0', steps: [] } as WorkflowDefinition,
+        this.context
+      );
+    }
 
     // Graceful shutdown if enabled
     if (this.shutdownManager && this.context) {
@@ -440,6 +490,17 @@ export class WorkflowRunner {
           this.statusReporter.markStepSkipped(step.id, errorMsg);
           this.logger?.logStepSkipped(step, errorMsg);
           this.metricsCollector?.recordStepSkipped(step, errorMsg);
+
+          // Emit step skip event
+          if (this.workflowHooks && this.context) {
+            await this.workflowHooks.emitStepSkip(
+              this.currentWorkflowId!,
+              workflow,
+              this.context,
+              step,
+              errorMsg
+            );
+          }
           continue;
         }
       }
@@ -464,6 +525,16 @@ export class WorkflowRunner {
         this.logger?.logStepStart(step);
         this.metricsCollector?.recordStepStart(step);
 
+        // Emit step start event
+        if (this.workflowHooks && this.context) {
+          await this.workflowHooks.emitStepStart(
+            this.currentWorkflowId!,
+            workflow,
+            this.context,
+            step
+          );
+        }
+
         // Execute step with retry logic
         const stepTimeout = step.config.timeout || workflow.timeout || options.timeout;
         const stepResult = await this.executeStepWithRetryAndTimeout(
@@ -486,6 +557,17 @@ export class WorkflowRunner {
         this.logger?.logStepComplete(step, result);
         this.metricsCollector?.recordStepComplete(step, result);
 
+        // Emit step complete event
+        if (this.workflowHooks && this.context) {
+          await this.workflowHooks.emitStepComplete(
+            this.currentWorkflowId!,
+            workflow,
+            this.context,
+            step,
+            result
+          );
+        }
+
       } catch (error) {
         const executionTime = Date.now() - stepStartTime;
         const workflowError = createWorkflowError(
@@ -505,6 +587,17 @@ export class WorkflowRunner {
         this.statusReporter.markStepFailed(step.id, workflowError.message);
         this.logger?.logStepFailure(step, workflowError, executionTime);
         this.metricsCollector?.recordStepFailure(step, workflowError, executionTime);
+
+        // Emit step error event
+        if (this.workflowHooks && this.context) {
+          await this.workflowHooks.emitStepError(
+            this.currentWorkflowId!,
+            workflow,
+            this.context,
+            step,
+            workflowError
+          );
+        }
 
         // Stop execution if continueOnError is false
         if (!step.continueOnError && !options.continueOnError) {
@@ -615,6 +708,21 @@ export class WorkflowRunner {
   }
 
   /**
+   * Initialize hooks system
+   */
+  private initializeHooks(options: WorkflowExecutionOptions): void {
+    this.workflowHooks = new WorkflowHooks(options.hooksOptions);
+    
+    if (options.builtinHooksOptions?.enableLoggingHooks !== false ||
+        options.builtinHooksOptions?.enableMetricsHooks !== false ||
+        options.builtinHooksOptions?.enableNotificationHooks ||
+        options.builtinHooksOptions?.enableValidationHooks !== false) {
+      this.builtinHooks = new BuiltinHooks(this.workflowHooks, options.builtinHooksOptions);
+      this.builtinHooks.registerAll();
+    }
+  }
+
+  /**
    * Cleanup infrastructure resources
    */
   private cleanupInfrastructure(): void {
@@ -630,6 +738,9 @@ export class WorkflowRunner {
     this.retryManager = undefined;
     this.shutdownManager = undefined;
     this.metricsCollector = undefined;
+    this.builtinHooks?.unregisterAll();
+    this.workflowHooks = undefined;
+    this.builtinHooks = undefined;
   }
 
   /**
@@ -670,6 +781,20 @@ export class WorkflowRunner {
    */
   getLogger(): WorkflowLogger | undefined {
     return this.logger;
+  }
+
+  /**
+   * Get workflow hooks system
+   */
+  getWorkflowHooks(): WorkflowHooks | undefined {
+    return this.workflowHooks;
+  }
+
+  /**
+   * Get built-in hooks instance
+   */
+  getBuiltinHooks(): BuiltinHooks | undefined {
+    return this.builtinHooks;
   }
 
   /**
