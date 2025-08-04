@@ -18,10 +18,12 @@ import { configCommand } from '../ui/commands/configCommand.js';
 import { copyCommand } from '../ui/commands/copyCommand.js';
 import { corgiCommand } from '../ui/commands/corgiCommand.js';
 import { docsCommand } from '../ui/commands/docsCommand.js';
+import { directoryCommand } from '../ui/commands/directoryCommand.js';
 import { editorCommand } from '../ui/commands/editorCommand.js';
 import { extensionsCommand } from '../ui/commands/extensionsCommand.js';
 import { helpCommand } from '../ui/commands/helpCommand.js';
 import { ideCommand } from '../ui/commands/ideCommand.js';
+import { initCommand } from '../ui/commands/initCommand.js';
 import { mcpCommand } from '../ui/commands/mcpCommand.js';
 import { memoryCommand } from '../ui/commands/memoryCommand.js';
 import { modelCommand } from '../ui/commands/modelCommand.js';
@@ -32,6 +34,8 @@ import { statsCommand } from '../ui/commands/statsCommand.js';
 import { themeCommand } from '../ui/commands/themeCommand.js';
 import { toolsCommand } from '../ui/commands/toolsCommand.js';
 import { vimCommand } from '../ui/commands/vimCommand.js';
+import { setupGithubCommand } from '../ui/commands/setupGithubCommand.js';
+import { isGitHubRepository } from '../utils/gitUtils.js';
 import { workflowCommand } from '../ui/commands/workflowCommand.js';
 
 /**
@@ -61,21 +65,22 @@ export class BuiltinCommandLoader implements ICommandLoader {
       copyCommand,
       corgiCommand,
       docsCommand,
+      directoryCommand,
       editorCommand,
       extensionsCommand,
       helpCommand,
       ideCommand(this.config),
+      initCommand,
+      mcpCommand,
       memoryCommand,
       modelCommand,
       privacyCommand,
-      mcpCommand,
       quitCommand,
       restoreCommand(this.config),
       statsCommand,
       themeCommand,
       toolsCommand,
       vimCommand,
-      workflowCommand,
     ];
 
     return allDefinitions.filter((cmd): cmd is SlashCommand => cmd !== null);

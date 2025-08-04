@@ -29,3 +29,5 @@ vi.mock('@google/gemini-cli-core', async () => {
     },
   };
 });
+
+import './src/test-utils/customMatchers.js';

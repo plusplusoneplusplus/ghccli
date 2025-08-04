@@ -19,6 +19,7 @@ export default defineConfig({
     outputFile: {
       junit: 'junit.xml',
     },
+    setupFiles: ['./test-setup.ts'],
     coverage: {
       enabled: true,
       provider: 'v8',
