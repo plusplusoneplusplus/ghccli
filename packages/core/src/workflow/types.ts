@@ -19,7 +19,26 @@ export interface AgentConfig {
   timeout?: number;
 }
 
-export type WorkflowStepConfig = ScriptConfig | AgentConfig;
+export interface ConditionOperator {
+  type: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'exists' | 'not_exists' | 'greater_than' | 'less_than' | 'greater_than_or_equal' | 'less_than_or_equal' | 'matches' | 'not_matches';
+  left: string;
+  right?: unknown;
+}
+
+export interface BooleanExpression {
+  type: 'and' | 'or' | 'not';
+  conditions: (ConditionOperator | BooleanExpression)[];
+}
+
+export interface ConditionConfig {
+  expression: ConditionOperator | BooleanExpression;
+  onTrue?: string[];
+  onFalse?: string[];
+  continueOnError?: boolean;
+  timeout?: number;
+}
+
+export type WorkflowStepConfig = ScriptConfig | AgentConfig | ConditionConfig;
 
 export interface ParallelConfig {
   enabled: boolean;
@@ -31,7 +50,7 @@ export interface ParallelConfig {
 export interface WorkflowStep {
   id: string;
   name: string;
-  type: 'script' | 'agent';
+  type: 'script' | 'agent' | 'condition';
   config: WorkflowStepConfig;
   dependsOn?: string[];
   condition?: string;
