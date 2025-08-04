@@ -50,7 +50,7 @@ export interface ParallelConfig {
 export interface WorkflowStep {
   id: string;
   name: string;
-  type: 'script' | 'agent' | 'condition';
+  type: string;
   config: WorkflowStepConfig;
   dependsOn?: string[];
   condition?: string;

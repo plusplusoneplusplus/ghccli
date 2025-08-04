@@ -25,6 +25,7 @@ import { WorkflowLogger, createWorkflowLogger } from './logging.js';
 import { WorkflowRetryManager, createWorkflowRetryManager, WorkflowRetryOptions } from './retry.js';
 import { WorkflowShutdownManager, GlobalWorkflowShutdownManager } from './shutdown.js';
 import { WorkflowMetricsCollector, createWorkflowMetricsCollector, WorkflowExecutionMetrics } from './metrics.js';
+import { PluginRegistry, PluginLoader } from './plugins/index.js';
 
 export enum WorkflowStatus {
   PENDING = 'pending',
@@ -45,6 +46,9 @@ export interface WorkflowExecutionOptions {
   enableMetrics?: boolean;
   retryOptions?: WorkflowRetryOptions;
   enableGracefulShutdown?: boolean;
+  pluginRegistry?: PluginRegistry;
+  enablePluginAutoDiscovery?: boolean;
+  pluginSearchPaths?: string[];
 }
 
 export class WorkflowRunner {
@@ -62,6 +66,8 @@ export class WorkflowRunner {
   private shutdownManager?: WorkflowShutdownManager;
   private metricsCollector?: WorkflowMetricsCollector;
   private currentWorkflowId?: string;
+  private pluginRegistry?: PluginRegistry;
+  private pluginLoader?: PluginLoader;
 
   constructor(config?: Config) {
     this.dependencyResolver = new DependencyResolver();
@@ -95,6 +101,65 @@ export class WorkflowRunner {
   }
 
   /**
+   * Initialize plugin system with optional auto-discovery
+   */
+  async initializePlugins(options: WorkflowExecutionOptions = {}): Promise<void> {
+    if (options.pluginRegistry) {
+      this.pluginRegistry = options.pluginRegistry;
+    } else {
+      this.pluginRegistry = new PluginRegistry({
+        enableSandboxing: true,
+        maxPlugins: 50,
+        allowDuplicateStepTypes: false
+      });
+    }
+
+    if (options.enablePluginAutoDiscovery !== false) {
+      this.pluginLoader = new PluginLoader(this.pluginRegistry, {
+        searchPaths: options.pluginSearchPaths || ['./plugins', './node_modules'],
+        fileExtensions: ['.js', '.mjs', '.ts'],
+        maxDepth: 3,
+        ignoreNodeModules: true,
+        includePackageJson: true
+      });
+
+      const loadResult = await this.pluginLoader.loadAllDiscoveredPlugins();
+      if (loadResult.loaded > 0) {
+        console.log(`Loaded ${loadResult.loaded} plugin(s)`);
+      }
+      if (loadResult.failed > 0) {
+        console.warn(`Failed to load ${loadResult.failed} plugin(s)`);
+      }
+    }
+
+    this.updateStepExecutorsFromPlugins();
+  }
+
+  /**
+   * Get the plugin registry instance
+   */
+  getPluginRegistry(): PluginRegistry | undefined {
+    return this.pluginRegistry;
+  }
+
+  /**
+   * Update step executors with plugin-provided executors
+   */
+  private updateStepExecutorsFromPlugins(): void {
+    if (!this.pluginRegistry) {
+      return;
+    }
+
+    const supportedStepTypes = this.pluginRegistry.getSupportedStepTypes();
+    for (const stepType of supportedStepTypes) {
+      const executor = this.pluginRegistry.createStepExecutor(stepType);
+      if (executor) {
+        this.registerStepExecutor(stepType, executor);
+      }
+    }
+  }
+
+  /**
    * Execute a workflow definition
    */
   async execute(
@@ -109,6 +174,11 @@ export class WorkflowRunner {
     try {
       // Initialize logging and monitoring
       this.initializeInfrastructure(workflow, options);
+
+      // Initialize plugin system if enabled
+      if (options.pluginRegistry || options.enablePluginAutoDiscovery !== false) {
+        await this.initializePlugins(options);
+      }
 
       // Create workflow context
       this.context = new WorkflowContext(
