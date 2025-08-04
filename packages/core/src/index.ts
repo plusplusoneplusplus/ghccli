@@ -72,6 +72,7 @@ export * from './tools/web-fetch.js';
 export * from './tools/memoryTool.js';
 export * from './tools/shell_v2.js';
 export * from './tools/web-search.js';
+export * from './tools/web-search-tavily.js';
 export * from './tools/read-many-files.js';
 export * from './tools/mcp-client.js';
 export * from './tools/mcp-tool.js';

@@ -4,32 +4,35 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { GroundingMetadata } from '@google/genai';
 import { BaseTool, Icon, ToolResult } from './tools.js';
 import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
+
 import { getErrorMessage } from '../utils/errors.js';
 import { Config } from '../config/config.js';
-import { getTavilyToken, setTavilyToken } from '../utils/tavilyToken.js';
+import { getResponseText } from '../utils/generateContentResponseUtilities.js';
 
-interface TavilySearchResult {
-  title: string;
-  url: string;
-  content: string;
-  score: number;
+interface GroundingChunkWeb {
+  uri?: string;
+  title?: string;
 }
 
-interface TavilySearchResponse {
-  answer?: string;
-  query: string;
-  response_time: number;
-  results: TavilySearchResult[];
+interface GroundingChunkItem {
+  web?: GroundingChunkWeb;
+  // Other properties might exist if needed in the future
 }
 
-interface WebSearchSource {
-  title: string;
-  url: string;
-  content?: string;
-  score?: number;
+interface GroundingSupportSegment {
+  startIndex: number;
+  endIndex: number;
+  text?: string; // text is optional as per the example
+}
+
+interface GroundingSupportItem {
+  segment?: GroundingSupportSegment;
+  groundingChunkIndices?: number[];
+  confidenceScores?: number[]; // Optional as per example
 }
 
 /**
@@ -39,65 +42,33 @@ export interface WebSearchToolParams {
   /**
    * The search query.
    */
+
   query: string;
-  /**
-   * Maximum number of results to return (optional, defaults to 5).
-   */
-  max_results?: number;
-  /**
-   * Search depth - 'basic' or 'advanced' (optional, defaults to 'basic').
-   */
-  search_depth?: 'basic' | 'advanced';
-  /**
-   * Include domains to search within (optional).
-   */
-  include_domains?: string[];
-  /**
-   * Exclude domains from search (optional).
-   */
-  exclude_domains?: string[];
 }
 
 /**
  * Extends ToolResult to include sources for web search.
  */
 export interface WebSearchToolResult extends ToolResult {
-  sources?: WebSearchSource[];
-  answer?: string;
-  response_time?: number;
+  sources?: GroundingMetadata extends { groundingChunks: GroundingChunkItem[] }
+    ? GroundingMetadata['groundingChunks']
+    : GroundingChunkItem[];
 }
 
 /**
- * A tool to perform web searches using Tavily Search API.
+ * A tool to perform web searches using Google Search via the Gemini API.
  */
 export class WebSearchTool extends BaseTool<
   WebSearchToolParams,
   WebSearchToolResult
 > {
-  static readonly Name: string = 'web_search';
-
-  /**
-   * Sets the Tavily API token for web search functionality.
-   * @param token The Tavily API token
-   * @returns True if successful, false otherwise
-   */
-  static setToken(token: string): boolean {
-    return setTavilyToken(token);
-  }
-
-  /**
-   * Gets the current Tavily API token.
-   * @returns The token or null if not set
-   */
-  static getToken(): string | null {
-    return getTavilyToken();
-  }
+  static readonly Name: string = 'google_web_search';
 
   constructor(private readonly config: Config) {
     super(
       WebSearchTool.Name,
-      'TavilySearch',
-      'Performs a web search using Tavily Search API and returns the results. This tool is useful for finding information on the internet based on a query.',
+      'GoogleSearch',
+      'Performs a web search using Google Search (via the Gemini API) and returns the results. This tool is useful for finding information on the internet based on a query.',
       Icon.Globe,
       {
         type: Type.OBJECT,
@@ -105,25 +76,6 @@ export class WebSearchTool extends BaseTool<
           query: {
             type: Type.STRING,
             description: 'The search query to find information on the web.',
-          },
-          max_results: {
-            type: Type.NUMBER,
-            description: 'Maximum number of results to return (optional, defaults to 5).',
-          },
-          search_depth: {
-            type: Type.STRING,
-            description: 'Search depth - "basic" or "advanced" (optional, defaults to "basic").',
-            enum: ['basic', 'advanced'],
-          },
-          include_domains: {
-            type: Type.ARRAY,
-            description: 'Include domains to search within (optional).',
-            items: { type: Type.STRING },
-          },
-          exclude_domains: {
-            type: Type.ARRAY,
-            description: 'Exclude domains from search (optional).',
-            items: { type: Type.STRING },
           },
         },
         required: ['query'],
@@ -163,104 +115,76 @@ export class WebSearchTool extends BaseTool<
         returnDisplay: validationError,
       };
     }
-
-    // Get Tavily API token
-    let tavilyToken = getTavilyToken();
-    if (!tavilyToken) {
-      return {
-        llmContent: `Error: Tavily API token not found. Please provide your Tavily API token.`,
-        returnDisplay: 'Tavily API token required. Please set your token.',
-      };
-    }
+    const geminiClient = this.config.getGeminiClient();
 
     try {
-      // Prepare request body for Tavily API
-      const requestBody: any = {
-        query: params.query,
-        search_depth: params.search_depth || 'basic',
-        include_answer: true,
-        include_domains: params.include_domains || [],
-        exclude_domains: params.exclude_domains || [],
-        max_results: params.max_results || 5,
-      };
-
-      // Remove empty arrays to keep request clean
-      if (requestBody.include_domains.length === 0) {
-        delete requestBody.include_domains;
-      }
-      if (requestBody.exclude_domains.length === 0) {
-        delete requestBody.exclude_domains;
-      }
-
-      const response = await fetch('https://api.tavily.com/search', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${tavilyToken}`,
-        },
-        body: JSON.stringify(requestBody),
+      const response = await geminiClient.generateContent(
+        [{ role: 'user', parts: [{ text: params.query }] }],
+        { tools: [{ googleSearch: {} }] },
         signal,
-      });
+      );
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          return {
-            llmContent: `Error: Invalid Tavily API token. Please check your token.`,
-            returnDisplay: 'Invalid Tavily API token.',
-          };
-        }
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      const responseText = getResponseText(response);
+      const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
+      const sources = groundingMetadata?.groundingChunks as
+        | GroundingChunkItem[]
+        | undefined;
+      const groundingSupports = groundingMetadata?.groundingSupports as
+        | GroundingSupportItem[]
+        | undefined;
 
-      const data: TavilySearchResponse = await response.json();
-
-      if (!data.results || data.results.length === 0) {
+      if (!responseText || !responseText.trim()) {
         return {
-          llmContent: `No search results found for query: "${params.query}"`,
-          returnDisplay: 'No search results found.',
+          llmContent: `No search results or information found for query: "${params.query}"`,
+          returnDisplay: 'No information found.',
         };
       }
 
-      // Format results
-      const sources: WebSearchSource[] = data.results.map((result) => ({
-        title: result.title,
-        url: result.url,
-        content: result.content,
-        score: result.score,
-      }));
+      let modifiedResponseText = responseText;
+      const sourceListFormatted: string[] = [];
 
-      const sourceListFormatted: string[] = data.results.map((result, index) => 
-        `[${index + 1}] ${result.title} (${result.url})`
-      );
+      if (sources && sources.length > 0) {
+        sources.forEach((source: GroundingChunkItem, index: number) => {
+          const title = source.web?.title || 'Untitled';
+          const uri = source.web?.uri || 'No URI';
+          sourceListFormatted.push(`[${index + 1}] ${title} (${uri})`);
+        });
 
-      let formattedResponse = '';
-      
-      // Include AI-generated answer if available
-      if (data.answer) {
-        formattedResponse += `Answer: ${data.answer}\n\n`;
-      }
+        if (groundingSupports && groundingSupports.length > 0) {
+          const insertions: Array<{ index: number; marker: string }> = [];
+          groundingSupports.forEach((support: GroundingSupportItem) => {
+            if (support.segment && support.groundingChunkIndices) {
+              const citationMarker = support.groundingChunkIndices
+                .map((chunkIndex: number) => `[${chunkIndex + 1}]`)
+                .join('');
+              insertions.push({
+                index: support.segment.endIndex,
+                marker: citationMarker,
+              });
+            }
+          });
 
-      // Add search results
-      formattedResponse += 'Search Results:\n';
-      data.results.forEach((result, index) => {
-        formattedResponse += `\n${index + 1}. **${result.title}**\n`;
-        formattedResponse += `   ${result.url}\n`;
-        if (result.content) {
-          formattedResponse += `   ${result.content}\n`;
+          // Sort insertions by index in descending order to avoid shifting subsequent indices
+          insertions.sort((a, b) => b.index - a.index);
+
+          const responseChars = modifiedResponseText.split(''); // Use new variable
+          insertions.forEach((insertion) => {
+            // Fixed arrow function syntax
+            responseChars.splice(insertion.index, 0, insertion.marker);
+          });
+          modifiedResponseText = responseChars.join(''); // Assign back to modifiedResponseText
         }
-      });
 
-      // Add sources list
-      if (sourceListFormatted.length > 0) {
-        formattedResponse += '\n\nSources:\n' + sourceListFormatted.join('\n');
+        if (sourceListFormatted.length > 0) {
+          modifiedResponseText +=
+            '\n\nSources:\n' + sourceListFormatted.join('\n'); // Fixed string concatenation
+        }
       }
 
       return {
-        llmContent: `Web search results for "${params.query}":\n\n${formattedResponse}`,
-        returnDisplay: `Search results for "${params.query}" returned (${data.results.length} results).`,
+        llmContent: `Web search results for "${params.query}":\n\n${modifiedResponseText}`,
+        returnDisplay: `Search results for "${params.query}" returned.`,
         sources,
-        answer: data.answer,
-        response_time: data.response_time,
       };
     } catch (error: unknown) {
       const errorMessage = `Error during web search for query "${params.query}": ${getErrorMessage(error)}`;
