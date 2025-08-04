@@ -127,6 +127,77 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
   }
 
   /**
+   * Applies limit to the file paths and returns the limited paths along with metadata.
+   */
+  private applyLimit(
+    filePaths: string[],
+    limit?: number,
+  ): {
+    displayPaths: string[];
+    totalFileCount: number;
+    displayFileCount: number;
+    isLimited: boolean;
+  } {
+    const defaultLimit = 30;
+    const effectiveLimit = limit ?? defaultLimit;
+    const totalFileCount = filePaths.length;
+    const isLimited = totalFileCount > effectiveLimit;
+    const displayPaths = isLimited ? filePaths.slice(0, effectiveLimit) : filePaths;
+    const displayFileCount = displayPaths.length;
+
+    return {
+      displayPaths,
+      totalFileCount,
+      displayFileCount,
+      isLimited,
+    };
+  }
+
+  /**
+   * Generates the result messages based on the search results and limit information.
+   */
+  private generateResultMessages(
+    params: GlobToolParams,
+    searchDir: string,
+    fileListDescription: string,
+    limitInfo: {
+      totalFileCount: number;
+      displayFileCount: number;
+      isLimited: boolean;
+    },
+    gitIgnoredCount: number,
+  ): {
+    llmContent: string;
+    returnDisplay: string;
+  } {
+    const { totalFileCount, displayFileCount, isLimited } = limitInfo;
+
+    let resultMessage = `Found ${totalFileCount} file(s) matching "${params.pattern}" within ${searchDir}`;
+    if (gitIgnoredCount > 0) {
+      resultMessage += ` (${gitIgnoredCount} additional files were git-ignored)`;
+    }
+    
+    if (isLimited) {
+      resultMessage += `, showing first ${displayFileCount} files`;
+    }
+    
+    resultMessage += `, sorted by modification time (newest first):\n${fileListDescription}`;
+
+    if (isLimited) {
+      resultMessage += `\n\n[Results truncated: showing ${displayFileCount} of ${totalFileCount} total files. Use the 'limit' parameter to see more files.]`;
+    }
+
+    const returnDisplay = isLimited 
+      ? `Found ${totalFileCount} file(s) (showing ${displayFileCount})` 
+      : `Found ${displayFileCount} matching file(s)`;
+
+    return {
+      llmContent: resultMessage,
+      returnDisplay,
+    };
+  }
+
+  /**
    * Validates the parameters for the tool.
    */
   validateToolParams(params: GlobToolParams): string | null {
@@ -279,34 +350,40 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
         entry.fullpath(),
       );
 
-      // Apply limit (default to 30)
-      const limit = params.limit ?? 30;
-      const totalFileCount = sortedAbsolutePaths.length;
-      const isLimited = totalFileCount > limit;
-      const displayPaths = isLimited ? sortedAbsolutePaths.slice(0, limit) : sortedAbsolutePaths;
-      
-      const fileListDescription = displayPaths.join('\n');
-      const displayFileCount = displayPaths.length;
+      const limitInfo = this.applyLimit(sortedAbsolutePaths, params.limit);
+      const needsLimit = limitInfo.isLimited;
 
-      let resultMessage = `Found ${totalFileCount} file(s) matching "${params.pattern}" within ${searchDirAbsolute}`;
-      if (gitIgnoredCount > 0) {
-        resultMessage += ` (${gitIgnoredCount} additional files were git-ignored)`;
-      }
-      
-      if (isLimited) {
-        resultMessage += `, showing first ${displayFileCount} files`;
-      }
-      
-      resultMessage += `, sorted by modification time (newest first):\n${fileListDescription}`;
+      if (needsLimit) {
+        // Use new methods for limited results
+        const { displayPaths, totalFileCount, displayFileCount, isLimited } = limitInfo;
+        
+        const fileListDescription = displayPaths.join('\n');
 
-      if (isLimited) {
-        resultMessage += `\n\n[Results truncated: showing ${displayFileCount} of ${totalFileCount} total files. Use the 'limit' parameter to see more files.]`;
-      }
+        return this.generateResultMessages(
+          params,
+          searchDirAbsolute,
+          fileListDescription,
+          { totalFileCount, displayFileCount, isLimited },
+          gitIgnoredCount,
+        );
+      } else {
+        // Original code piece for non-limited results
+        const fileListDescription = sortedAbsolutePaths.join('\n');
+        const { totalFileCount } = limitInfo;
+        const displayFileCount = sortedAbsolutePaths.length;
 
-      return {
-        llmContent: resultMessage,
-        returnDisplay: isLimited ? `Found ${totalFileCount} file(s) (showing ${displayFileCount})` : `Found ${displayFileCount} matching file(s)`,
-      };
+        let resultMessage = `Found ${totalFileCount} file(s) matching "${params.pattern}" within ${searchDirAbsolute}`;
+        if (gitIgnoredCount > 0) {
+          resultMessage += ` (${gitIgnoredCount} additional files were git-ignored)`;
+        }
+        
+        resultMessage += `, sorted by modification time (newest first):\n${fileListDescription}`;
+
+        return {
+          llmContent: resultMessage,
+          returnDisplay: `Found ${displayFileCount} matching file(s)`,
+        };
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
