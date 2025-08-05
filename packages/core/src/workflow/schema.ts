@@ -8,7 +8,7 @@ import AjvPkg from 'ajv';
 import { WorkflowDefinition, WorkflowStep, ScriptConfig, AgentConfig } from './types.js';
 
 const AjvClass = (AjvPkg as any).default || AjvPkg;
-const ajv = new AjvClass({ allErrors: true, verbose: true });
+const ajv = new AjvClass({ allErrors: true, verbose: true, allowUnionTypes: true });
 
 const scriptConfigSchema = {
   type: 'object',
