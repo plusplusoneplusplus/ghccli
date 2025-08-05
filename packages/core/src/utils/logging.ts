@@ -57,17 +57,27 @@ export class DebugLogger {
   }
 
   warn(message: string): void {
-    // Warnings are always shown, but go to stderr
+    // In non-interactive mode, suppress all warnings unless debug is enabled
+    if (this.config.isNonInteractive && !this.config.debugEnabled) {
+      return;
+    }
     this.writeToStdErr(`[WARN] [${this.component}] ${message}`);
   }
 
   error(message: string): void {
-    // Errors are always shown and go to stderr
+    // In non-interactive mode, suppress all errors unless debug is enabled
+    if (this.config.isNonInteractive && !this.config.debugEnabled) {
+      return;
+    }
     this.writeToStdErr(`[ERROR] [${this.component}] ${message}`);
   }
 
   // Essential logs that are shown even in minimal mode (auth failures, critical errors)
   essential(message: string): void {
+    // In non-interactive mode, suppress essential logs unless debug is enabled
+    if (this.config.isNonInteractive && !this.config.debugEnabled) {
+      return;
+    }
     if (this.config.debugEnabled) {
       this.writeToStdErr(`[DEBUG] [${this.component}] ${message}`);
     }

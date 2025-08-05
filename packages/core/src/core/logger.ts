@@ -8,6 +8,7 @@ import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { Content } from '@google/genai';
 import { getProjectTempDir } from '../utils/paths.js';
+import { createLogger } from '../utils/logging.js';
 
 const LOG_FILE_NAME = 'logs.json';
 
@@ -30,6 +31,7 @@ export class Logger {
   private messageId = 0; // Instance-specific counter for the next messageId
   private initialized = false;
   private logs: LogEntry[] = []; // In-memory cache, ideally reflects the last known state of the file
+  private logger = createLogger('Logger');
 
   constructor(sessionId: string) {
     this.sessionId = sessionId;
@@ -43,7 +45,7 @@ export class Logger {
       const fileContent = await fs.readFile(this.logFilePath, 'utf-8');
       const parsedLogs = JSON.parse(fileContent);
       if (!Array.isArray(parsedLogs)) {
-        console.debug(
+        this.logger.debug(
           `Log file at ${this.logFilePath} is not a valid JSON array. Starting with empty logs.`,
         );
         await this._backupCorruptedLogFile('malformed_array');
@@ -63,16 +65,14 @@ export class Logger {
         return [];
       }
       if (error instanceof SyntaxError) {
-        console.debug(
+        this.logger.debug(
           `Invalid JSON in log file ${this.logFilePath}. Backing up and starting fresh.`,
-          error,
         );
         await this._backupCorruptedLogFile('invalid_json');
         return [];
       }
-      console.debug(
-        `Failed to read or parse log file ${this.logFilePath}:`,
-        error,
+      this.logger.error(
+        `Failed to read or parse log file ${this.logFilePath}: ${error}`,
       );
       throw error;
     }
@@ -83,7 +83,7 @@ export class Logger {
     const backupPath = `${this.logFilePath}.${reason}.${Date.now()}.bak`;
     try {
       await fs.rename(this.logFilePath, backupPath);
-      console.debug(`Backed up corrupted log file to ${backupPath}`);
+      this.logger.debug(`Backed up corrupted log file to ${backupPath}`);
     } catch (_backupError) {
       // If rename fails (e.g. file doesn't exist), no need to log an error here as the primary error (e.g. invalid JSON) is already handled.
     }
@@ -118,7 +118,7 @@ export class Logger {
           : 0;
       this.initialized = true;
     } catch (err) {
-      console.error('Failed to initialize logger:', err);
+      this.logger.error(`Failed to initialize logger: ${err}`);
       this.initialized = false;
     }
   }
@@ -127,7 +127,7 @@ export class Logger {
     entryToAppend: LogEntry,
   ): Promise<LogEntry | null> {
     if (!this.logFilePath) {
-      console.debug('Log file path not set. Cannot persist log entry.');
+      this.logger.error('Log file path not set. Cannot persist log entry.');
       throw new Error('Log file path not set during update attempt.');
     }
 
@@ -135,9 +135,8 @@ export class Logger {
     try {
       currentLogsOnDisk = await this._readLogFile();
     } catch (readError) {
-      console.debug(
-        'Critical error reading log file before append:',
-        readError,
+      this.logger.error(
+        `Critical error reading log file before append: ${readError}`,
       );
       throw readError;
     }
@@ -166,7 +165,7 @@ export class Logger {
     );
 
     if (entryExists) {
-      console.debug(
+      this.logger.debug(
         `Duplicate log entry detected and skipped: session ${entryToAppend.sessionId}, messageId ${entryToAppend.messageId}`,
       );
       this.logs = currentLogsOnDisk; // Ensure in-memory is synced with disk
@@ -184,7 +183,7 @@ export class Logger {
       this.logs = currentLogsOnDisk;
       return entryToAppend; // Return the successfully appended entry
     } catch (error) {
-      console.debug('Error writing to log file:', error);
+      this.logger.error(`Error writing to log file: ${error}`);
       throw error;
     }
   }
@@ -203,7 +202,7 @@ export class Logger {
 
   async logMessage(type: MessageSenderType, message: string): Promise<void> {
     if (!this.initialized || this.sessionId === undefined) {
-      console.debug(
+      this.logger.debug(
         'Logger not initialized or session ID missing. Cannot log message.',
       );
       return;
@@ -248,7 +247,7 @@ export class Logger {
 
   async saveCheckpoint(conversation: Content[], tag: string): Promise<void> {
     if (!this.initialized) {
-      console.error(
+      this.logger.error(
         'Logger not initialized or checkpoint file path not set. Cannot save a checkpoint.',
       );
       return;
@@ -257,13 +256,13 @@ export class Logger {
     try {
       await fs.writeFile(path, JSON.stringify(conversation, null, 2), 'utf-8');
     } catch (error) {
-      console.error('Error writing to checkpoint file:', error);
+      this.logger.error(`Error writing to checkpoint file: ${error}`);
     }
   }
 
   async loadCheckpoint(tag: string): Promise<Content[]> {
     if (!this.initialized) {
-      console.error(
+      this.logger.error(
         'Logger not initialized or checkpoint file path not set. Cannot load checkpoint.',
       );
       return [];
@@ -274,21 +273,21 @@ export class Logger {
       const fileContent = await fs.readFile(path, 'utf-8');
       const parsedContent = JSON.parse(fileContent);
       if (!Array.isArray(parsedContent)) {
-        console.warn(
+        this.logger.warn(
           `Checkpoint file at ${path} is not a valid JSON array. Returning empty checkpoint.`,
         );
         return [];
       }
       return parsedContent as Content[];
     } catch (error) {
-      console.error(`Failed to read or parse checkpoint file ${path}:`, error);
+      this.logger.error(`Failed to read or parse checkpoint file ${path}: ${error}`);
       return [];
     }
   }
 
   async deleteCheckpoint(tag: string): Promise<boolean> {
     if (!this.initialized || !this.geminiDir) {
-      console.error(
+      this.logger.error(
         'Logger not initialized or checkpoint file path not set. Cannot delete checkpoint.',
       );
       return false;
@@ -305,7 +304,7 @@ export class Logger {
         // File doesn't exist, which is fine.
         return false;
       }
-      console.error(`Failed to delete checkpoint file ${path}:`, error);
+      this.logger.error(`Failed to delete checkpoint file ${path}: ${error}`);
       throw error;
     }
   }
