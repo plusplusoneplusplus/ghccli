@@ -151,7 +151,7 @@ describe('createContentGeneratorConfig', () => {
   it('should configure for OpenAI using OPENAI_API_KEY when set', async () => {
     process.env.OPENAI_API_KEY = 'env-openai-key';
     process.env.OPENAI_MODEL = 'gpt-3.5-turbo';
-    vi.mocked(mockConfig.getModel).mockReturnValue(null); // No model from config
+    vi.mocked(mockConfig.getModel).mockReturnValue(''); // No model from config
     const config = await createContentGeneratorConfig(
       mockConfig,
       AuthType.OPENAI,
@@ -172,7 +172,7 @@ describe('createContentGeneratorConfig', () => {
   it('should use default gpt-4 model for OpenAI if no model specified', async () => {
     process.env.OPENAI_API_KEY = 'env-openai-key';
     delete process.env.OPENAI_MODEL;
-    vi.mocked(mockConfig.getModel).mockReturnValue(null);
+    vi.mocked(mockConfig.getModel).mockReturnValue('');
     const config = await createContentGeneratorConfig(
       mockConfig,
       AuthType.OPENAI,
