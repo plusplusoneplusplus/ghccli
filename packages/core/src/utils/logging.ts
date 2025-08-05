@@ -17,21 +17,19 @@ export interface LoggerConfig {
 }
 
 export class DebugLogger {
-  private config: LoggerConfig;
   private component: string;
 
-  constructor(component: string, config: LoggerConfig) {
+  constructor(component: string) {
     this.component = component;
-    this.config = config;
   }
 
   private shouldLog(level: LogLevel): boolean {
-    if (!this.config.debugEnabled) {
+    if (!globalLoggerConfig.debugEnabled) {
       return false;
     }
 
     // In non-interactive mode, only log essential information for minimal level
-    if (this.config.isNonInteractive && this.config.debugLevel === LogLevel.MINIMAL) {
+    if (globalLoggerConfig.isNonInteractive && globalLoggerConfig.debugLevel === LogLevel.MINIMAL) {
       return level === LogLevel.MINIMAL;
     }
 
@@ -42,7 +40,7 @@ export class DebugLogger {
       [LogLevel.VERBOSE]: 3,
     };
 
-    return levelPriority[level] <= levelPriority[this.config.debugLevel];
+    return levelPriority[level] <= levelPriority[globalLoggerConfig.debugLevel];
   }
 
   private writeToStdErr(message: string): void {
@@ -58,7 +56,7 @@ export class DebugLogger {
 
   warn(message: string): void {
     // In non-interactive mode, suppress all warnings unless debug is enabled
-    if (this.config.isNonInteractive && !this.config.debugEnabled) {
+    if (globalLoggerConfig.isNonInteractive && !globalLoggerConfig.debugEnabled) {
       return;
     }
     this.writeToStdErr(`[WARN] [${this.component}] ${message}`);
@@ -66,7 +64,7 @@ export class DebugLogger {
 
   error(message: string): void {
     // In non-interactive mode, suppress all errors unless debug is enabled
-    if (this.config.isNonInteractive && !this.config.debugEnabled) {
+    if (globalLoggerConfig.isNonInteractive && !globalLoggerConfig.debugEnabled) {
       return;
     }
     this.writeToStdErr(`[ERROR] [${this.component}] ${message}`);
@@ -75,10 +73,10 @@ export class DebugLogger {
   // Essential logs that are shown even in minimal mode (auth failures, critical errors)
   essential(message: string): void {
     // In non-interactive mode, suppress essential logs unless debug is enabled
-    if (this.config.isNonInteractive && !this.config.debugEnabled) {
+    if (globalLoggerConfig.isNonInteractive && !globalLoggerConfig.debugEnabled) {
       return;
     }
-    if (this.config.debugEnabled) {
+    if (globalLoggerConfig.debugEnabled) {
       this.writeToStdErr(`[DEBUG] [${this.component}] ${message}`);
     }
   }
@@ -96,5 +94,5 @@ export function setGlobalLoggerConfig(config: LoggerConfig): void {
 }
 
 export function createLogger(component: string): DebugLogger {
-  return new DebugLogger(component, globalLoggerConfig);
+  return new DebugLogger(component);
 }
