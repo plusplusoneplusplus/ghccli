@@ -49,6 +49,9 @@ import {
   NextSpeakerCheckEvent,
 } from '../telemetry/types.js';
 import { ClearcutLogger } from '../telemetry/clearcut-logger/clearcut-logger.js';
+import { createLogger } from '../utils/logging.js';
+
+const logger = createLogger('GeminiClient');
 
 function isThinkingSupported(model: string) {
   if (model.startsWith('gemini-2.5')) return true;
@@ -129,7 +132,7 @@ export class GeminiClient {
       this.config.getSessionId(),
     );
     this.chat = await this.startChat(undefined, this.config.getAgent());
-    console.debug('chat initialized with agent', this.config.getAgent());
+    logger.debug(`chat initialized with agent ${this.config.getAgent()}`);
   }
 
   getContentGenerator(): ContentGenerator {
