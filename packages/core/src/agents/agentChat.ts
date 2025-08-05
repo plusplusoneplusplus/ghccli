@@ -35,7 +35,7 @@ export class AgentChat extends GeminiChat {
     this.agentConfig = agentConfig;
     this.agentLoader = new AgentLoader(''); // Will be set properly when needed
     
-    logger.debug(`chat initialized with agent ${agentConfig.name}`, LogLevel.NORMAL);
+    logger.debug(`chat initialized with agent ${agentConfig.name}`, LogLevel.VERBOSE);
   }
 
   /**
