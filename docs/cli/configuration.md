@@ -353,6 +353,20 @@ The CLI automatically loads environment variables from an `.env` file. The loadi
 - **`CODE_ASSIST_ENDPOINT`**:
   - Specifies the endpoint for the code assist server.
   - This is useful for development and testing.
+- **`OPENAI_API_KEY`**:
+  - Your OpenAI API key for direct OpenAI authentication.
+  - Required when using the OpenAI authentication method.
+  - Example: `export OPENAI_API_KEY="sk-your-openai-api-key"`
+- **`OPENAI_BASE_URL`**:
+  - Custom base URL for OpenAI-compatible APIs.
+  - Defaults to `https://api.openai.com/v1` if not specified.
+  - Useful for connecting to OpenAI-compatible services like Azure OpenAI, local deployments, etc.
+  - Example: `export OPENAI_BASE_URL="https://api.openai.com/v1"`
+- **`OPENAI_MODEL`**:
+  - Default OpenAI model to use.
+  - Defaults to `gpt-4o` if not specified.
+  - Can be overridden by the `--model` command-line argument.
+  - Example: `export OPENAI_MODEL="gpt-4"`
 
 ## Command-Line Arguments
 

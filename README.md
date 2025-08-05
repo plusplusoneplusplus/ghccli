@@ -102,6 +102,26 @@ The GitHub Copilot integration provides access to GPT-4 and other models through
    - The CLI will display a device code and verification URL
    - Visit the URL and enter the code to authorize
 
+### Use OpenAI directly:
+
+Connect directly to OpenAI's API or OpenAI-compatible APIs:
+
+1. **Prerequisites:** You need an OpenAI API key from your [OpenAI account](https://platform.openai.com/api-keys).
+2. **Configuration:** Set the required environment variables:
+
+   ```bash
+   # Required: Your OpenAI API key
+   export OPENAI_API_KEY="sk-your-openai-api-key"
+   
+   # Optional: Custom base URL (defaults to OpenAI)
+   export OPENAI_BASE_URL="https://api.openai.com/v1"
+   
+   # Optional: Default model (defaults to gpt-4o)
+   export OPENAI_MODEL="gpt-4"
+   ```
+
+3. **Authentication:** Select "OpenAI" in the authentication menu when starting the CLI.
+
 For other authentication methods, including Google Workspace accounts, see the [authentication](./docs/cli/authentication.md) guide.
 
 ## Examples

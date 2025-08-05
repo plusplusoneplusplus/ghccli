@@ -84,7 +84,7 @@ export function createContentGeneratorConfig(
   // For OpenAI, use OPENAI_MODEL env var or default to gpt-4 if no model specified
   let effectiveModel = config.getModel() || DEFAULT_GEMINI_MODEL;
   if (authType === AuthType.OPENAI) {
-    effectiveModel = config.getModel() || process.env.OPENAI_MODEL || 'gpt-4';
+    effectiveModel = config.getModel() || process.env.OPENAI_MODEL || 'gpt-4o';
   }
 
   const contentGeneratorConfig: ContentGeneratorConfig = {

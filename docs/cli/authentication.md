@@ -98,6 +98,34 @@ The Gemini CLI requires you to authenticate with AI services. On initial startup
     3. Authorize the application in GitHub
     4. Your token will be saved locally for future use
 
+6.  **<a id="openai"></a>OpenAI:**
+    - Use this option to authenticate directly with OpenAI's API or OpenAI-compatible APIs.
+    - This method provides access to OpenAI models like GPT-4, GPT-3.5-turbo, and others.
+    - **Requirements:** You need an OpenAI API key from your OpenAI account.
+    
+    **Configuration:**
+    
+    Set the required environment variables:
+    
+    ```bash
+    # Required: Your OpenAI API key
+    export OPENAI_API_KEY="your-openai-api-key"
+    
+    # Optional: Custom base URL for OpenAI-compatible APIs (defaults to OpenAI)
+    export OPENAI_BASE_URL="https://api.openai.com/v1"
+    
+    # Optional: Default model to use (defaults to gpt-4o)  
+    export OPENAI_MODEL="gpt-4"
+    ```
+    
+    For repeated use, you can add these to your [.env file](#persisting-environment-variables-with-env-files) or shell configuration:
+    
+    ```bash
+    echo 'export OPENAI_API_KEY="your-openai-api-key"' >> ~/.bashrc
+    echo 'export OPENAI_MODEL="gpt-4"' >> ~/.bashrc
+    source ~/.bashrc
+    ```
+
           :warning: Be advised that when you export your API key inside your shell configuration file, any other process executed from the shell can read it.
 
 ### Persisting Environment Variables with `.env` Files
@@ -131,6 +159,8 @@ mkdir -p ~/.gemini
 cat >> ~/.gemini/.env <<'EOF'
 GOOGLE_CLOUD_PROJECT="your-project-id"
 GEMINI_API_KEY="your-gemini-api-key"
+OPENAI_API_KEY="your-openai-api-key"
+OPENAI_MODEL="gpt-4"
 EOF
 ```
 
@@ -156,5 +186,10 @@ following authentication methods if available:
 3.  **GitHub Copilot:**
     - GitHub Copilot authentication in non-interactive mode requires that you have previously authenticated interactively and have a valid token file at `~/.gemini/.github_token`.
     - The CLI will use this saved token to authenticate with GitHub Copilot's API.
+
+4.  **OpenAI:**
+    - Set the `OPENAI_API_KEY` environment variable with your OpenAI API key.
+    - Optionally set `OPENAI_BASE_URL` for custom endpoints or `OPENAI_MODEL` for a specific model.
+    - The CLI will use these credentials to authenticate directly with the OpenAI API.
 
 If none of these environment variables are set in a non-interactive session, the CLI will exit with an error.
