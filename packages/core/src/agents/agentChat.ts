@@ -117,6 +117,51 @@ export class AgentChat extends GeminiChat {
       );
     }
 
+    // Replace Shell placeholder
+    if (promptContent.includes('{{.Shell}}')) {
+      let shell = '';
+      try {
+        const platform = os.platform();
+        
+        if (platform === 'win32') {
+          // Windows shell detection
+          if (process.env.PSModulePath) {
+            shell = 'powershell';
+          } else if (process.env.ComSpec) {
+            const comSpec = process.env.ComSpec.toLowerCase();
+            if (comSpec.includes('powershell')) {
+              shell = 'powershell';
+            } else if (comSpec.includes('cmd')) {
+              shell = 'cmd';
+            } else {
+              shell = 'cmd'; // Default for Windows
+            }
+          } else {
+            shell = 'cmd'; // Default fallback
+          }
+        } else {
+          // Unix-like systems (Linux, macOS)
+          shell = process.env.SHELL || '';
+          if (shell) {
+            // Extract shell name from path (e.g., /bin/bash -> bash)
+            shell = shell.split('/').pop() || shell;
+          } else {
+            shell = 'bash'; // Default for Unix-like systems
+          }
+        }
+        
+        if (!shell) {
+          shell = 'unknown';
+        }
+      } catch (e) {
+        shell = 'unknown';
+      }
+      promptContent = promptContent.replace(
+        '{{.Shell}}',
+        shell
+      );
+    }
+
     return promptContent;
   }
 

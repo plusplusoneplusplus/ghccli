@@ -122,7 +122,7 @@ systemPrompt:
         },
         systemPrompt: {
           type: 'content' as const,
-          value: 'OS={{.OS}}, User={{.UserName}}, Host={{.MachineName}}'
+          value: 'OS={{.OS}}, User={{.UserName}}, Host={{.MachineName}}, Shell={{.Shell}}'
         }
       };
 
@@ -138,7 +138,8 @@ systemPrompt:
       expect(systemPrompt.parts[0].text).not.toContain('{{.OS}}');
       expect(systemPrompt.parts[0].text).not.toContain('{{.UserName}}');
       expect(systemPrompt.parts[0].text).not.toContain('{{.MachineName}}');
-      expect(systemPrompt.parts[0].text).toMatch(/OS=.+, User=.+, Host=.+/);
+      expect(systemPrompt.parts[0].text).not.toContain('{{.Shell}}');
+      expect(systemPrompt.parts[0].text).toMatch(/OS=.+, User=.+, Host=.+, Shell=.+/);
     });
 
     it('should handle arrays correctly', async () => {
