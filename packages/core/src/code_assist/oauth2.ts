@@ -75,7 +75,7 @@ export async function getOauthClient(
     authType === AuthType.LOGIN_WITH_GOOGLE ||
     authType === AuthType.CLOUD_SHELL
   ) {
-    throw new Error('LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, or GITHUB_COPILOT instead.');
+    throw new Error('LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, GITHUB_COPILOT, or OPENAI instead.');
   }
 
   const client = new OAuth2Client({

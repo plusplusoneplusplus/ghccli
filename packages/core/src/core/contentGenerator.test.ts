@@ -30,7 +30,7 @@ describe('createContentGenerator', () => {
         mockConfig,
       ),
     ).rejects.toThrow(
-      'LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, or GITHUB_COPILOT instead.',
+      'LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, GITHUB_COPILOT, or OPENAI instead.',
     );
 
     await expect(
@@ -42,7 +42,7 @@ describe('createContentGenerator', () => {
         mockConfig,
       ),
     ).rejects.toThrow(
-      'LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, or GITHUB_COPILOT instead.',
+      'LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, GITHUB_COPILOT, or OPENAI instead.',
     );
   });
 
@@ -146,5 +146,37 @@ describe('createContentGeneratorConfig', () => {
     );
     expect(config.apiKey).toBeUndefined();
     expect(config.vertexai).toBeUndefined();
+  });
+
+  it('should configure for OpenAI using OPENAI_API_KEY when set', async () => {
+    process.env.OPENAI_API_KEY = 'env-openai-key';
+    process.env.OPENAI_MODEL = 'gpt-3.5-turbo';
+    vi.mocked(mockConfig.getModel).mockReturnValue(null); // No model from config
+    const config = await createContentGeneratorConfig(
+      mockConfig,
+      AuthType.OPENAI,
+    );
+    expect(config.apiKey).toBe('env-openai-key');
+    expect(config.model).toBe('gpt-3.5-turbo');
+    expect(config.authType).toBe(AuthType.OPENAI);
+  });
+
+  it('should throw error for OpenAI if OPENAI_API_KEY is not set', async () => {
+    delete process.env.OPENAI_API_KEY;
+    expect(() => createContentGeneratorConfig(
+      mockConfig,
+      AuthType.OPENAI,
+    )).toThrow('OPENAI_API_KEY environment variable is required for OpenAI authentication');
+  });
+
+  it('should use default gpt-4 model for OpenAI if no model specified', async () => {
+    process.env.OPENAI_API_KEY = 'env-openai-key';
+    delete process.env.OPENAI_MODEL;
+    vi.mocked(mockConfig.getModel).mockReturnValue(null);
+    const config = await createContentGeneratorConfig(
+      mockConfig,
+      AuthType.OPENAI,
+    );
+    expect(config.model).toBe('gpt-4');
   });
 });

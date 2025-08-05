@@ -47,6 +47,7 @@ export enum AuthType {
   USE_VERTEX_AI = 'vertex-ai',
   CLOUD_SHELL = 'cloud-shell',
   GITHUB_COPILOT = 'github-copilot',
+  OPENAI = 'openai',
 }
 
 export type ContentGeneratorConfig = {
@@ -77,9 +78,14 @@ export function createContentGeneratorConfig(
   const googleApiKey = process.env.GOOGLE_API_KEY || undefined;
   const googleCloudProject = process.env.GOOGLE_CLOUD_PROJECT || undefined;
   const googleCloudLocation = process.env.GOOGLE_CLOUD_LOCATION || undefined;
+  const openaiApiKey = process.env.OPENAI_API_KEY || undefined;
 
   // Use runtime model from config if available; otherwise, fall back to parameter or default
-  const effectiveModel = config.getModel() || DEFAULT_GEMINI_MODEL;
+  // For OpenAI, use OPENAI_MODEL env var or default to gpt-4 if no model specified
+  let effectiveModel = config.getModel() || DEFAULT_GEMINI_MODEL;
+  if (authType === AuthType.OPENAI) {
+    effectiveModel = config.getModel() || process.env.OPENAI_MODEL || 'gpt-4';
+  }
 
   const contentGeneratorConfig: ContentGeneratorConfig = {
     model: effectiveModel,
@@ -93,11 +99,20 @@ export function createContentGeneratorConfig(
     authType === AuthType.LOGIN_WITH_GOOGLE ||
     authType === AuthType.CLOUD_SHELL
   ) {
-    throw new Error('LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, or GITHUB_COPILOT instead.');
+    throw new Error('LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, GITHUB_COPILOT, or OPENAI instead.');
   }
 
   // If we are using GitHub Copilot, there is nothing else to validate for now
   if (authType === AuthType.GITHUB_COPILOT) {
+    return contentGeneratorConfig;
+  }
+
+  // If we are using OpenAI, validate the API key
+  if (authType === AuthType.OPENAI) {
+    if (!openaiApiKey) {
+      throw new Error('OPENAI_API_KEY environment variable is required for OpenAI authentication');
+    }
+    contentGeneratorConfig.apiKey = openaiApiKey;
     return contentGeneratorConfig;
   }
 
@@ -141,12 +156,17 @@ export async function createContentGenerator(
     config.authType === AuthType.LOGIN_WITH_GOOGLE ||
     config.authType === AuthType.CLOUD_SHELL
   ) {
-    throw new Error('LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, or GITHUB_COPILOT instead.');
+    throw new Error('LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, GITHUB_COPILOT, or OPENAI instead.');
   }
 
   if (config.authType === AuthType.GITHUB_COPILOT) {
     const copilotModels = await createGitHubCopilotContentGenerator(gcConfig);
     return copilotModels;
+  }
+
+  if (config.authType === AuthType.OPENAI) {
+    const { OpenAIContentGenerator } = await import('../github-copilot/openaiContentGenerator.js');
+    return new OpenAIContentGenerator(config.apiKey!, config.model, gcConfig);
   }
 
   if (
