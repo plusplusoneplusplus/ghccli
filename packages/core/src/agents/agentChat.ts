@@ -11,8 +11,11 @@ import { Config } from '../config/config.js';
 import { AgentConfig } from './agentTypes.js';
 import { AgentLoader } from './agentLoader.js';
 import { isModelAvailable } from '../config/supportedModels.js';
+import { createLogger, LogLevel } from '../utils/logging.js';
 
 import os from 'os';
+
+const logger = createLogger('AgentChat');
 
 /**
  * A specialized GeminiChat instance that loads configuration from YAML agent files
@@ -31,6 +34,8 @@ export class AgentChat extends GeminiChat {
     super(config, contentGenerator, generationConfig, history);
     this.agentConfig = agentConfig;
     this.agentLoader = new AgentLoader(''); // Will be set properly when needed
+    
+    logger.debug(`chat initialized with agent ${agentConfig.name}`, LogLevel.NORMAL);
   }
 
   /**
