@@ -36,6 +36,7 @@
     "fdir": "^6.4.6",
     "fzf": "^0.5.2",
     "execa": "^9.5.1",
+    "fzf": "^0.5.2",
     "glob": "^10.4.5",
     "google-auth-library": "^9.11.0",
     "html-to-text": "^9.0.5",
