@@ -7,6 +7,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import child_process from 'node:child_process';
 
 import { vi, describe, expect, it, afterEach, beforeEach } from 'vitest';
 import * as gitUtils from '../../utils/gitUtils.js';
@@ -102,5 +103,14 @@ describe('setupGithubCommand', async () => {
       const contents = await fs.readFile(workflowFile, 'utf8');
       expect(contents).toContain(workflow);
     }
+  });
+
+  it('throws an error if git root cannot be determined', () => {
+    vi.mocked(gitUtils.isGitHubRepository).mockReturnValue(false);
+    expect(() => {
+      setupGithubCommand.action?.({} as CommandContext, '');
+    }).toThrow(
+      'Unable to determine the GitHub repository. /setup-github must be run from a git repository.',
+    );
   });
 });
