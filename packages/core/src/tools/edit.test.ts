@@ -27,7 +27,7 @@ vi.mock('../utils/editor.js', () => ({
 }));
 
 import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest';
-import { applyReplacement, EditTool, EditToolParams } from './edit.js';
+import { EditTool, EditToolParams } from './edit.js';
 import { FileDiff, ToolConfirmationOutcome } from './tools.js';
 import { ToolErrorType } from './tool-error.js';
 import path from 'path';
@@ -155,32 +155,6 @@ describe('EditTool', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  describe('applyReplacement', () => {
-    it('should return newString if isNewFile is true', () => {
-      expect(applyReplacement(null, 'old', 'new', true)).toBe('new');
-      expect(applyReplacement('existing', 'old', 'new', true)).toBe('new');
-    });
-
-    it('should return newString if currentContent is null and oldString is empty (defensive)', () => {
-      expect(applyReplacement(null, '', 'new', false)).toBe('new');
-    });
-
-    it('should return empty string if currentContent is null and oldString is not empty (defensive)', () => {
-      expect(applyReplacement(null, 'old', 'new', false)).toBe('');
-    });
-
-    it('should replace oldString with newString in currentContent', () => {
-      expect(applyReplacement('hello old world old', 'old', 'new', false)).toBe(
-        'hello new world new',
-      );
-    });
-
-    it('should return currentContent if oldString is empty and not a new file', () => {
-      expect(applyReplacement('hello world', '', 'new', false)).toBe(
-        'hello world',
-      );
-    });
-  });
 
   describe('validateToolParams', () => {
     it('should return null for valid params', () => {
