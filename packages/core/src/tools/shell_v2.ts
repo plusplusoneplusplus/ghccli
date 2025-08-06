@@ -28,10 +28,17 @@ import {
 } from '../utils/shell-utils.js';
 import { parseCommandWithQuotes } from '../utils/command-parser.js';
 
-export interface ShellToolParams {
+export interface CommandBatch {
   command: string;
   description?: string;
+  continueOnError?: boolean;
+}
+
+export interface ShellToolParams {
+  commands: string | CommandBatch[];
+  description?: string;
   directory?: string;
+  stopOnError?: boolean;
 }
 import { spawn } from 'child_process';
 import { execa } from 'execa';
@@ -64,22 +71,26 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
       {
         type: Type.OBJECT,
         properties: {
-          command: {
-            type: Type.STRING,
-            description: 'Exact bash command to execute as `bash -c <command>`',
+          commands: {
+            description: 'Single bash command (string) or array of commands to execute sequentially. For batch execution, provide array of {command: string, description?: string, continueOnError?: boolean} objects.',
           },
           description: {
             type: Type.STRING,
             description:
-              'Brief description of the command for the user. Be specific and concise. Ideally a single sentence. Can be up to 3 sentences for clarity. No line breaks.',
+              'Brief description of the command(s) for the user. Be specific and concise. Ideally a single sentence. Can be up to 3 sentences for clarity. No line breaks.',
           },
           directory: {
             type: Type.STRING,
             description:
-              '(OPTIONAL) Directory to run the command in, if not the project root directory. Must be relative to the project root directory and must already exist.',
+              '(OPTIONAL) Directory to run the command(s) in, if not the project root directory. Must be relative to the project root directory and must already exist.',
+          },
+          stopOnError: {
+            type: Type.BOOLEAN,
+            description:
+              '(OPTIONAL) Stop execution if any command fails. Default: true. Only applies to batch commands.',
           },
         },
-        required: ['command'],
+        required: ['commands'],
       },
       false, // output is not markdown
       true, // output can be updated
@@ -87,7 +98,21 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
   }
 
   getDescription(params: ShellToolParams): string {
-    let description = `${params.command}`;
+    let description: string;
+    
+    if (typeof params.commands === 'string') {
+      description = params.commands;
+    } else {
+      // For batch commands, show count and first command
+      const count = params.commands.length;
+      const firstCommand = params.commands[0]?.command || '';
+      if (count === 1) {
+        description = firstCommand;
+      } else {
+        description = `${count} commands: ${firstCommand}${count > 1 ? ' ...' : ''}`;
+      }
+    }
+    
     // append optional [in directory]
     // note description is needed even if validation fails due to absolute path
     if (params.directory) {
@@ -242,33 +267,56 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
   }
 
   validateToolParams(params: ShellToolParams): string | null {
-    const commandCheck = isCommandAllowed(params.command, this.config);
-    if (!commandCheck.allowed) {
-      if (!commandCheck.reason) {
-        console.error(
-          'Unexpected: isCommandAllowed returned false without a reason',
-        );
-        return `Command is not allowed: ${params.command}`;
-      }
-      return commandCheck.reason;
-    }
-
-    // Check for dangerous command patterns
-    const dangerousPatternCheck = this.checkDangerousPatterns(params.command);
-    if (dangerousPatternCheck) {
-      return dangerousPatternCheck;
-    }
-
     const errors = SchemaValidator.validate(this.schema.parameters, params);
     if (errors) {
       return errors;
     }
-    if (!params.command.trim()) {
-      return 'Command cannot be empty.';
+
+    // Normalize commands to array format for consistent validation
+    const commandsArray = typeof params.commands === 'string' 
+      ? [{ command: params.commands }] 
+      : params.commands;
+    
+    const isSingleStringMode = typeof params.commands === 'string';
+
+    if (commandsArray.length === 0) {
+      return 'At least one command is required.';
     }
-    if (getCommandRoots(params.command).length === 0) {
-      return 'Could not identify command root to obtain permission from user.';
+
+    // Validate each command
+    for (let i = 0; i < commandsArray.length; i++) {
+      const cmdInfo = commandsArray[i];
+      const command = cmdInfo.command;
+
+      if (!command || !command.trim()) {
+        const message = 'Command cannot be empty.';
+        return isSingleStringMode ? message : `Command ${i + 1} cannot be empty.`;
+      }
+
+      const commandCheck = isCommandAllowed(command, this.config);
+      if (!commandCheck.allowed) {
+        if (!commandCheck.reason) {
+          console.error(
+            'Unexpected: isCommandAllowed returned false without a reason',
+          );
+          const message = `Command is not allowed: ${command}`;
+          return isSingleStringMode ? message : `Command ${i + 1} is not allowed: ${command}`;
+        }
+        return isSingleStringMode ? commandCheck.reason : `Command ${i + 1}: ${commandCheck.reason}`;
+      }
+
+      // Check for dangerous command patterns
+      const dangerousPatternCheck = this.checkDangerousPatterns(command);
+      if (dangerousPatternCheck) {
+        return isSingleStringMode ? dangerousPatternCheck : `Command ${i + 1}: ${dangerousPatternCheck}`;
+      }
+
+      if (getCommandRoots(command).length === 0) {
+        const message = 'Could not identify command root to obtain permission from user.';
+        return isSingleStringMode ? message : `Command ${i + 1}: Could not identify command root to obtain permission from user.`;
+      }
     }
+
     if (params.directory) {
       if (path.isAbsolute(params.directory)) {
         return 'Directory cannot be absolute. Must be relative to the project root directory.';
@@ -292,9 +340,33 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
       return false; // skip confirmation, execute call will fail immediately
     }
 
-    const command = stripShellWrapper(params.command);
-    const rootCommands = [...new Set(getCommandRoots(command))];
-    const commandsToConfirm = rootCommands.filter(
+    // Normalize commands to array format
+    const commandsArray = typeof params.commands === 'string' 
+      ? [{ command: params.commands }] 
+      : params.commands;
+
+    // Get all root commands from all commands
+    const allRootCommands = new Set<string>();
+    let displayCommand = '';
+
+    if (typeof params.commands === 'string') {
+      const command = stripShellWrapper(params.commands);
+      displayCommand = params.commands;
+      getCommandRoots(command).forEach(cmd => allRootCommands.add(cmd));
+    } else {
+      // For batch commands, show summary and collect all root commands
+      const count = params.commands.length;
+      const firstCommand = params.commands[0]?.command || '';
+      displayCommand = count === 1 ? firstCommand : `${count} commands: ${firstCommand}${count > 1 ? ' ...' : ''}`;
+      
+      params.commands.forEach(cmdInfo => {
+        const command = stripShellWrapper(cmdInfo.command);
+        getCommandRoots(command).forEach(cmd => allRootCommands.add(cmd));
+      });
+    }
+
+    const rootCommandsArray = [...allRootCommands];
+    const commandsToConfirm = rootCommandsArray.filter(
       (command) => !this.allowlist.has(command),
     );
 
@@ -305,7 +377,7 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     const confirmationDetails: ToolExecuteConfirmationDetails = {
       type: 'exec',
       title: 'Confirm Shell Command',
-      command: params.command,
+      command: displayCommand,
       rootCommand: commandsToConfirm.join(', '),
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
@@ -321,11 +393,7 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     signal: AbortSignal,
     updateOutput?: (output: string) => void,
   ): Promise<ToolResult> {
-    const strippedCommand = stripShellWrapper(params.command);
-    const validationError = this.validateToolParams({
-      ...params,
-      command: strippedCommand,
-    });
+    const validationError = this.validateToolParams(params);
     if (validationError) {
       return {
         llmContent: validationError,
@@ -340,6 +408,32 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
       };
     }
 
+    // Normalize commands to array format
+    const commandsArray = typeof params.commands === 'string' 
+      ? [{ command: params.commands }] 
+      : params.commands;
+
+    const isBatchMode = typeof params.commands !== 'string';
+    const stopOnError = params.stopOnError !== false; // Default to true
+
+    // Execute commands
+    if (!isBatchMode) {
+      // Single command mode - use existing single command format
+      return this.executeSingleCommand(commandsArray[0].command, params, signal, updateOutput);
+    } else {
+      // Batch command mode - execute sequentially
+      return this.executeBatchCommands(commandsArray, params, signal, updateOutput, stopOnError);
+    }
+  }
+
+  private async executeSingleCommand(
+    command: string,
+    params: ShellToolParams,
+    signal: AbortSignal,
+    updateOutput?: (output: string) => void,
+  ): Promise<ToolResult> {
+    const strippedCommand = stripShellWrapper(command);
+    
     const isWindows = os.platform() === 'win32';
     const tempFileName = `shell_pgrep_${crypto
       .randomBytes(6)
@@ -351,9 +445,9 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
       ? strippedCommand
       : (() => {
           // wrap command to append subprocess pids (via pgrep) to temporary file
-          let command = strippedCommand.trim();
-          if (!command.endsWith('&')) command += ';';
-          return `{ ${command} }; __code=$?; pgrep -g 0 >${tempFilePath} 2>&1; exit $__code;`;
+          let cmd = strippedCommand.trim();
+          if (!cmd.endsWith('&')) cmd += ';';
+          return `{ ${cmd} }; __code=$?; pgrep -g 0 >${tempFilePath} 2>&1; exit $__code;`;
         })();
 
     // spawn command in specified directory (or project root if not specified)
@@ -373,14 +467,13 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
         env,
         stdout: ['pipe'],
         stderr: ['pipe'],
-        // buffer: false, // Stream output
         cancelSignal: signal,
       });
     } else {
       // Use spawn for non-Windows (existing implementation)
       shell = spawn('bash', ['-c', commandToExecute], {
         stdio: ['ignore', 'pipe', 'pipe'],
-        detached: true, // ensure subprocess starts its own process group (esp. in Linux)
+        detached: true,
         cwd,
         env,
       });
@@ -388,6 +481,7 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
 
     let exited = false;
     let stdout = '';
+    let stderr = '';
     let output = '';
     let lastUpdateTime = Date.now();
 
@@ -412,7 +506,6 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
         }
       });
 
-      let stderr = '';
       shell.stderr?.on('data', (data: Buffer) => {
         if (!exited) {
           const str = stripAnsi(data.toString());
@@ -431,7 +524,6 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
         exited = true;
         code = result.exitCode;
         
-        // Merge stderr into the output handling
         if (result.stderr) {
           stderr += result.stderr;
           appendOutput(result.stderr);
@@ -442,86 +534,18 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
         code = err.exitCode || null;
         processSignal = err.signal || null;
         
-        // Handle stderr from error
         if (err.stderr) {
           stderr += err.stderr;
           appendOutput(err.stderr);
         }
       }
 
-      // parse pids (not available on Windows)
       const backgroundPIDs: number[] = [];
-
-      let llmContent = '';
-      if (signal.aborted) {
-        llmContent = 'Command was cancelled by user before it could complete.';
-        if (output.trim()) {
-          llmContent += ` Below is the output (on stdout and stderr) before it was cancelled:\n${output}`;
-        } else {
-          llmContent += ' There was no output before it was cancelled.';
-        }
-      } else {
-        llmContent = [
-          `Command: ${params.command}`,
-          `Directory: ${params.directory || '(root)'}`,
-          `Stdout: ${stdout || '(empty)'}`,
-          `Stderr: ${stderr || '(empty)'}`,
-          `Error: ${error ?? '(none)'}`,
-          `Exit Code: ${code ?? '(none)'}`,
-          `Signal: ${processSignal ?? '(none)'}`,
-          `Background PIDs: (none)`, // Not supported on Windows
-          `Process Group PGID: (none)`, // Not supported on Windows  
-        ].join('\n');
-      }
-
-      let returnDisplayMessage = '';
-      if (this.config.getDebugMode()) {
-        returnDisplayMessage = llmContent;
-      } else {
-        if (stdout.trim()) {
-          returnDisplayMessage = stdout;
-        } else {
-          // Output is empty, let's provide a reason if the command failed or was cancelled
-          if (signal.aborted) {
-            returnDisplayMessage = 'Command cancelled by user.';
-          } else if (processSignal) {
-            returnDisplayMessage = `Command terminated by signal: ${processSignal}`;
-          } else if (error) {
-            // If error is not null, it's an Error object (or other truthy value)
-            returnDisplayMessage = `Command failed: ${getErrorMessage(error)}`;
-          } else if (code !== null && code !== 0) {
-            returnDisplayMessage = `Command exited with code: ${code}`;
-          }
-          // If output is empty and command succeeded (code 0, no error/signal/abort),
-          // returnDisplayMessage will remain empty, which is fine.
-        }
-      }
-
-      const summarizeConfig = this.config.getSummarizeToolOutputConfig();
-      if (summarizeConfig && summarizeConfig[this.name]) {
-        const summary = await summarizeToolOutput(
-          llmContent,
-          this.config.getGeminiClient(),
-          signal,
-          summarizeConfig[this.name].tokenBudget,
-        );
-        return {
-          llmContent: summary,
-          returnDisplay: returnDisplayMessage,
-        };
-      }
-
-      return {
-        llmContent,
-        returnDisplay: returnDisplayMessage,
-      };
+      return await this.formatSingleCommandResult(command, params, stdout, stderr, error, code, processSignal, backgroundPIDs, null, signal, output);
     }
 
-    // Non-Windows implementation (existing spawn-based code)
+    // Non-Windows implementation
     shell.stdout.on('data', (data: Buffer) => {
-      // continue to consume post-exit for background processes
-      // removing listeners can overflow OS buffer and block subprocesses
-      // destroying (e.g. shell.stdout.destroy()) can terminate subprocesses via SIGPIPE
       if (!exited) {
         const str = stripAnsi(data.toString());
         stdout += str;
@@ -529,7 +553,6 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
       }
     });
 
-    let stderr = '';
     shell.stderr.on('data', (data: Buffer) => {
       if (!exited) {
         const str = stripAnsi(data.toString());
@@ -541,16 +564,12 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     let error: Error | null = null;
     shell.on('error', (err: Error) => {
       error = err;
-      // remove wrapper from user's command in error message
-      error.message = error.message.replace(commandToExecute, params.command);
+      error.message = error.message.replace(commandToExecute, command);
     });
 
     let code: number | null = null;
     let processSignal: NodeJS.Signals | null = null;
-    const exitHandler = (
-      _code: number | null,
-      _signal: NodeJS.Signals | null,
-    ) => {
+    const exitHandler = (_code: number | null, _signal: NodeJS.Signals | null) => {
       exited = true;
       code = _code;
       processSignal = _signal;
@@ -560,15 +579,12 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     const abortHandler = async () => {
       if (shell.pid && !exited) {
         try {
-          // attempt to SIGTERM process group (negative PID)
-          // fall back to SIGKILL (to group) after 200ms
           process.kill(-shell.pid, 'SIGTERM');
           await new Promise((resolve) => setTimeout(resolve, 200));
           if (shell.pid && !exited) {
             process.kill(-shell.pid, 'SIGKILL');
           }
         } catch (_e) {
-          // if group kill fails, fall back to killing just the main process
           try {
             if (shell.pid) {
               shell.kill('SIGKILL');
@@ -600,7 +616,6 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
           console.error(`pgrep: ${line}`);
         }
         const pid = Number(line);
-        // exclude the shell subprocess pid
         if (pid !== shell.pid) {
           backgroundPIDs.push(pid);
         }
@@ -612,6 +627,123 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
       }
     }
 
+    return await this.formatSingleCommandResult(command, params, stdout, stderr, error, code, processSignal, backgroundPIDs, shell.pid, signal, output);
+  }
+
+  private async executeBatchCommands(
+    commands: CommandBatch[],
+    params: ShellToolParams,
+    signal: AbortSignal,
+    updateOutput?: (output: string) => void,
+    stopOnError: boolean = true,
+  ): Promise<ToolResult> {
+    const startTime = Date.now();
+    const results: Array<{
+      command: string;
+      description?: string;
+      stdout: string;
+      stderr: string;
+      error: Error | null;
+      exitCode: number | null;
+      signal: NodeJS.Signals | null;
+      duration: number;
+    }> = [];
+
+    let totalOutput = '';
+    let executedCount = 0;
+
+    for (let i = 0; i < commands.length; i++) {
+      if (signal.aborted) {
+        break;
+      }
+
+      const cmdInfo = commands[i];
+      const cmdStartTime = Date.now();
+
+      let cmdOutput = '';
+      const cmdUpdateOutput = (output: string) => {
+        cmdOutput = output;
+        totalOutput = this.formatBatchProgress(results, cmdOutput, i, commands.length);
+        updateOutput?.(totalOutput);
+      };
+
+      try {
+        const result = await this.executeSingleCommand(cmdInfo.command, params, signal, cmdUpdateOutput);
+        
+        const cmdDuration = Date.now() - cmdStartTime;
+        
+        // Parse the result to extract components
+        const content = typeof result.llmContent === 'string' ? result.llmContent : String(result.llmContent);
+        const lines = content.split('\n');
+        const stdout = lines.find((l: string) => l.startsWith('Stdout: '))?.substring(8) || '(empty)';
+        const stderr = lines.find((l: string) => l.startsWith('Stderr: '))?.substring(8) || '(empty)';
+        const errorLine = lines.find((l: string) => l.startsWith('Error: '))?.substring(7) || '(none)';
+        const exitCodeLine = lines.find((l: string) => l.startsWith('Exit Code: '))?.substring(11) || '(none)';
+        const signalLine = lines.find((l: string) => l.startsWith('Signal: '))?.substring(8) || '(none)';
+        
+        const error = errorLine !== '(none)' ? new Error(errorLine) : null;
+        const exitCode = exitCodeLine !== '(none)' ? parseInt(exitCodeLine) : null;
+        const processSignal = signalLine !== '(none)' ? signalLine as NodeJS.Signals : null;
+
+        results.push({
+          command: cmdInfo.command,
+          description: cmdInfo.description,
+          stdout: stdout === '(empty)' ? '' : stdout,
+          stderr: stderr === '(empty)' ? '' : stderr,
+          error,
+          exitCode,
+          signal: processSignal,
+          duration: cmdDuration,
+        });
+
+        executedCount++;
+
+        // Check if we should stop on error
+        const shouldStop = error || (exitCode !== null && exitCode !== 0);
+        const continueOnError = cmdInfo.continueOnError ?? !stopOnError;
+        
+        if (shouldStop && !continueOnError) {
+          break;
+        }
+      } catch (err) {
+        const cmdDuration = Date.now() - cmdStartTime;
+        results.push({
+          command: cmdInfo.command,
+          description: cmdInfo.description,
+          stdout: '',
+          stderr: getErrorMessage(err),
+          error: err instanceof Error ? err : new Error(String(err)),
+          exitCode: null,
+          signal: null,
+          duration: cmdDuration,
+        });
+
+        executedCount++;
+        
+        const continueOnError = cmdInfo.continueOnError ?? !stopOnError;
+        if (!continueOnError) {
+          break;
+        }
+      }
+    }
+
+    const totalDuration = Date.now() - startTime;
+    return this.formatBatchResult(commands, results, params, totalDuration, signal, executedCount);
+  }
+
+  private async formatSingleCommandResult(
+    command: string,
+    params: ShellToolParams,
+    stdout: string,
+    stderr: string,
+    error: Error | null,
+    code: number | null,
+    processSignal: NodeJS.Signals | null,
+    backgroundPIDs: number[],
+    shellPid: number | null,
+    signal: AbortSignal,
+    output: string,
+  ): Promise<ToolResult> {
     let llmContent = '';
     if (signal.aborted) {
       llmContent = 'Command was cancelled by user before it could complete.';
@@ -622,7 +754,7 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
       }
     } else {
       llmContent = [
-        `Command: ${params.command}`,
+        `Command: ${command}`,
         `Directory: ${params.directory || '(root)'}`,
         `Stdout: ${stdout || '(empty)'}`,
         `Stderr: ${stderr || '(empty)'}`,
@@ -630,7 +762,7 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
         `Exit Code: ${code ?? '(none)'}`,
         `Signal: ${processSignal ?? '(none)'}`,
         `Background PIDs: ${backgroundPIDs.length ? backgroundPIDs.join(', ') : '(none)'}`,
-        `Process Group PGID: ${shell.pid ?? '(none)'}`,
+        `Process Group PGID: ${shellPid ?? '(none)'}`,
       ].join('\n');
     }
 
@@ -641,22 +773,19 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
       if (stdout.trim()) {
         returnDisplayMessage = stdout;
       } else {
-        // Output is empty, let's provide a reason if the command failed or was cancelled
         if (signal.aborted) {
           returnDisplayMessage = 'Command cancelled by user.';
         } else if (processSignal) {
           returnDisplayMessage = `Command terminated by signal: ${processSignal}`;
         } else if (error) {
-          // If error is not null, it's an Error object (or other truthy value)
           returnDisplayMessage = `Command failed: ${getErrorMessage(error)}`;
         } else if (code !== null && code !== 0) {
           returnDisplayMessage = `Command exited with code: ${code}`;
         }
-        // If output is empty and command succeeded (code 0, no error/signal/abort),
-        // returnDisplayMessage will remain empty, which is fine.
       }
     }
 
+    // Apply summarization if configured
     const summarizeConfig = this.config.getSummarizeToolOutputConfig();
     if (summarizeConfig && summarizeConfig[this.name]) {
       const summary = await summarizeToolOutput(
@@ -671,9 +800,104 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
       };
     }
 
-    return {
-      llmContent,
-      returnDisplay: returnDisplayMessage,
-    };
+    return { llmContent, returnDisplay: returnDisplayMessage };
+  }
+
+  private formatBatchResult(
+    commands: CommandBatch[],
+    results: Array<{
+      command: string;
+      description?: string;
+      stdout: string;
+      stderr: string;
+      error: Error | null;
+      exitCode: number | null;
+      signal: NodeJS.Signals | null;
+      duration: number;
+    }>,
+    params: ShellToolParams,
+    totalDuration: number,
+    signal: AbortSignal,
+    executedCount: number,
+  ): ToolResult {
+    let llmContent = '';
+    
+    if (signal.aborted) {
+      llmContent = `Commands were cancelled by user. ${executedCount}/${commands.length} commands executed before cancellation.`;
+    } else {
+      const totalDurationSec = (totalDuration / 1000).toFixed(1);
+      llmContent = [
+        `Commands Executed: ${executedCount}/${commands.length}`,
+        `Total Duration: ${totalDurationSec}s`,
+        '',
+      ].join('\n');
+
+      results.forEach((result, index) => {
+        const durationSec = (result.duration / 1000).toFixed(1);
+        llmContent += [
+          `Command ${index + 1}: ${result.command}`,
+          result.description ? `  Description: ${result.description}` : '',
+          `  Directory: ${params.directory || '(root)'}`,
+          `  Duration: ${durationSec}s`,
+          `  Stdout: ${result.stdout || '(empty)'}`,
+          `  Stderr: ${result.stderr || '(empty)'}`,
+          `  Exit Code: ${result.exitCode ?? '(none)'}`,
+          '',
+        ].filter(line => line !== '').join('\n');
+      });
+
+      if (executedCount < commands.length) {
+        const remaining = commands.slice(executedCount).map(cmd => cmd.command);
+        llmContent += `Execution stopped due to error in command ${executedCount}.\n`;
+        llmContent += `Remaining commands: ${remaining.join(', ')}`;
+      }
+    }
+
+    let returnDisplayMessage = '';
+    if (this.config.getDebugMode()) {
+      returnDisplayMessage = llmContent;
+    } else {
+      // For batch mode, show a summary in non-debug mode
+      const lastResult = results[results.length - 1];
+      if (lastResult?.stdout) {
+        returnDisplayMessage = lastResult.stdout;
+      } else if (signal.aborted) {
+        returnDisplayMessage = `Commands cancelled. ${executedCount}/${commands.length} executed.`;
+      } else if (executedCount < commands.length) {
+        returnDisplayMessage = `Batch execution stopped at command ${executedCount}/${commands.length}`;
+      } else {
+        returnDisplayMessage = `${executedCount} commands executed successfully`;
+      }
+    }
+
+    return { llmContent, returnDisplay: returnDisplayMessage };
+  }
+
+  private formatBatchProgress(
+    results: Array<{
+      command: string;
+      stdout: string;
+      stderr: string;
+      error: Error | null;
+      exitCode: number | null;
+      duration: number;
+    }>,
+    currentOutput: string,
+    currentIndex: number,
+    totalCommands: number,
+  ): string {
+    let output = `Executing command ${currentIndex + 1}/${totalCommands}...\n\n`;
+    
+    // Show completed commands
+    results.forEach((result, index) => {
+      output += `✓ Command ${index + 1}: ${result.command}\n`;
+    });
+    
+    // Show current command output
+    if (currentOutput) {
+      output += `Running: ${currentOutput}`;
+    }
+    
+    return output;
   }
 }
