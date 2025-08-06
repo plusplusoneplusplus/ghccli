@@ -28,7 +28,12 @@ export interface ToolCallStats {
   success: number;
   fail: number;
   durationMs: number;
-  decisions: Record<ToolCallDecision, number>;
+  decisions: {
+    [ToolCallDecision.ACCEPT]: number;
+    [ToolCallDecision.REJECT]: number;
+    [ToolCallDecision.MODIFY]: number;
+    [ToolCallDecision.AUTO_ACCEPT]: number;
+  };
 }
 
 export interface ModelMetrics {
@@ -54,7 +59,12 @@ export interface SessionMetrics {
     totalSuccess: number;
     totalFail: number;
     totalDurationMs: number;
-    totalDecisions: Record<ToolCallDecision, number>;
+    totalDecisions: {
+      [ToolCallDecision.ACCEPT]: number;
+      [ToolCallDecision.REJECT]: number;
+      [ToolCallDecision.MODIFY]: number;
+      [ToolCallDecision.AUTO_ACCEPT]: number;
+    };
     byName: Record<string, ToolCallStats>;
   };
 }
@@ -75,24 +85,22 @@ const createInitialModelMetrics = (): ModelMetrics => ({
   },
 });
 
-const createInitialMetrics = (): SessionMetrics => {
-  const totalDecisions: Record<string, number> = {};
-  totalDecisions[ToolCallDecision.ACCEPT] = 0;
-  totalDecisions[ToolCallDecision.REJECT] = 0;
-  totalDecisions[ToolCallDecision.MODIFY] = 0;
-
-  return {
-    models: {},
-    tools: {
-      totalCalls: 0,
-      totalSuccess: 0,
-      totalFail: 0,
-      totalDurationMs: 0,
-      totalDecisions: totalDecisions as Record<ToolCallDecision, number>,
-      byName: {},
+const createInitialMetrics = (): SessionMetrics => ({
+  models: {},
+  tools: {
+    totalCalls: 0,
+    totalSuccess: 0,
+    totalFail: 0,
+    totalDurationMs: 0,
+    totalDecisions: {
+      [ToolCallDecision.ACCEPT]: 0,
+      [ToolCallDecision.REJECT]: 0,
+      [ToolCallDecision.MODIFY]: 0,
+      [ToolCallDecision.AUTO_ACCEPT]: 0,
     },
-  };
-};
+    byName: {},
+  },
+});
 
 export class UiTelemetryService extends EventEmitter {
   #metrics: SessionMetrics = createInitialMetrics();
@@ -187,6 +195,7 @@ export class UiTelemetryService extends EventEmitter {
           [ToolCallDecision.ACCEPT]: 0,
           [ToolCallDecision.REJECT]: 0,
           [ToolCallDecision.MODIFY]: 0,
+          [ToolCallDecision.AUTO_ACCEPT]: 0,
         },
       };
     }

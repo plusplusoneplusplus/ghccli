@@ -8,4 +8,5 @@ export enum ToolCallDecision {
   ACCEPT = 'accept',
   REJECT = 'reject',
   MODIFY = 'modify',
+  AUTO_ACCEPT = 'auto_accept',
 }
