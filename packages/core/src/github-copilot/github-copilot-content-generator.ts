@@ -33,7 +33,7 @@ export class GitHubCopilotGeminiServer extends OpenAIContentGenerator {
 
   constructor(tokenManager: GitHubCopilotTokenManager, config: Config) {
     // Use GitHub Copilot endpoint and dummy key (auth handled by headers)
-    super('dummy-key', config.getModel() || 'gpt-4', config);
+    super('dummy-key', config.getModel() || 'gpt-4.1', config);
     this.tokenManager = tokenManager;
     
     // Update the client to use GitHub Copilot endpoint

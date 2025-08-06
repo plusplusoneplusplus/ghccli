@@ -200,7 +200,7 @@ import {
         const createParams: Parameters<
           typeof this.client.chat.completions.create
         >[0] = {
-          model: this.model,
+          model: request.model || this.model,
           messages,
           ...samplingParams,
         };
@@ -342,7 +342,7 @@ import {
         const createParams: Parameters<
           typeof this.client.chat.completions.create
         >[0] = {
-          model: this.model,
+          model: request.model || this.model,
           messages,
           ...samplingParams,
           stream: true,
