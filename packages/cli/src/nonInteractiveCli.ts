@@ -18,12 +18,28 @@ import { Content, Part, FunctionCall } from '@google/genai';
 
 import { parseAndFormatApiError } from './ui/utils/errorParsing.js';
 
+// === CUSTOM JSON OUTPUT SUPPORT (GHCCLI Extensions) ===
+// Keep JSON imports at the top to minimize upstream merge conflicts
+import { JsonOutputHandler, ToolCallResult } from './output/index.js';
+
 export async function runNonInteractive(
   config: Config,
   input: string,
   prompt_id: string,
+
+  // === CUSTOM JSON OUTPUT PARAMETERS (GHCCLI Extensions) ===
+  outputFormat?: string,
+  prettyPrint?: boolean,
 ): Promise<void> {
   await config.initialize();
+  
+  // === CUSTOM JSON OUTPUT SETUP (GHCCLI Extensions) ===
+  // Keep JSON setup isolated to minimize upstream merge conflicts
+  const isJsonOutput = outputFormat === 'json';
+  const jsonHandler = isJsonOutput ? new JsonOutputHandler(prettyPrint ?? true) : null;
+  let contentBuffer = '';
+  let toolCallResults: ToolCallResult[] = [];
+
   // Handle EPIPE errors when the output is piped to a command that closes early.
   process.stdout.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EPIPE') {
@@ -68,7 +84,14 @@ export async function runNonInteractive(
         }
 
         if (event.type === GeminiEventType.Content) {
-          process.stdout.write(event.value);
+          // === CUSTOM JSON OUTPUT HANDLING (GHCCLI Extensions) ===
+          if (isJsonOutput) {
+            // Buffer content for JSON output
+            contentBuffer += event.value;
+          } else {
+            // === ORIGINAL STREAMING OUTPUT ===
+            process.stdout.write(event.value);
+          }
         } else if (event.type === GeminiEventType.ToolCallRequest) {
           const toolCallRequest = event.value;
           const fc: FunctionCall = {
@@ -93,17 +116,36 @@ export async function runNonInteractive(
             prompt_id,
           };
 
+          const startTime = Date.now();
           const toolResponse = await executeToolCall(
             config,
             requestInfo,
             toolRegistry,
             abortController.signal,
           );
+          const duration = Date.now() - startTime;
+
+          // === CUSTOM JSON OUTPUT - TOOL CALL TRACKING (GHCCLI Extensions) ===
+          if (isJsonOutput && jsonHandler) {
+            const toolCallResult = jsonHandler.createToolCallResult(
+              callId,
+              fc.name as string,
+              (fc.args ?? {}) as Record<string, unknown>,
+              typeof toolResponse.resultDisplay === 'string' ? toolResponse.resultDisplay : (toolResponse.error?.message || ''),
+              toolResponse.error ? 'error' : 'success',
+              duration
+            );
+            toolCallResults.push(toolCallResult);
+          }
 
           if (toolResponse.error) {
-            console.error(
-              `Error executing tool ${fc.name}: ${toolResponse.resultDisplay || toolResponse.error.message}`,
-            );
+            // === CUSTOM JSON OUTPUT - ERROR SUPPRESSION (GHCCLI Extensions) ===
+            if (!isJsonOutput) {
+              // === ORIGINAL ERROR OUTPUT ===
+              console.error(
+                `Error executing tool ${fc.name}: ${toolResponse.resultDisplay || toolResponse.error.message}`,
+              );
+            }
             if (toolResponse.errorType === ToolErrorType.UNHANDLED_EXCEPTION)
               process.exit(1);
           }
@@ -123,17 +165,62 @@ export async function runNonInteractive(
         }
         currentMessages = [{ role: 'user', parts: toolResponseParts }];
       } else {
-        process.stdout.write('\n'); // Ensure a final newline
+        // === CUSTOM JSON OUTPUT - FINAL RESULT (GHCCLI Extensions) ===
+        if (isJsonOutput && jsonHandler) {
+          const metadata = jsonHandler.createMetadata(
+            config.getSessionId(),
+            prompt_id,
+            config.getContentGeneratorConfig()?.model || 'unknown',
+            turnCount
+          );
+          const jsonOutput = jsonHandler.createSuccess(
+            'Request completed successfully',
+            metadata,
+            contentBuffer,
+            toolCallResults
+          );
+          process.stdout.write(jsonHandler.format(jsonOutput));
+        } else {
+          // === ORIGINAL FINAL NEWLINE ===
+          process.stdout.write('\n'); // Ensure a final newline
+        }
         return;
       }
     }
   } catch (error) {
-    console.error(
-      parseAndFormatApiError(
-        error,
-        config.getContentGeneratorConfig()?.authType,
-      ),
-    );
+    // === CUSTOM JSON OUTPUT - ERROR FORMATTING (GHCCLI Extensions) ===
+    if (isJsonOutput && jsonHandler) {
+      const metadata = jsonHandler.createMetadata(
+        config.getSessionId(),
+        prompt_id,
+        config.getContentGeneratorConfig()?.model || 'unknown',
+        turnCount
+      );
+      const jsonError = {
+        type: 'api_error',
+        message: parseAndFormatApiError(
+          error,
+          config.getContentGeneratorConfig()?.authType,
+        ),
+        details: { error: error instanceof Error ? error.message : String(error) }
+      };
+      const jsonOutput = jsonHandler.createError(
+        'Request failed',
+        metadata,
+        jsonError,
+        contentBuffer,
+        toolCallResults
+      );
+      process.stdout.write(jsonHandler.format(jsonOutput));
+    } else {
+      // === ORIGINAL ERROR OUTPUT ===
+      console.error(
+        parseAndFormatApiError(
+          error,
+          config.getContentGeneratorConfig()?.authType,
+        ),
+      );
+    }
     process.exit(1);
   } finally {
     if (isTelemetrySdkInitialized()) {

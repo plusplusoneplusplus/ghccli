@@ -316,7 +316,8 @@ export async function main() {
     argv,
   );
 
-  await runNonInteractive(nonInteractiveConfig, input, prompt_id);
+  // === CUSTOM JSON OUTPUT INTEGRATION (GHCCLI Extensions) ===
+  await runNonInteractive(nonInteractiveConfig, input, prompt_id, argv.outputFormat, argv.prettyPrint);
   process.exit(0);
 }
 
