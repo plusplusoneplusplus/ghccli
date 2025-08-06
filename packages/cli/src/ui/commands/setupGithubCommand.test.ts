@@ -24,11 +24,6 @@ vi.mock('../../utils/gitUtils.js', () => ({
   isGitHubRepository: vi.fn(),
   getGitRepoRoot: vi.fn(),
   getLatestGitHubRelease: vi.fn(),
-  getGitHubRepoInfo: vi.fn(),
-}));
-
-vi.mock('../utils/commandUtils.js', () => ({
-  getUrlOpenCommand: vi.fn(),
 }));
 
 describe('setupGithubCommand', async () => {
@@ -47,35 +42,16 @@ describe('setupGithubCommand', async () => {
   });
 
   it('returns a tool action to download github workflows and handles paths', async () => {
-    const fakeRepoOwner = 'fake';
-    const fakeRepoName = 'repo';
-    const fakeRepoRoot = scratchDir;
+    const fakeRepoRoot = '/github.com/fake/repo/root';
     const fakeReleaseVersion = 'v1.2.3';
 
-    const workflows = [
-      'gemini-cli.yml',
-      'gemini-issue-automated-triage.yml',
-      'gemini-issue-scheduled-triage.yml',
-      'gemini-pr-review.yml',
-    ];
-    for (const workflow of workflows) {
-      vi.mocked(global.fetch).mockReturnValueOnce(
-        Promise.resolve(new Response(workflow)),
-      );
-    }
 
     vi.mocked(gitUtils.isGitHubRepository).mockReturnValueOnce(true);
     vi.mocked(gitUtils.getGitRepoRoot).mockReturnValueOnce(fakeRepoRoot);
     vi.mocked(gitUtils.getLatestGitHubRelease).mockResolvedValueOnce(
       fakeReleaseVersion,
     );
-    vi.mocked(gitUtils.getGitHubRepoInfo).mockReturnValue({
-      owner: fakeRepoOwner,
-      repo: fakeRepoName,
-    });
-    vi.mocked(commandUtils.getUrlOpenCommand).mockReturnValueOnce(
-      'fakeOpenCommand',
-    );
+
 
     const result = (await setupGithubCommand.action?.(
       {} as CommandContext,
@@ -86,31 +62,16 @@ describe('setupGithubCommand', async () => {
 
     const expectedSubstrings = [
       `set -eEuo pipefail`,
-      `fakeOpenCommand "https://github.com/google-github-actions/run-gemini-cli`,
+      `mkdir -p "${fakeRepoRoot}/.github/workflows"`,
+      `curl --fail --location --output "/github.com/fake/repo/root/.github/workflows/gemini-cli.yml" --show-error --silent`,
+      `curl --fail --location --output "/github.com/fake/repo/root/.github/workflows/gemini-issue-automated-triage.yml" --show-error --silent`,
+      `curl --fail --location --output "/github.com/fake/repo/root/.github/workflows/gemini-issue-scheduled-triage.yml" --show-error --silent`,
+      `curl --fail --location --output "/github.com/fake/repo/root/.github/workflows/gemini-pr-review.yml" --show-error --silent`,
+      `https://raw.githubusercontent.com/google-github-actions/run-gemini-cli/refs/tags/`,
     ];
 
     for (const substring of expectedSubstrings) {
       expect(command).toContain(substring);
     }
-
-    for (const workflow of workflows) {
-      const workflowFile = path.join(
-        scratchDir,
-        '.github',
-        'workflows',
-        workflow,
-      );
-      const contents = await fs.readFile(workflowFile, 'utf8');
-      expect(contents).toContain(workflow);
-    }
-  });
-
-  it('throws an error if git root cannot be determined', () => {
-    vi.mocked(gitUtils.isGitHubRepository).mockReturnValue(false);
-    expect(() => {
-      setupGithubCommand.action?.({} as CommandContext, '');
-    }).toThrow(
-      'Unable to determine the GitHub repository. /setup-github must be run from a git repository.',
-    );
   });
 });

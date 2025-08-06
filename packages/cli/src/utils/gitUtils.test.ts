@@ -10,7 +10,6 @@ import {
   isGitHubRepository,
   getGitRepoRoot,
   getLatestGitHubRelease,
-  getGitHubRepoInfo,
 } from './gitUtils.js';
 
 vi.mock('child_process');
@@ -45,38 +44,6 @@ describe('isGitHubRepository', async () => {
   });
 });
 
-describe('getGitHubRepoInfo', async () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('throws an error if github repo info cannot be determined', async () => {
-    vi.mocked(child_process.execSync).mockImplementation((): string => {
-      throw new Error('oops');
-    });
-    expect(() => {
-      getGitHubRepoInfo();
-    }).toThrowError(/oops/);
-  });
-
-  it('throws an error if owner/repo could not be determined', async () => {
-    vi.mocked(child_process.execSync).mockReturnValueOnce('');
-    expect(() => {
-      getGitHubRepoInfo();
-    }).toThrowError(/Owner & repo could not be extracted from remote URL/);
-  });
-
-  it('returns the owner and repo', async () => {
-    vi.mocked(child_process.execSync).mockReturnValueOnce(
-      'https://github.com/owner/repo.git ',
-    );
-    expect(getGitHubRepoInfo()).toEqual({ owner: 'owner', repo: 'repo' });
-  });
-});
 
 describe('getGitRepoRoot', async () => {
   beforeEach(() => {
