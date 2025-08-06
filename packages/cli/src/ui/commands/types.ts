@@ -98,7 +98,7 @@ export interface MessageActionReturn {
  */
 export interface OpenDialogActionReturn {
   type: 'dialog';
-  dialog: 'help' | 'auth' | 'theme' | 'editor' | 'privacy' | 'model' | 'agent';
+  dialog: 'auth' | 'theme' | 'editor' | 'privacy' | 'model' | 'agent';
 }
 
 /**
