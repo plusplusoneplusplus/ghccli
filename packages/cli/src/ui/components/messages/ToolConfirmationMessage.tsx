@@ -56,9 +56,9 @@ export const ToolConfirmationMessage: React.FC<
     onConfirm(outcome);
   };
 
-  useInput((input, key) => {
+  useInput((_, key) => {
     if (!isFocused) return;
-    if (key.escape || (key.ctrl && (input === 'c' || input === 'C'))) {
+    if (key.escape) {
       handleConfirm(ToolConfirmationOutcome.Cancel);
     }
   });
@@ -134,10 +134,11 @@ export const ToolConfirmationMessage: React.FC<
     );
     if (config?.getIdeMode() && config?.getIdeModeFeature()) {
       options.push({
-        label: 'No (esc)',
+        label: 'No',
         value: ToolConfirmationOutcome.Cancel,
       });
     } else {
+      // TODO(chrstnb): support edit tool in IDE mode.
       options.push({
         label: 'Modify with external editor',
         value: ToolConfirmationOutcome.ModifyWithEditor,
