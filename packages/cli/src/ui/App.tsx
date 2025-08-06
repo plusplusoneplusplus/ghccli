@@ -506,6 +506,24 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     setGeminiMdFileCount,
   );
 
+  const buffer = useTextBuffer({
+    initialText: '',
+    viewport: { height: 10, width: inputWidth },
+    stdin,
+    setRawMode,
+    isValidPath,
+    shellModeActive,
+  });
+
+  const [userMessages, setUserMessages] = useState<string[]>([]);
+
+  const handleUserCancel = useCallback(() => {
+    const lastUserMessage = userMessages.at(-1);
+    if (lastUserMessage) {
+      buffer.setText(lastUserMessage);
+    }
+  }, [buffer, userMessages]);
+
   const {
     streamingState,
     submitQuery,
@@ -526,6 +544,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     modelSwitchedFromQuotaError,
     setModelSwitchedFromQuotaError,
     refreshStatic,
+    handleUserCancel,
   );
 
   // Input handling
@@ -538,15 +557,6 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     },
     [submitQuery],
   );
-
-  const buffer = useTextBuffer({
-    initialText: '',
-    viewport: { height: 10, width: inputWidth },
-    stdin,
-    setRawMode,
-    isValidPath,
-    shellModeActive,
-  });
 
   const { handleInput: vimHandleInput } = useVim(buffer, handleFinalSubmit);
   const pendingHistoryItems = [...pendingSlashCommandHistoryItems];
@@ -627,7 +637,6 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   }, [config, config.getGeminiMdFileCount]);
 
   const logger = useLogger();
-  const [userMessages, setUserMessages] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchUserMessages = async () => {
