@@ -14,9 +14,8 @@ import {
   ToolLocation,
   ToolResult,
 } from './tools.js';
-import { PartListUnion } from '@google/genai';
+import { PartUnion, Type } from '@google/genai';
 import { ToolErrorType } from './tool-error.js';
-import { Type } from '@google/genai';
 import {
   processSingleFileContent,
   getSpecificMimeType,
@@ -122,7 +121,7 @@ class ReadFileToolInvocation
       };
     }
 
-    let llmContent: PartListUnion;
+    let llmContent: PartUnion;
     if (result.isTruncated) {
       const [start, end] = result.linesShown!;
       const total = result.originalLineCount!;
