@@ -5,7 +5,7 @@
  */
 
 import { Content, SchemaUnion, Type } from '@google/genai';
-import { DEFAULT_GEMINI_FLASH_LITE_MODEL } from '../config/models.js';
+import { getLightweightModel } from '../config/models.js';
 import { GeminiClient } from '../core/client.js';
 import { GeminiChat } from '../core/geminiChat.js';
 import { isFunctionResponse } from './messageInspectors.js';
@@ -108,11 +108,13 @@ export async function checkNextSpeaker(
   ];
 
   try {
+    const authType = geminiClient.getAuthType();
+    const lightweightModel = getLightweightModel(authType);
     const parsedResponse = (await geminiClient.generateJson(
       contents,
       RESPONSE_SCHEMA,
       abortSignal,
-      DEFAULT_GEMINI_FLASH_LITE_MODEL,
+      lightweightModel,
     )) as unknown as NextSpeakerResponse;
 
     if (

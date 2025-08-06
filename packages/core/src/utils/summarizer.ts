@@ -11,7 +11,7 @@ import {
   GenerateContentResponse,
 } from '@google/genai';
 import { GeminiClient } from '../core/client.js';
-import { DEFAULT_GEMINI_FLASH_LITE_MODEL } from '../config/models.js';
+import { getLightweightModel } from '../config/models.js';
 import { getResponseText, partToString } from './partUtils.js';
 
 /**
@@ -82,11 +82,13 @@ export async function summarizeToolOutput(
     maxOutputTokens,
   };
   try {
+    const authType = geminiClient.getAuthType();
+    const lightweightModel = getLightweightModel(authType);
     const parsedResponse = (await geminiClient.generateContent(
       contents,
       toolOutputSummarizerConfig,
       abortSignal,
-      DEFAULT_GEMINI_FLASH_LITE_MODEL,
+      lightweightModel,
     )) as unknown as GenerateContentResponse;
     return getResponseText(parsedResponse) || textToSummarize;
   } catch (error) {

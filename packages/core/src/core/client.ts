@@ -146,6 +146,10 @@ export class GeminiClient {
     return this.contentGenerator?.userTier;
   }
 
+  getAuthType(): AuthType | undefined {
+    return this.config.getContentGeneratorConfig()?.authType;
+  }
+
   async addHistory(content: Content) {
     this.getChat().addHistory(content);
   }
