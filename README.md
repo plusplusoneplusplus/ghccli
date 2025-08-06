@@ -173,6 +173,15 @@ ghccli
 Head over to the [troubleshooting guide](docs/troubleshooting.md) if you're
 having issues.
 
+## GitHub Integration
+
+Integrate Gemini CLI directly into your GitHub workflows with the [**Gemini CLI GitHub Action**](https://github.com/google-github-actions/run-gemini-cli). Key features include:
+
+- **Pull Request Reviews**: Automatically review pull requests when they're opened.
+- **Issue Triage**: Automatically triage and label GitHub issues.
+- **On-demand Collaboration**: Mention `@gemini-cli` in issues and pull requests for assistance and task delegation.
+- **Custom Workflows**: Set up your own scheduled tasks and event-driven automations.
+
 ## Popular tasks
 
 ### Explore a new codebase
