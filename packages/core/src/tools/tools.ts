@@ -54,34 +54,6 @@ export interface ToolInvocation<
 }
 
 /**
- * A convenience base class for ToolInvocation.
- */
-export abstract class BaseToolInvocation<
-  TParams extends object,
-  TResult extends ToolResult,
-> implements ToolInvocation<TParams, TResult>
-{
-  constructor(readonly params: TParams) {}
-
-  abstract getDescription(): string;
-
-  toolLocations(): ToolLocation[] {
-    return [];
-  }
-
-  shouldConfirmExecute(
-    _abortSignal: AbortSignal,
-  ): Promise<ToolCallConfirmationDetails | false> {
-    return Promise.resolve(false);
-  }
-
-  abstract execute(
-    signal: AbortSignal,
-    updateOutput?: (output: string) => void,
-  ): Promise<TResult>;
-}
-
-/**
  * A type alias for a tool invocation where the specific parameter and result types are not known.
  */
 export type AnyToolInvocation = ToolInvocation<object, ToolResult>;
@@ -186,7 +158,7 @@ export abstract class DeclarativeTool<
     readonly displayName: string,
     readonly description: string,
     readonly icon: Icon,
-    readonly parameterSchema: unknown,
+    readonly parameterSchema: Schema,
     readonly isOutputMarkdown: boolean = true,
     readonly canUpdateOutput: boolean = false,
   ) {}
@@ -195,7 +167,7 @@ export abstract class DeclarativeTool<
     return {
       name: this.name,
       description: this.description,
-      parametersJsonSchema: this.parameterSchema,
+      parameters: this.parameterSchema,
     };
   }
 

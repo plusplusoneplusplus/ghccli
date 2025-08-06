@@ -9,14 +9,13 @@ import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import {
   BaseDeclarativeTool,
-  BaseToolInvocation,
   Icon,
   ToolInvocation,
   ToolLocation,
   ToolResult,
 } from './tools.js';
 import { ToolErrorType } from './tool-error.js';
-import { PartUnion } from '@google/genai';
+import { Type } from '@google/genai';
 import {
   processSingleFileContent,
   getSpecificMimeType,
@@ -47,16 +46,13 @@ export interface ReadFileToolParams {
   limit?: number;
 }
 
-class ReadFileToolInvocation extends BaseToolInvocation<
-  ReadFileToolParams,
-  ToolResult
-> {
+class ReadFileToolInvocation
+  implements ToolInvocation<ReadFileToolParams, ToolResult>
+{
   constructor(
     private config: Config,
-    params: ReadFileToolParams,
-  ) {
-    super(params);
-  }
+    public params: ReadFileToolParams,
+  ) {}
 
   getDescription(): string {
     const relativePath = makeRelative(
@@ -66,8 +62,12 @@ class ReadFileToolInvocation extends BaseToolInvocation<
     return shortenPath(relativePath);
   }
 
-  override toolLocations(): ToolLocation[] {
+  toolLocations(): ToolLocation[] {
     return [{ path: this.params.absolute_path, line: this.params.offset }];
+  }
+
+  shouldConfirmExecute(): Promise<false> {
+    return Promise.resolve(false);
   }
 
   async execute(): Promise<ToolResult> {
@@ -121,7 +121,7 @@ class ReadFileToolInvocation extends BaseToolInvocation<
       };
     }
 
-    let llmContent: PartUnion;
+    let llmContent: string;
     if (result.isTruncated) {
       const [start, end] = result.linesShown!;
       const total = result.originalLineCount!;
@@ -138,7 +138,6 @@ ${result.llmContent}`;
     } else {
       llmContent = result.llmContent || '';
     }
-
     const lines =
       typeof result.llmContent === 'string'
         ? result.llmContent.split('\n').length
@@ -199,10 +198,7 @@ export class ReadFileTool extends BaseDeclarativeTool<
   }
 
   protected validateToolParams(params: ReadFileToolParams): string | null {
-    const errors = SchemaValidator.validate(
-      this.schema.parametersJsonSchema,
-      params,
-    );
+    const errors = SchemaValidator.validate(this.schema.parameters, params);
     if (errors) {
       return errors;
     }
