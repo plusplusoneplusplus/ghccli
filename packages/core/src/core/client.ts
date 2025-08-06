@@ -399,6 +399,7 @@ export class GeminiClient {
     prompt_id: string,
     turns: number = this.MAX_TURNS,
     originalModel?: string,
+    skipNextSpeakerCheck: boolean = false,
   ): AsyncGenerator<ServerGeminiStreamEvent, Turn> {
     if (this.lastPromptId !== prompt_id) {
       this.loopDetector.reset(prompt_id);
@@ -489,7 +490,7 @@ export class GeminiClient {
       }
       yield event;
     }
-    if (!turn.pendingToolCalls.length && signal && !signal.aborted) {
+    if (!turn.pendingToolCalls.length && signal && !signal.aborted && !skipNextSpeakerCheck) {
       // Check if model was switched during the call (likely due to quota error)
       const currentModel = this.config.getModel();
       if (currentModel !== initialModel) {
@@ -521,6 +522,7 @@ export class GeminiClient {
           prompt_id,
           boundedTurns - 1,
           initialModel,
+          skipNextSpeakerCheck,
         );
       }
     }

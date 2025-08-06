@@ -100,6 +100,9 @@ describe('runNonInteractive', () => {
       [{ text: 'Test input' }],
       expect.any(AbortSignal),
       'prompt-id-1',
+      100,
+      undefined,
+      true,
     );
     expect(processStdoutSpy).toHaveBeenCalledWith('Hello');
     expect(processStdoutSpy).toHaveBeenCalledWith(' World');
@@ -144,6 +147,9 @@ describe('runNonInteractive', () => {
       [{ text: 'Tool response' }],
       expect.any(AbortSignal),
       'prompt-id-2',
+      100,
+      undefined,
+      true,
     );
     expect(processStdoutSpy).toHaveBeenCalledWith('Final answer');
     expect(processStdoutSpy).toHaveBeenCalledWith('\n');

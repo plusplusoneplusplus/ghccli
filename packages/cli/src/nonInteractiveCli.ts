@@ -56,6 +56,9 @@ export async function runNonInteractive(
         currentMessages[0]?.parts || [],
         abortController.signal,
         prompt_id,
+        100, // max turns
+        undefined, // originalModel
+        true, // skipNextSpeakerCheck - bypass in noninteractive mode
       );
 
       for await (const event of responseStream) {
