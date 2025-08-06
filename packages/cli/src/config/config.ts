@@ -41,6 +41,8 @@ export interface CliArgs {
   // Keep these at the top to minimize merge conflicts with upstream changes
   agent: string | undefined;
   outputLoggerFile: string | undefined;
+  outputFormat: string | undefined;
+  prettyPrint: boolean | undefined;
   
   // === ORIGINAL GEMINI CLI ARGS ===
   model: string | undefined;
@@ -221,6 +223,16 @@ export async function parseArguments(): Promise<CliArgs> {
     .option('output-logger-file', {
       type: 'string',
       description: 'Custom file path for OpenAI API logging',
+    })
+    .option('output-format', {
+      type: 'string',
+      choices: ['json'],
+      description: 'Output format for non-interactive mode (currently supports: json)',
+    })
+    .option('pretty-print', {
+      type: 'boolean',
+      description: 'Format JSON output with indentation for readability',
+      default: true,
     })
     .option('include-directories', {
       type: 'array',
