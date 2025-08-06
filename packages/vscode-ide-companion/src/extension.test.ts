@@ -18,12 +18,6 @@ vi.mock('vscode', () => ({
       show: vi.fn(),
       sendText: vi.fn(),
     })),
-    onDidChangeActiveTextEditor: vi.fn(),
-    activeTextEditor: undefined,
-    tabGroups: {
-      all: [],
-      close: vi.fn(),
-    },
     showTextDocument: vi.fn(),
     showWorkspaceFolderPick: vi.fn(),
   },
@@ -81,7 +75,8 @@ describe('activate', () => {
     vi.mocked(context.globalState.get).mockReturnValue(undefined);
     await activate(context);
     expect(showInformationMessageMock).toHaveBeenCalledWith(
-      'Gemini CLI Companion extension successfully installed.',
+      'Gemini CLI Companion extension successfully installed. Please restart your terminal to enable full IDE integration.',
+      'Re-launch Gemini CLI',
     );
   });
 
@@ -99,10 +94,8 @@ describe('activate', () => {
     await activate(context);
     expect(showInformationMessageMock).toHaveBeenCalled();
     await new Promise(process.nextTick); // Wait for the promise to resolve
-    const commandCallback = vi
-      .mocked(vscode.commands.registerCommand)
-      .mock.calls.find((call) => call[0] === 'gemini-cli.runGeminiCLI')?.[1];
-
-    expect(commandCallback).toBeDefined();
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      'gemini-cli.runGeminiCLI',
+    );
   });
 });

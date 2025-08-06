@@ -86,9 +86,21 @@ export async function activate(context: vscode.ExtensionContext) {
   }
 
   if (!context.globalState.get(INFO_MESSAGE_SHOWN_KEY)) {
-    void vscode.window.showInformationMessage(
-      'Gemini CLI Companion extension successfully installed.',
-    );
+    void vscode.window
+      .showInformationMessage(
+        'Gemini CLI Companion extension successfully installed. Please restart your terminal to enable full IDE integration.',
+        'Re-launch Gemini CLI',
+      )
+      .then(
+        (selection) => {
+          if (selection === 'Re-launch Gemini CLI') {
+            void vscode.commands.executeCommand('gemini-cli.runGeminiCLI');
+          }
+        },
+        (err) => {
+          log(`Failed to show information message: ${String(err)}`);
+        },
+      );
     context.globalState.update(INFO_MESSAGE_SHOWN_KEY, true);
   }
 
