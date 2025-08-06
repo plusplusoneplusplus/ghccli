@@ -177,6 +177,6 @@ describe('createContentGeneratorConfig', () => {
       mockConfig,
       AuthType.OPENAI,
     );
-    expect(config.model).toBe('gpt-4');
+    expect(config.model).toBe('gpt-4o');
   });
 });
