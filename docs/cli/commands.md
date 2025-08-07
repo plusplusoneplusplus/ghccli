@@ -87,6 +87,7 @@ Slash commands provide meta-level control over the CLI itself.
     - `/model <model_name>` (switches to the specified model)
   - **Available Models:**
     - `gemini-2.5-pro` (default)
+    - `gpt-5`
     - `gpt-4.1`
     - `gpt-4o`
     - `claude-sonnet-4`

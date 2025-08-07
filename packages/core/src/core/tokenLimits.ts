@@ -11,6 +11,7 @@ export const DEFAULT_TOKEN_LIMIT = 1_048_576;
 
 function getVsCodeCopilotTokenLimit(model: Model): TokenCount | null {
   switch (model) {
+    case 'gpt-5':
     case 'gpt-4.1':
     case 'gpt-4o':
     case 'claude-sonnet-4':
