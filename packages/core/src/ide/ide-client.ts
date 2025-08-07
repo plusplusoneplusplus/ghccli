@@ -5,7 +5,6 @@
  */
 
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import {
   detectIde,
   DetectedIde,
@@ -88,7 +87,7 @@ export class IdeClient {
         )
           .map((ide) => getIdeDisplayName(ide))
           .join(', ')}`,
-        false,
+        true,
       );
       return;
     }
@@ -243,11 +242,7 @@ export class IdeClient {
       );
       return false;
     }
-
-    const idePath = getRealPath(ideWorkspacePath).toLocaleLowerCase();
-    const cwd = getRealPath(process.cwd()).toLocaleLowerCase();
-    const rel = path.relative(idePath, cwd);
-    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    if (getRealPath(ideWorkspacePath) !== getRealPath(process.cwd())) {
       this.setState(
         IDEConnectionStatus.Disconnected,
         `Directory mismatch. Gemini CLI is running in a different location than the open workspace in ${this.currentIdeDisplayName}. Please run the CLI from the same directory as your project's root folder.`,
@@ -263,7 +258,7 @@ export class IdeClient {
     if (!port) {
       this.setState(
         IDEConnectionStatus.Disconnected,
-        `Failed to connect to IDE companion extension for ${this.currentIdeDisplayName}. Please ensure the extension is running and try restarting your terminal. To install the extension, run /ide install.`,
+        `Failed to connect to IDE companion extension for ${this.currentIdeDisplayName}. Please ensure the extension is running and try refreshing your terminal. To install the extension, run /ide install.`,
         true,
       );
       return undefined;
@@ -342,7 +337,7 @@ export class IdeClient {
     } catch (_error) {
       this.setState(
         IDEConnectionStatus.Disconnected,
-        `Failed to connect to IDE companion extension for ${this.currentIdeDisplayName}. Please ensure the extension is running and try restarting your terminal. To install the extension, run /ide install.`,
+        `Failed to connect to IDE companion extension for ${this.currentIdeDisplayName}. Please ensure the extension is running and try refreshing your terminal. To install the extension, run /ide install.`,
         true,
       );
       if (transport) {
