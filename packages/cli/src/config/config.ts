@@ -546,6 +546,7 @@ export async function loadCliConfig(
     outputFormat: argv.outputFormat,
     prettyPrint: argv.prettyPrint,
     // === END GHCCLI ===
+    chatCompression: settings.chatCompression,
     folderTrustFeature,
   });
 }
