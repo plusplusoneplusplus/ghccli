@@ -211,6 +211,7 @@ export interface ConfigParameters {
   summarizeToolOutput?: Record<string, SummarizeToolOutputSettings>;
   ideModeFeature?: boolean;
   folderTrustFeature?: boolean;
+  folderTrust?: boolean;
   ideMode?: boolean;
   loadMemoryFromIncludeDirectories?: boolean;
   chatCompression?: ChatCompressionSettings;
@@ -267,6 +268,7 @@ export class Config {
   private readonly noBrowser: boolean;
   private readonly ideModeFeature: boolean;
   private readonly folderTrustFeature: boolean;
+  private readonly folderTrust: boolean;
   private ideMode: boolean;
   private ideClient: IdeClient;
   private inFallbackMode = false;
@@ -351,6 +353,7 @@ export class Config {
     this.summarizeToolOutput = params.summarizeToolOutput;
     this.ideModeFeature = params.ideModeFeature ?? false;
     this.folderTrustFeature = params.folderTrustFeature ?? false;
+    this.folderTrust = params.folderTrust ?? false;
     this.ideMode = params.ideMode ?? false;
     this.ideClient = IdeClient.getInstance();
     this.loadMemoryFromIncludeDirectories =
@@ -763,12 +766,16 @@ export class Config {
     return this.ideModeFeature;
   }
 
+  getIdeMode(): boolean {
+    return this.ideMode;
+  }
+
   getFolderTrustFeature(): boolean {
     return this.folderTrustFeature;
   }
 
-  getIdeMode(): boolean {
-    return this.ideMode;
+  getFolderTrust(): boolean {
+    return this.folderTrust;
   }
 
 
