@@ -9,10 +9,12 @@ import {
   createContentGenerator,
   AuthType,
   createContentGeneratorConfig,
+  ContentGenerator,
 } from './contentGenerator.js';
 import { createCodeAssistContentGenerator } from '../code_assist/codeAssist.js';
 import { GoogleGenAI } from '@google/genai';
 import { Config } from '../config/config.js';
+import { LoggingContentGenerator } from './loggingContentGenerator.js';
 
 vi.mock('../code_assist/codeAssist.js');
 vi.mock('@google/genai');
@@ -20,36 +22,30 @@ vi.mock('@google/genai');
 const mockConfig = {} as unknown as Config;
 
 describe('createContentGenerator', () => {
-  it('should throw error for disabled CodeAssist authentication methods', async () => {
-    await expect(
-      createContentGenerator(
-        {
-          model: 'test-model',
-          authType: AuthType.LOGIN_WITH_GOOGLE,
-        },
-        mockConfig,
-      ),
-    ).rejects.toThrow(
-      'LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, GITHUB_COPILOT, or OPENAI instead.',
+  it('should create a CodeAssistContentGenerator', async () => {
+    const mockGenerator = {} as unknown as ContentGenerator;
+    vi.mocked(createCodeAssistContentGenerator).mockResolvedValue(
+      mockGenerator as never,
     );
 
-    await expect(
-      createContentGenerator(
-        {
-          model: 'test-model',
-          authType: AuthType.CLOUD_SHELL,
-        },
-        mockConfig,
-      ),
-    ).rejects.toThrow(
-      'LOGIN_WITH_GOOGLE and CLOUD_SHELL authentication methods have been disabled for privacy reasons. Please use GEMINI_API_KEY, VERTEX_AI, GITHUB_COPILOT, or OPENAI instead.',
+    const generator = await createContentGenerator(
+      {
+        model: 'test-model',
+        authType: AuthType.LOGIN_WITH_GOOGLE,
+      },
+      mockConfig,
+    );
+
+    expect(createCodeAssistContentGenerator).toHaveBeenCalled();
+    expect(generator).toEqual(
+      new LoggingContentGenerator(mockGenerator, mockConfig),
     );
   });
 
   it('should create a GoogleGenAI content generator', async () => {
     const mockGenerator = {
       models: {},
-    } as unknown;
+    } as unknown as GoogleGenAI;
     vi.mocked(GoogleGenAI).mockImplementation(() => mockGenerator as never);
     const generator = await createContentGenerator(
       {
@@ -68,7 +64,12 @@ describe('createContentGenerator', () => {
         },
       },
     });
-    expect(generator).toBe((mockGenerator as GoogleGenAI).models);
+    expect(generator).toEqual(
+      new LoggingContentGenerator(
+        (mockGenerator as GoogleGenAI).models,
+        mockConfig,
+      ),
+    );
   });
 });
 
