@@ -25,7 +25,6 @@ import { Config } from '../config/config.js';
 import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
 import { hasCycleInSchema } from '../tools/tools.js';
 import { StructuredError } from './turn.js';
-import { isStructuredError } from '../utils/quotaErrorDetection.js';
 
 // === GHCCLI ===
 import { getCoreSystemPrompt } from './prompts.js';
@@ -383,7 +382,6 @@ export class GeminiChat {
       return result;
     } catch (error) {
       this.sendPromise = Promise.resolve();
-      await this.maybeIncludeSchemaDepthContext(error);
       throw error;
     }
   }
@@ -476,6 +474,30 @@ export class GeminiChat {
     return lastChunkWithMetadata?.usageMetadata;
   }
 
+  async maybeIncludeSchemaDepthContext(error: unknown): Promise<void> {
+    // Check for potentially problematic cyclic tools with cyclic schemas
+    // and include a recommendation to remove potentially problematic tools.
+    if (error instanceof Error && (isSchemaDepthError(error.message) || isInvalidArgumentError(error.message))) {
+      const tools = (await this.config.getToolRegistry()).getAllTools();
+      const cyclicSchemaTools: string[] = [];
+      for (const tool of tools) {
+        if (
+          (tool.schema.parametersJsonSchema &&
+            hasCycleInSchema(tool.schema.parametersJsonSchema)) ||
+          (tool.schema.parameters && hasCycleInSchema(tool.schema.parameters))
+        ) {
+          cyclicSchemaTools.push(tool.displayName);
+        }
+      }
+      if (cyclicSchemaTools.length > 0) {
+        const extraDetails =
+          `\n\nThis error was probably caused by cyclic schema references in one of the following tools, try disabling them with excludeTools:\n\n - ` +
+          cyclicSchemaTools.join(`\n - `) +
+          `\n`;
+        error.message += extraDetails;
+      }
+    }
+  }
 
   private async *processStreamResponse(
     streamResponse: AsyncGenerator<GenerateContentResponse>,
@@ -626,31 +648,6 @@ export class GeminiChat {
       typeof content.parts[0].thought === 'boolean' &&
       content.parts[0].thought === true
     );
-  }
-
-  async maybeIncludeSchemaDepthContext(error: unknown): Promise<void> {
-    // Check for potentially problematic cyclic tools with cyclic schemas
-    // and include a recommendation to remove potentially problematic tools.
-    if (isStructuredError(error) && isSchemaDepthError(error.message)) {
-      const tools = (await this.config.getToolRegistry()).getAllTools();
-      const cyclicSchemaTools: string[] = [];
-      for (const tool of tools) {
-        if (
-          (tool.schema.parametersJsonSchema &&
-            hasCycleInSchema(tool.schema.parametersJsonSchema)) ||
-          (tool.schema.parameters && hasCycleInSchema(tool.schema.parameters))
-        ) {
-          cyclicSchemaTools.push(tool.displayName);
-        }
-      }
-      if (cyclicSchemaTools.length > 0) {
-        const extraDetails =
-          `\n\nThis error was probably caused by cyclic schema references in one of the following tools, try disabling them:\n\n - ` +
-          cyclicSchemaTools.join(`\n - `) +
-          `\n`;
-        error.message += extraDetails;
-      }
-    }
   }
 }
 
