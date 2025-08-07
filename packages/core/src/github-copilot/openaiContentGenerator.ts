@@ -109,6 +109,17 @@ import {
     protected async getAdditionalHeaders(): Promise<Record<string, string> | undefined> {
       return undefined;
     }
+    
+    /**
+     * Subclasses can override to provide additional request options, such as
+     * headers or query parameters. By default this maps getAdditionalHeaders()
+     * into the request options structure used by the OpenAI SDK.
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    protected async getAdditionalRequestOptions(): Promise<Record<string, any> | undefined> {
+      const headers = await this.getAdditionalHeaders();
+      return headers ? { headers } : undefined;
+    }
   
     constructor(apiKey: string, model: string, config: Config) {
       this.model = model;
@@ -210,13 +221,11 @@ import {
             request.config.tools,
           );
         }
-        // Get additional headers from subclass
-        const additionalHeaders = await this.getAdditionalHeaders();
-        
-        // console.log('createParams', createParams);
+        // Get additional request options from subclass (headers/query)
+        const additionalRequestOptions = await this.getAdditionalRequestOptions();
         const completion = (await this.client.chat.completions.create(
           createParams,
-          additionalHeaders ? { headers: additionalHeaders } : undefined
+          additionalRequestOptions,
         )) as ChatCompletion;
   
         const response = this.convertToGeminiFormat(completion);
@@ -355,14 +364,14 @@ import {
           );
         }
   
-        // Get additional headers from subclass
-        const additionalHeaders = await this.getAdditionalHeaders();
+        // Get additional request options from subclass (headers/query)
+        const additionalRequestOptions = await this.getAdditionalRequestOptions();
   
         // console.log('createParams', createParams);
   
         const stream = (await this.client.chat.completions.create(
           createParams,
-          additionalHeaders ? { headers: additionalHeaders } : undefined
+          additionalRequestOptions,
         )) as AsyncIterable<ChatCompletionChunk>;
   
         const originalStream = this.streamGenerator(stream);

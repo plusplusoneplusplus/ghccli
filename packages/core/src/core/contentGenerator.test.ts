@@ -179,4 +179,31 @@ describe('createContentGeneratorConfig', () => {
     );
     expect(config.model).toBe('gpt-4o');
   });
+  
+  it('should configure for Azure OpenAI using env vars', async () => {
+    process.env.AZURE_OPENAI_API_KEY = 'env-azure-key';
+    process.env.AZURE_OPENAI_ENDPOINT = 'https://example.openai.azure.com';
+    process.env.AZURE_OPENAI_DEPLOYMENT_NAME = 'gpt-4o-deploy';
+    process.env.AZURE_OPENAI_API_VERSION = '2024-02-15-preview';
+
+    const cfg = await createContentGeneratorConfig(
+      mockConfig,
+      AuthType.AZURE_OPENAI,
+    );
+    expect(cfg.apiKey).toBe('env-azure-key');
+    expect(cfg.azureEndpoint).toBe('https://example.openai.azure.com');
+    expect(cfg.azureDeploymentName).toBe('gpt-4o-deploy');
+    expect(cfg.azureApiVersion).toBe('2024-02-15-preview');
+    expect(cfg.model).toBe('gpt-4o-deploy');
+  });
+
+  it('should throw if Azure OpenAI env vars are missing', async () => {
+    delete process.env.AZURE_OPENAI_API_KEY;
+    delete process.env.AZURE_OPENAI_ENDPOINT;
+    delete process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
+    expect(() => createContentGeneratorConfig(
+      mockConfig,
+      AuthType.AZURE_OPENAI,
+    )).toThrow();
+  });
 });

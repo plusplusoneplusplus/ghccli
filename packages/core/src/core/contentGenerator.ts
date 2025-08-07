@@ -48,6 +48,7 @@ export enum AuthType {
   CLOUD_SHELL = 'cloud-shell',
   GITHUB_COPILOT = 'github-copilot',
   OPENAI = 'openai',
+  AZURE_OPENAI = 'azure-openai',
 }
 
 export type ContentGeneratorConfig = {
@@ -59,6 +60,10 @@ export type ContentGeneratorConfig = {
   timeout?: number;
   maxRetries?: number;
   enableOpenAILogging?: boolean;
+  // Azure OpenAI specific options
+  azureEndpoint?: string;
+  azureApiVersion?: string;
+  azureDeploymentName?: string;
   samplingParams?: {
     temperature?: number;
     max_tokens?: number;
@@ -79,12 +84,20 @@ export function createContentGeneratorConfig(
   const googleCloudProject = process.env.GOOGLE_CLOUD_PROJECT || undefined;
   const googleCloudLocation = process.env.GOOGLE_CLOUD_LOCATION || undefined;
   const openaiApiKey = process.env.OPENAI_API_KEY || undefined;
+  const azureApiKey = process.env.AZURE_OPENAI_API_KEY || undefined;
+  const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || undefined;
+  const azureDeploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || undefined;
+  const azureApiVersion = process.env.AZURE_OPENAI_API_VERSION || '2024-02-15-preview';
 
   // Use runtime model from config if available; otherwise, fall back to parameter or default
   // For OpenAI, use OPENAI_MODEL env var or default to gpt-4 if no model specified
   let effectiveModel = config.getModel() || DEFAULT_GEMINI_MODEL;
   if (authType === AuthType.OPENAI) {
     effectiveModel = config.getModel() || process.env.OPENAI_MODEL || 'gpt-4o';
+  }
+  if (authType === AuthType.AZURE_OPENAI) {
+    // For Azure, the "model" field corresponds to the deployment name used in the path
+    effectiveModel = azureDeploymentName || config.getModel() || 'azure-deployment';
   }
 
   const contentGeneratorConfig: ContentGeneratorConfig = {
@@ -113,6 +126,24 @@ export function createContentGeneratorConfig(
       throw new Error('OPENAI_API_KEY environment variable is required for OpenAI authentication');
     }
     contentGeneratorConfig.apiKey = openaiApiKey;
+    return contentGeneratorConfig;
+  }
+
+  // If we are using Azure OpenAI (API key only for now)
+  if (authType === AuthType.AZURE_OPENAI) {
+    if (!azureApiKey) {
+      throw new Error('AZURE_OPENAI_API_KEY environment variable is required for Azure OpenAI authentication');
+    }
+    if (!azureEndpoint) {
+      throw new Error('AZURE_OPENAI_ENDPOINT environment variable is required for Azure OpenAI');
+    }
+    if (!azureDeploymentName) {
+      throw new Error('AZURE_OPENAI_DEPLOYMENT_NAME environment variable is required for Azure OpenAI');
+    }
+    contentGeneratorConfig.apiKey = azureApiKey;
+    contentGeneratorConfig.azureEndpoint = azureEndpoint;
+    contentGeneratorConfig.azureDeploymentName = azureDeploymentName;
+    contentGeneratorConfig.azureApiVersion = azureApiVersion;
     return contentGeneratorConfig;
   }
 
@@ -167,6 +198,19 @@ export async function createContentGenerator(
   if (config.authType === AuthType.OPENAI) {
     const { OpenAIContentGenerator } = await import('../github-copilot/openaiContentGenerator.js');
     return new OpenAIContentGenerator(config.apiKey!, config.model, gcConfig);
+  }
+
+  if (config.authType === AuthType.AZURE_OPENAI) {
+    const { AzureOpenAIContentGenerator } = await import('../github-copilot/azureOpenAIContentGenerator.js');
+    if (!config.azureEndpoint || !config.azureApiVersion) {
+      throw new Error('Azure OpenAI configuration missing endpoint or apiVersion');
+    }
+    return new AzureOpenAIContentGenerator(
+      config.apiKey!,
+      config.azureDeploymentName || config.model,
+      gcConfig,
+      { endpoint: config.azureEndpoint, apiVersion: config.azureApiVersion },
+    );
   }
 
   if (
