@@ -12,11 +12,10 @@ import { spawn } from 'child_process';
 import { globStream } from 'glob';
 import {
   BaseDeclarativeTool,
+  BaseToolInvocation,
   Icon,
   ToolInvocation,
   ToolResult,
-  ToolLocation,
-  ToolCallConfirmationDetails,
 } from './tools.js';
 import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
@@ -56,11 +55,16 @@ interface GrepMatch {
   line: string;
 }
 
-class GrepToolInvocation implements ToolInvocation<GrepToolParams, ToolResult> {
+class GrepToolInvocation extends BaseToolInvocation<
+  GrepToolParams,
+  ToolResult
+> {
   constructor(
     private readonly config: Config,
-    public params: GrepToolParams,
-  ) {}
+    params: GrepToolParams,
+  ) {
+    super(params);
+  }
 
   /**
    * Checks if a path is within the root directory and resolves it.
@@ -101,14 +105,6 @@ class GrepToolInvocation implements ToolInvocation<GrepToolParams, ToolResult> {
     }
 
     return targetPath;
-  }
-
-  toolLocations(): ToolLocation[] {
-    return [];
-  }
-
-  shouldConfirmExecute(): Promise<ToolCallConfirmationDetails | false> {
-    return Promise.resolve(false);
   }
 
   async execute(signal: AbortSignal): Promise<ToolResult> {
@@ -620,10 +616,7 @@ export class GrepTool extends BaseDeclarativeTool<GrepToolParams, ToolResult> {
    * @returns An error message string if invalid, null otherwise
    */
   validateToolParams(params: GrepToolParams): string | null {
-    const errors = SchemaValidator.validate(
-      this.schema.parametersJsonSchema,
-      params,
-    );
+    const errors = SchemaValidator.validate(this.schema.parameters, params);
     if (errors) {
       return errors;
     }

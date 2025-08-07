@@ -10,11 +10,10 @@ import { glob } from 'glob';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import {
   BaseDeclarativeTool,
+  BaseToolInvocation,
   Icon,
   ToolInvocation,
   ToolResult,
-  ToolLocation,
-  ToolCallConfirmationDetails,
 } from './tools.js';
 import { Type } from '@google/genai';
 import { shortenPath, makeRelative } from '../utils/paths.js';
@@ -81,11 +80,16 @@ export interface GlobToolParams {
   respect_git_ignore?: boolean;
 }
 
-class GlobToolInvocation implements ToolInvocation<GlobToolParams, ToolResult> {
+class GlobToolInvocation extends BaseToolInvocation<
+  GlobToolParams,
+  ToolResult
+> {
   constructor(
     private config: Config,
-    public params: GlobToolParams,
-  ) {}
+    params: GlobToolParams,
+  ) {
+    super(params);
+  }
 
   getDescription(): string {
     let description = `'${this.params.pattern}'`;
@@ -98,14 +102,6 @@ class GlobToolInvocation implements ToolInvocation<GlobToolParams, ToolResult> {
       description += ` within ${shortenPath(relativePath)}`;
     }
     return description;
-  }
-
-  toolLocations(): ToolLocation[] {
-    return [];
-  }
-
-  shouldConfirmExecute(): Promise<ToolCallConfirmationDetails | false> {
-    return Promise.resolve(false);
   }
 
   async execute(signal: AbortSignal): Promise<ToolResult> {
