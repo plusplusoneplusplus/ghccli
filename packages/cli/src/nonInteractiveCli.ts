@@ -48,7 +48,6 @@ export async function runNonInteractive(
   let turnCount = 0;
 
   try {
-    await config.initialize();
     consolePatcher.patch();
 
     // Handle EPIPE errors when the output is piped to a command that closes early.
