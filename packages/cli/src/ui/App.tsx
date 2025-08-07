@@ -98,7 +98,6 @@ import { SettingsDialog } from './components/SettingsDialog.js';
 import { setUpdateHandler } from '../utils/handleAutoUpdate.js';
 import { appEvents, AppEvent } from '../utils/events.js';
 import { isNarrowWidth } from './utils/isNarrowWidth.js';
-
 // === GHCCLI ===
 import { ModelDialog, AgentDialog, AVAILABLE_MODELS } from './github-copilot/index.js';
 import { useModelCommand, useAgentCommand } from './github-copilot/index.js';
