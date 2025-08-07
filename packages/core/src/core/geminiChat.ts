@@ -22,6 +22,8 @@ import { retryWithBackoff } from '../utils/retry.js';
 import { isFunctionResponse } from '../utils/messageInspectors.js';
 import { ContentGenerator, AuthType } from './contentGenerator.js';
 import { Config } from '../config/config.js';
+import { logApiResponse, logApiError } from '../telemetry/loggers.js';
+import { ApiErrorEvent, ApiResponseEvent } from '../telemetry/types.js';
 import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
 import { hasCycleInSchema } from '../tools/tools.js';
 import { StructuredError } from './turn.js';
@@ -132,7 +134,46 @@ export class GeminiChat {
     private history: Content[] = [],
   ) {
     validateHistory(history);
-    this.config = config;
+  }
+
+  private async _logApiResponse(
+    durationMs: number,
+    prompt_id: string,
+    usageMetadata?: GenerateContentResponseUsageMetadata,
+    responseText?: string,
+  ): Promise<void> {
+    logApiResponse(
+      this.config,
+      new ApiResponseEvent(
+        this.config.getModel(),
+        durationMs,
+        prompt_id,
+        this.config.getContentGeneratorConfig()?.authType,
+        usageMetadata,
+        responseText,
+      ),
+    );
+  }
+
+  private _logApiError(
+    durationMs: number,
+    error: unknown,
+    prompt_id: string,
+  ): void {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorType = error instanceof Error ? error.name : 'unknown';
+
+    logApiError(
+      this.config,
+      new ApiErrorEvent(
+        this.config.getModel(),
+        errorMessage,
+        durationMs,
+        prompt_id,
+        this.config.getContentGeneratorConfig()?.authType,
+        errorType,
+      ),
+    );
   }
 
   /**
@@ -219,6 +260,7 @@ export class GeminiChat {
     const userContent = createUserContent(params.message);
     const requestContents = this.getHistory(true).concat(userContent);
 
+    const startTime = Date.now();
     let response: GenerateContentResponse;
 
     try {
@@ -327,6 +369,8 @@ export class GeminiChat {
     await this.sendPromise;
     const userContent = createUserContent(params.message);
     const requestContents = this.getHistory(true).concat(userContent);
+
+    const startTime = Date.now();
 
     try {
       const apiCall = () => {
