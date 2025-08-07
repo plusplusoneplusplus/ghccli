@@ -50,5 +50,22 @@ export const validateAuthMethod = (authMethod: string): string | null => {
     return null;
   }
 
+  // Azure OpenAI (API key)
+  if (authMethod === AuthType.AZURE_OPENAI) {
+    const hasKey = !!process.env.AZURE_OPENAI_API_KEY;
+    const hasEndpoint = !!process.env.AZURE_OPENAI_ENDPOINT;
+    const hasDeployment = !!process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
+    if (!hasKey || !hasEndpoint || !hasDeployment) {
+      return (
+        'When using Azure OpenAI, you must specify:\n' +
+        '• AZURE_OPENAI_API_KEY\n' +
+        '• AZURE_OPENAI_ENDPOINT (e.g., https://your-resource.openai.azure.com)\n' +
+        '• AZURE_OPENAI_DEPLOYMENT_NAME (deployment name)\n' +
+        'Optionally: AZURE_OPENAI_API_VERSION (defaults to 2024-02-15-preview).'
+      );
+    }
+    return null;
+  }
+
   return 'Invalid auth method selected.';
 };

@@ -68,6 +68,7 @@ export function AuthDialog({
     },
     { label: 'Vertex AI', value: AuthType.USE_VERTEX_AI },
     { label: 'GitHub Copilot', value: AuthType.GITHUB_COPILOT },
+    { label: 'Azure OpenAI', value: AuthType.AZURE_OPENAI },
   ];
 
   const initialAuthIndex = items.findIndex((item) => {

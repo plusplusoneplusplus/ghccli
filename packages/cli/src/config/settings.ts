@@ -73,6 +73,11 @@ export interface Settings {
   selectedModel?: string;
   // OpenAI logging setting
   enableOpenAILogging?: boolean;
+  // Azure OpenAI UI settings
+  azureOpenAIEndpoint?: string;
+  azureOpenAIDeploymentName?: string;
+  azureOpenAIAPIVersion?: string;
+  azureOpenAIAPIKey?: string;
   
   // === ORIGINAL GEMINI CLI SETTINGS ===
   theme?: string;
