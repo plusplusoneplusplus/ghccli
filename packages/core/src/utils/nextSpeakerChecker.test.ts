@@ -6,8 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach, Mock, afterEach } from 'vitest';
 import { Content, GoogleGenAI, Models } from '@google/genai';
-import { DEFAULT_GEMINI_FLASH_LITE_MODEL, getLightweightModel } from '../config/models.js';
-import { AuthType } from '../core/contentGenerator.js';
+import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
 import { GeminiClient } from '../core/client.js';
 import { Config } from '../config/config.js';
 import { checkNextSpeaker, NextSpeakerResponse } from './nextSpeakerChecker.js';
@@ -64,9 +63,6 @@ describe('checkNextSpeaker', () => {
     );
 
     mockGeminiClient = new GeminiClient(mockConfigInstance);
-    
-    // Add spy for getAuthType method
-    vi.spyOn(mockGeminiClient, 'getAuthType').mockReturnValue(undefined);
 
     // Reset mocks before each test to ensure test isolation
     vi.mocked(mockModelsInstance.generateContent).mockReset();
@@ -237,7 +233,7 @@ describe('checkNextSpeaker', () => {
     expect(result).toBeNull();
   });
 
-  it('should call generateJson with lightweight model for undefined auth type', async () => {
+  it('should call generateJson with Flash model', async () => {
     (chatInstance.getHistory as Mock).mockReturnValue([
       { role: 'model', parts: [{ text: 'Some model output.' }] },
     ] as Content[]);
@@ -246,72 +242,12 @@ describe('checkNextSpeaker', () => {
       next_speaker: 'user',
     };
     (mockGeminiClient.generateJson as Mock).mockResolvedValue(mockApiResponse);
-    (mockGeminiClient.getAuthType as Mock).mockReturnValue(undefined);
 
     await checkNextSpeaker(chatInstance, mockGeminiClient, abortSignal);
 
     expect(mockGeminiClient.generateJson).toHaveBeenCalled();
     const generateJsonCall = (mockGeminiClient.generateJson as Mock).mock
       .calls[0];
-    expect(generateJsonCall[3]).toBe(getLightweightModel(undefined));
-  });
-
-  it('should call generateJson with gpt-4o for OpenAI auth type', async () => {
-    (chatInstance.getHistory as Mock).mockReturnValue([
-      { role: 'model', parts: [{ text: 'Some model output.' }] },
-    ] as Content[]);
-    const mockApiResponse: NextSpeakerResponse = {
-      reasoning: 'Model made a statement, awaiting user input.',
-      next_speaker: 'user',
-    };
-    (mockGeminiClient.generateJson as Mock).mockResolvedValue(mockApiResponse);
-    (mockGeminiClient.getAuthType as Mock).mockReturnValue(AuthType.OPENAI);
-
-    await checkNextSpeaker(chatInstance, mockGeminiClient, abortSignal);
-
-    expect(mockGeminiClient.generateJson).toHaveBeenCalled();
-    const generateJsonCall = (mockGeminiClient.generateJson as Mock).mock
-      .calls[0];
-    expect(generateJsonCall[3]).toBe(getLightweightModel(AuthType.OPENAI));
-  });
-
-  it('should handle the case where LLM returns just "user" instead of JSON', async () => {
-    (chatInstance.getHistory as Mock).mockReturnValue([
-      { role: 'model', parts: [{ text: 'I need to think about this.' }] },
-    ] as Content[]);
-
-    // Mock generateJson to return a properly formatted response when the LLM
-    // just returns "user" (this simulates the fix in client.ts)
-    (mockGeminiClient.generateJson as Mock).mockResolvedValue({
-      reasoning: "Determined that 'user' should speak next.",
-      next_speaker: 'user'
-    });
-
-    const result = await checkNextSpeaker(chatInstance, mockGeminiClient, abortSignal);
-
-    expect(result).toEqual({
-      reasoning: "Determined that 'user' should speak next.",
-      next_speaker: 'user'
-    });
-  });
-
-  it('should handle the case where LLM returns just "model" instead of JSON', async () => {
-    (chatInstance.getHistory as Mock).mockReturnValue([
-      { role: 'model', parts: [{ text: 'Let me continue with the next step...' }] },
-    ] as Content[]);
-
-    // Mock generateJson to return a properly formatted response when the LLM
-    // just returns "model" (this simulates the fix in client.ts)
-    (mockGeminiClient.generateJson as Mock).mockResolvedValue({
-      reasoning: "Determined that 'model' should speak next.",
-      next_speaker: 'model'
-    });
-
-    const result = await checkNextSpeaker(chatInstance, mockGeminiClient, abortSignal);
-
-    expect(result).toEqual({
-      reasoning: "Determined that 'model' should speak next.",
-      next_speaker: 'model'
-    });
+    expect(generateJsonCall[3]).toBe(DEFAULT_GEMINI_FLASH_MODEL);
   });
 });

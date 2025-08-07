@@ -10,10 +10,6 @@ import { GeminiClient } from '../core/client.js';
 import { GeminiChat } from '../core/geminiChat.js';
 import { isFunctionResponse } from './messageInspectors.js';
 
-// === GHCCLI ===
-import { getLightweightModel } from '../config/models.js';
-// === END GHCCLI ===
-
 const CHECK_PROMPT = `Analyze *only* the content and structure of your immediately preceding response (your last turn in the conversation history). Based *strictly* on that response, determine who should logically speak next: the 'user' or the 'model' (you).
 **Decision Rules (apply in order):**
 1.  **Model Continues:** If your last response explicitly states an immediate next action *you* intend to take (e.g., "Next, I will...", "Now I'll process...", "Moving on to analyze...", indicates an intended tool call that didn't execute), OR if the response seems clearly incomplete (cut off mid-thought without a natural conclusion), then the **'model'** should speak next.
@@ -112,13 +108,11 @@ export async function checkNextSpeaker(
   ];
 
   try {
-    const authType = geminiClient.getAuthType();
-    const lightweightModel = getLightweightModel(authType);
     const parsedResponse = (await geminiClient.generateJson(
       contents,
       RESPONSE_SCHEMA,
       abortSignal,
-      lightweightModel,
+      DEFAULT_GEMINI_FLASH_MODEL,
     )) as unknown as NextSpeakerResponse;
 
     if (
