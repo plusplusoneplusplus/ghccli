@@ -87,7 +87,8 @@
     "tsx": "^4.20.3",
     "typescript-eslint": "^8.30.1",
     "vitest": "^3.2.4",
-    "yargs": "^17.7.2"
+    "yargs": "^17.7.2",
+    "mnemonist": "^0.40.3"
   },
   "dependencies": {
     "node-fetch": "^3.3.2",
