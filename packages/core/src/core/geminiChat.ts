@@ -9,21 +9,19 @@
 
 import {
   GenerateContentResponse,
+  GenerateContentResponseUsageMetadata,
   Content,
   ContentUnion,
   GenerateContentConfig,
   SendMessageParameters,
   createUserContent,
   Part,
-  GenerateContentResponseUsageMetadata,
   Tool,
 } from '@google/genai';
 import { retryWithBackoff } from '../utils/retry.js';
 import { isFunctionResponse } from '../utils/messageInspectors.js';
 import { ContentGenerator, AuthType } from './contentGenerator.js';
 import { Config } from '../config/config.js';
-import { logApiResponse, logApiError } from '../telemetry/loggers.js';
-import { ApiErrorEvent, ApiResponseEvent } from '../telemetry/types.js';
 import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
 import { hasCycleInSchema } from '../tools/tools.js';
 import { StructuredError } from './turn.js';
@@ -137,46 +135,6 @@ export class GeminiChat {
     this.config = config;
   }
 
-  private async _logApiResponse(
-    durationMs: number,
-    prompt_id: string,
-    usageMetadata?: GenerateContentResponseUsageMetadata,
-    responseText?: string,
-  ): Promise<void> {
-    logApiResponse(
-      this.config,
-      new ApiResponseEvent(
-        this.getCurrentModel(),
-        durationMs,
-        prompt_id,
-        this.config.getContentGeneratorConfig()?.authType,
-        usageMetadata,
-        responseText,
-      ),
-    );
-  }
-
-  private _logApiError(
-    durationMs: number,
-    error: unknown,
-    prompt_id: string,
-  ): void {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorType = error instanceof Error ? error.name : 'unknown';
-
-    logApiError(
-      this.config,
-      new ApiErrorEvent(
-        this.getCurrentModel(),
-        errorMessage,
-        durationMs,
-        prompt_id,
-        this.config.getContentGeneratorConfig()?.authType,
-        errorType,
-      ),
-    );
-  }
-
   /**
    * Handles falling back to Flash model when persistent 429 errors occur for OAuth users.
    * Uses a fallback handler if provided by the config; otherwise, returns null.
@@ -261,7 +219,6 @@ export class GeminiChat {
     const userContent = createUserContent(params.message);
     const requestContents = this.getHistory(true).concat(userContent);
 
-    const startTime = Date.now();
     let response: GenerateContentResponse;
 
     try {
@@ -302,13 +259,6 @@ export class GeminiChat {
           await this.handleFlashFallback(authType, error),
         authType: this.config.getContentGeneratorConfig()?.authType,
       });
-      const durationMs = Date.now() - startTime;
-      await this._logApiResponse(
-        durationMs,
-        prompt_id,
-        response.usageMetadata,
-        JSON.stringify(response),
-      );
 
       this.sendPromise = (async () => {
         const outputContent = response.candidates?.[0]?.content;
@@ -336,8 +286,6 @@ export class GeminiChat {
       });
       return response;
     } catch (error) {
-      const durationMs = Date.now() - startTime;
-      this._logApiError(durationMs, error, prompt_id);
       this.sendPromise = Promise.resolve();
       throw error;
     }
@@ -378,8 +326,6 @@ export class GeminiChat {
     await this.sendPromise;
     const userContent = createUserContent(params.message);
     const requestContents = this.getHistory(true).concat(userContent);
-
-    const startTime = Date.now();
 
     try {
       const apiCall = () => {
@@ -431,16 +377,9 @@ export class GeminiChat {
         .then(() => undefined)
         .catch(() => undefined);
 
-      const result = this.processStreamResponse(
-        streamResponse,
-        userContent,
-        startTime,
-        prompt_id,
-      );
+      const result = this.processStreamResponse(streamResponse, userContent);
       return result;
     } catch (error) {
-      const durationMs = Date.now() - startTime;
-      this._logApiError(durationMs, error, prompt_id);
       this.sendPromise = Promise.resolve();
       throw error;
     }
@@ -565,8 +504,6 @@ export class GeminiChat {
   private async *processStreamResponse(
     streamResponse: AsyncGenerator<GenerateContentResponse>,
     inputContent: Content,
-    startTime: number,
-    prompt_id: string,
   ) {
     const outputContent: Content[] = [];
     const chunks: GenerateContentResponse[] = [];
@@ -589,25 +526,16 @@ export class GeminiChat {
       }
     } catch (error) {
       errorOccurred = true;
-      const durationMs = Date.now() - startTime;
-      this._logApiError(durationMs, error, prompt_id);
       throw error;
     }
 
     if (!errorOccurred) {
-      const durationMs = Date.now() - startTime;
       const allParts: Part[] = [];
       for (const content of outputContent) {
         if (content.parts) {
           allParts.push(...content.parts);
         }
       }
-      await this._logApiResponse(
-        durationMs,
-        prompt_id,
-        this.getFinalUsageMetadata(chunks),
-        JSON.stringify(chunks),
-      );
     }
     this.recordHistory(inputContent, outputContent);
   }
