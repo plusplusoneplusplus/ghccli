@@ -446,6 +446,37 @@ describe('useSlashCommandProcessor', () => {
           vi.useRealTimers();
         }
       });
+
+      it('should call runExitCleanup when handling a "quit" action', async () => {
+        const quitAction = vi
+          .fn()
+          .mockResolvedValue({ type: 'quit', messages: [] });
+        const command = createTestCommand({
+          name: 'exit',
+          action: quitAction,
+        });
+        const result = setupProcessorHook([command]);
+
+        await waitFor(() =>
+          expect(result.current.slashCommands).toHaveLength(1),
+        );
+
+        vi.useFakeTimers();
+
+        try {
+          await act(async () => {
+            await result.current.handleSlashCommand('/exit');
+          });
+
+          await act(async () => {
+            await vi.advanceTimersByTimeAsync(200);
+          });
+
+          expect(mockRunExitCleanup).toHaveBeenCalledTimes(1);
+        } finally {
+          vi.useRealTimers();
+        }
+      });
     });
 
     it('should handle "submit_prompt" action returned from a file-based command', async () => {
