@@ -72,10 +72,7 @@ function formatFileList(openFiles: File[]): string {
     })
     .join('\n');
 
-  const infoMessage = `
-(Note: The file list is limited to a number of recently accessed files within your workspace and only includes local files on disk)`;
-
-  return `\n\nOpen files:\n${fileList}\n${infoMessage}`;
+  return `\n\nOpen files:\n${fileList}`;
 }
 
 async function getIdeStatusMessageWithFiles(ideClient: IdeClient): Promise<{
@@ -86,10 +83,15 @@ async function getIdeStatusMessageWithFiles(ideClient: IdeClient): Promise<{
   switch (connection.status) {
     case IDEConnectionStatus.Connected: {
       let content = `🟢 Connected to ${ideClient.getDetectedIdeDisplayName()}`;
-      const context = ideContext.getIdeContext();
-      const openFiles = context?.workspaceState?.openFiles;
-      if (openFiles && openFiles.length > 0) {
-        content += formatFileList(openFiles);
+      try {
+        const context = await ideContext.getIdeContext();
+        const openFiles = context?.workspaceState?.openFiles;
+
+        if (openFiles && openFiles.length > 0) {
+          content += formatFileList(openFiles);
+        }
+      } catch (_e) {
+        // Ignore
       }
       return {
         messageType: 'info',
@@ -131,8 +133,7 @@ export const ideCommand = (config: Config | null): SlashCommand | null => {
           messageType: 'error',
           content: `IDE integration is not supported in your current environment. To use this feature, run Gemini CLI in one of these supported IDEs: ${Object.values(
             DetectedIde,
-          )
-            .map((ide) => getIdeDisplayName(ide))
+          ).map((ide) => getIdeDisplayName(ide))}
             .join(', ')}`,
         }) as const,
     };
