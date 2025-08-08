@@ -26,7 +26,6 @@ import {
   ensureCorrectFileContent,
 } from '../utils/editCorrector.js';
 import { DEFAULT_DIFF_OPTIONS, getDiffStat } from './diffOptions.js';
-import { Type } from '@google/genai';
 import { ModifiableDeclarativeTool, ModifyContext } from './modifiable-tool.js';
 import { getSpecificMimeType } from '../utils/fileUtils.js';
 import {
