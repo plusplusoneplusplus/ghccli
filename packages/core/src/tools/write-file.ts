@@ -18,6 +18,7 @@ import {
   Icon,
 } from './tools.js';
 import { ToolErrorType } from './tool-error.js';
+import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import { getErrorMessage, isNodeError } from '../utils/errors.js';

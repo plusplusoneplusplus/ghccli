@@ -17,8 +17,8 @@ import {
   ToolConfirmationOutcome,
   Icon,
 } from './tools.js';
-import { Type } from '@google/genai';
 import { ToolErrorType } from './tool-error.js';
+import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { getErrorMessage } from '../utils/errors.js';
 import { summarizeToolOutput } from '../utils/summarizer.js';
@@ -391,3 +391,5 @@ export class NotUsedShellTool extends BaseTool<ShellToolParams, ToolResult> {
     }
   }
 }
+
+export { NotUsedShellTool as ShellTool };

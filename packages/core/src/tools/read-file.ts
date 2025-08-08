@@ -15,8 +15,8 @@ import {
   ToolLocation,
   ToolResult,
 } from './tools.js';
-import { PartUnion, Type } from '@google/genai';
 import { ToolErrorType } from './tool-error.js';
+import { PartUnion, Type } from '@google/genai';
 import {
   processSingleFileContent,
   getSpecificMimeType,
