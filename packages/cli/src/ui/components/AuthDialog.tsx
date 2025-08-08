@@ -12,6 +12,7 @@ import { LoadedSettings, SettingScope } from '../../config/settings.js';
 import { AuthType } from '@google/gemini-cli-core';
 import { validateAuthMethod } from '../../config/auth.js';
 import { GitHubCopilotAuthDialog } from './GitHubCopilotAuthDialog.js';
+import { AzureOpenAIAuthDialog, type AzureOpenAIValues } from './AzureOpenAIAuthDialog.js';
 
 interface AuthDialogProps {
   onSelect: (authMethod: AuthType | undefined, scope: SettingScope) => void;
@@ -37,6 +38,7 @@ export function AuthDialog({
   initialErrorMessage,
 }: AuthDialogProps): React.JSX.Element {
   const [showGitHubCopilotDialog, setShowGitHubCopilotDialog] = useState(false);
+  const [showAzureDialog, setShowAzureDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(() => {
     if (initialErrorMessage) {
       return initialErrorMessage;
@@ -95,6 +97,10 @@ export function AuthDialog({
       setShowGitHubCopilotDialog(true);
       return;
     }
+    if (authMethod === AuthType.AZURE_OPENAI) {
+      setShowAzureDialog(true);
+      return;
+    }
     
     const error = validateAuthMethod(authMethod);
     if (error) {
@@ -115,6 +121,28 @@ export function AuthDialog({
   const handleGitHubCopilotCancel = () => {
     setShowGitHubCopilotDialog(false);
   };
+  const handleAzureApply = (values: AzureOpenAIValues, scope: SettingScope) => {
+    // Persist to settings
+    settings.setValue(scope, 'azureOpenAIEndpoint', values.endpoint);
+    settings.setValue(scope, 'azureOpenAIDeploymentName', values.deployment);
+    settings.setValue(scope, 'azureOpenAIAPIVersion', values.version);
+    settings.setValue(scope, 'azureOpenAIAPIKey', values.key);
+
+    // Also set process.env so validation and core pick them up immediately
+    process.env.AZURE_OPENAI_ENDPOINT = values.endpoint;
+    process.env.AZURE_OPENAI_DEPLOYMENT_NAME = values.deployment;
+    process.env.AZURE_OPENAI_API_VERSION = values.version;
+    process.env.AZURE_OPENAI_API_KEY = values.key;
+
+    setShowAzureDialog(false);
+    setErrorMessage(null);
+    onSelect(AuthType.AZURE_OPENAI, scope);
+  };
+
+  const handleAzureCancel = () => {
+    setShowAzureDialog(false);
+  };
+
 
   const handleGitHubCopilotError = (error: string) => {
     setShowGitHubCopilotDialog(false);
@@ -152,6 +180,17 @@ export function AuthDialog({
         onSuccess={handleGitHubCopilotSuccess}
         onCancel={handleGitHubCopilotCancel}
         onError={handleGitHubCopilotError}
+      />
+    );
+  }
+
+  // Show Azure OpenAI dialog if requested
+  if (showAzureDialog) {
+    return (
+      <AzureOpenAIAuthDialog
+        onApply={handleAzureApply}
+        onCancel={handleAzureCancel}
+        settings={settings}
       />
     );
   }

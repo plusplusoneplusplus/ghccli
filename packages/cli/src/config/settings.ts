@@ -366,6 +366,22 @@ export function loadEnvironment(settings?: Settings): void {
       // Errors are ignored to match the behavior of `dotenv.config({ quiet: true })`.
     }
   }
+
+  // Map saved Azure OpenAI settings into environment variables if not already set
+  if (settings) {
+    if (settings.azureOpenAIEndpoint && !process.env.AZURE_OPENAI_ENDPOINT) {
+      process.env.AZURE_OPENAI_ENDPOINT = settings.azureOpenAIEndpoint;
+    }
+    if (settings.azureOpenAIDeploymentName && !process.env.AZURE_OPENAI_DEPLOYMENT_NAME) {
+      process.env.AZURE_OPENAI_DEPLOYMENT_NAME = settings.azureOpenAIDeploymentName;
+    }
+    if (settings.azureOpenAIAPIVersion && !process.env.AZURE_OPENAI_API_VERSION) {
+      process.env.AZURE_OPENAI_API_VERSION = settings.azureOpenAIAPIVersion;
+    }
+    if (settings.azureOpenAIAPIKey && !process.env.AZURE_OPENAI_API_KEY) {
+      process.env.AZURE_OPENAI_API_KEY = settings.azureOpenAIAPIKey;
+    }
+  }
 }
 
 /**
