@@ -547,8 +547,8 @@ export async function loadCliConfig(
     // === END GHCCLI ===
     chatCompression: settings.chatCompression,
     folderTrustFeature,
-    interactive,
     folderTrust,
+    interactive,
   });
 }
 
