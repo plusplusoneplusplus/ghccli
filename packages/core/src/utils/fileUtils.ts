@@ -200,10 +200,18 @@ export async function detectFileType(
   return 'text';
 }
 
+export enum FileErrorType {
+  FILE_NOT_FOUND = 'FILE_NOT_FOUND',
+  IS_DIRECTORY = 'IS_DIRECTORY',
+  FILE_TOO_LARGE = 'FILE_TOO_LARGE',
+  READ_ERROR = 'READ_ERROR',
+}
+
 export interface ProcessedFileReadResult {
   llmContent: PartUnion; // string for text, Part for image/pdf/unreadable binary
   returnDisplay: string;
   error?: string; // Optional error message for the LLM if file processing failed
+  errorType?: FileErrorType; // Structured error type using enum
   isTruncated?: boolean; // For text files, indicates if content was truncated
   originalLineCount?: number; // For text files
   linesShown?: [number, number]; // For text files [startLine, endLine] (1-based for display)
@@ -230,6 +238,7 @@ export async function processSingleFileContent(
         llmContent: '',
         returnDisplay: 'File not found.',
         error: `File not found: ${filePath}`,
+        errorType: FileErrorType.FILE_NOT_FOUND,
       };
     }
     const stats = await fs.promises.stat(filePath);
@@ -238,6 +247,7 @@ export async function processSingleFileContent(
         llmContent: '',
         returnDisplay: 'Path is a directory.',
         error: `Path is a directory, not a file: ${filePath}`,
+        errorType: FileErrorType.IS_DIRECTORY,
       };
     }
 
