@@ -353,6 +353,9 @@ export class IdeClient {
 
 function getIdeServerHost() {
   const isInContainer =
-    fs.existsSync('/.dockerenv') || fs.existsSync('/run/.containerenv');
+    fs.existsSync('/.dockerenv') ||
+    fs.existsSync('/run/.containerenv') ||
+    !!process.env.SANDBOX ||
+    !!process.env.container;
   return isInContainer ? 'host.docker.internal' : 'localhost';
 }
