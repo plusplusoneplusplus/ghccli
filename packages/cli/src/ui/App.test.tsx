@@ -1102,6 +1102,7 @@ describe('App UI', () => {
       expect(lastFrame()).toMatchSnapshot();
     });
   });
+
   describe('FolderTrustDialog', () => {
     it('should display the folder trust dialog when isFolderTrustDialogOpen is true', async () => {
       const { useFolderTrust } = await import('./hooks/useFolderTrust.js');
