@@ -11,8 +11,11 @@ import {
   summarizeToolOutput,
   llmSummarizer,
   defaultSummarizer,
+  summarizeToolOutputWithSelector,
+  createLlmSummarizerWithSelector,
 } from './summarizer.js';
 import { ToolResult } from '../tools/tools.js';
+import { TaskClientSelector, LlmTask } from '../github-copilot/index.js';
 
 // Mock GeminiClient and Config constructor
 vi.mock('../core/client.js');
@@ -184,6 +187,59 @@ Return the summary string which should first contain an overall summarization of
         .calls[0];
       const contents = calledWith[0];
       expect(contents[0].parts[0].text).toContain(`"${longText}"`);
+      expect(result).toBe(summary);
+    });
+  });
+
+  describe('TaskClientSelector integration', () => {
+    it('uses selector client/model overrides for lightweight summary', async () => {
+      const longText = 'This is a very long text.'.repeat(200);
+      const summary = 'This is a summary.';
+      (mockGeminiClient.generateContent as Mock).mockResolvedValue({
+        candidates: [{ content: { parts: [{ text: summary }] } }],
+      });
+
+      const selector = {
+        getClientFor: vi.fn().mockReturnValue(mockGeminiClient),
+        getModelFor: vi.fn().mockReturnValue('override-model'),
+      } as unknown as TaskClientSelector;
+
+      const result = await summarizeToolOutputWithSelector(
+        longText,
+        selector,
+        abortSignal,
+        2000,
+      );
+
+      expect(selector.getClientFor).toHaveBeenCalledWith(LlmTask.LIGHTWEIGHT_SUMMARY);
+      expect(selector.getModelFor).toHaveBeenCalledWith(
+        LlmTask.LIGHTWEIGHT_SUMMARY,
+        expect.any(Function),
+      );
+      const calledWith = (mockGeminiClient.generateContent as Mock).mock.calls[0];
+      expect(calledWith[3]).toBe('override-model');
+      expect(result).toBe(summary);
+    });
+
+    it('factory returns a Summarizer using selector', async () => {
+      const toolResult: ToolResult = {
+        llmContent: 'This is a very long text.'.repeat(200),
+        returnDisplay: '',
+      };
+      const summary = 'This is a summary.';
+      (mockGeminiClient.generateContent as Mock).mockResolvedValue({
+        candidates: [{ content: { parts: [{ text: summary }] } }],
+      });
+
+      const selector = {
+        getClientFor: vi.fn().mockReturnValue(mockGeminiClient),
+        getModelFor: vi.fn().mockReturnValue('override-model'),
+      } as unknown as TaskClientSelector;
+
+      const summarizer = createLlmSummarizerWithSelector(selector);
+      const result = await summarizer(toolResult, mockGeminiClient, abortSignal);
+
+      expect(selector.getClientFor).toHaveBeenCalledWith(LlmTask.LIGHTWEIGHT_SUMMARY);
       expect(result).toBe(summary);
     });
   });

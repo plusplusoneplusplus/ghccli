@@ -13,6 +13,7 @@ import {
 import { GeminiClient } from '../core/client.js';
 import { getLightweightModel } from '../config/models.js';
 import { getResponseText, partToString } from './partUtils.js';
+import { TaskClientSelector, LlmTask } from '../github-copilot/index.js';
 
 /**
  * A function that summarizes the result of a tool execution.
@@ -60,6 +61,62 @@ export const llmSummarizer: Summarizer = (result, geminiClient, abortSignal) =>
     geminiClient,
     abortSignal,
   );
+
+/**
+ * Summarize tool output using TaskClientSelector to resolve the client and model
+ * for the lightweight summary task. Falls back to default lightweight model
+ * when no override is provided.
+ */
+export async function summarizeToolOutputWithSelector(
+  textToSummarize: string,
+  selector: TaskClientSelector,
+  abortSignal: AbortSignal,
+  maxOutputTokens: number = 2000,
+): Promise<string> {
+  if (!textToSummarize || textToSummarize.length < maxOutputTokens) {
+    return textToSummarize;
+  }
+  const prompt = SUMMARIZE_TOOL_OUTPUT_PROMPT.replace(
+    '{maxOutputTokens}',
+    String(maxOutputTokens),
+  ).replace('{textToSummarize}', textToSummarize);
+
+  const contents: Content[] = [{ role: 'user', parts: [{ text: prompt }] }];
+  const toolOutputSummarizerConfig: GenerateContentConfig = {
+    maxOutputTokens,
+  };
+  try {
+    const client = selector.getClientFor(LlmTask.LIGHTWEIGHT_SUMMARY);
+    const model = selector.getModelFor(LlmTask.LIGHTWEIGHT_SUMMARY, () =>
+      getLightweightModel(client.getAuthType()),
+    );
+    const parsedResponse = (await client.generateContent(
+      contents,
+      toolOutputSummarizerConfig,
+      abortSignal,
+      model,
+    )) as unknown as GenerateContentResponse;
+    return getResponseText(parsedResponse) || textToSummarize;
+  } catch (error) {
+    console.error('Failed to summarize tool output.', error);
+    return textToSummarize;
+  }
+}
+
+/**
+ * Factory that returns a Summarizer wired to TaskClientSelector.
+ * Keeps Summarizer type the same for compatibility with existing call sites.
+ */
+export function createLlmSummarizerWithSelector(
+  selector: TaskClientSelector,
+): Summarizer {
+  return (result, _geminiClient, abortSignal) =>
+    summarizeToolOutputWithSelector(
+      partToString(result.llmContent),
+      selector,
+      abortSignal,
+    );
+}
 
 export async function summarizeToolOutput(
   textToSummarize: string,
