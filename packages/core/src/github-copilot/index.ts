@@ -5,5 +5,14 @@
  */
 
 export type { LlmClient } from './LlmClient.js';
+export {
+  ClientRegistry,
+} from './ClientRegistry.js';
+export type {
+  ClientProviderId,
+  ClientProfile,
+  ClientProfileKey,
+  ClientRegistryOptions,
+} from './ClientRegistry.js';
 
 
