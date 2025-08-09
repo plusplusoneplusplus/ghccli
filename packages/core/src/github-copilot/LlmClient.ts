@@ -10,7 +10,7 @@ import {
   GenerateContentResponse,
   SchemaUnion,
 } from '@google/genai';
-import { AuthType } from './contentGenerator.js';
+import type { AuthType } from '../core/contentGenerator.js';
 
 /**
  * Provider-agnostic client surface used by lightweight helpers and call sites
@@ -35,5 +35,3 @@ export interface LlmClient {
     config?: GenerateContentConfig,
   ): Promise<Record<string, unknown>>;
 }
-
-

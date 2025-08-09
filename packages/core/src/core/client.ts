@@ -50,7 +50,7 @@ import {
 } from '../telemetry/types.js';
 import { ClearcutLogger } from '../telemetry/clearcut-logger/clearcut-logger.js';
 import { createLogger } from '../utils/logging.js';
-import { LlmClient } from './LlmClient.js';
+import type { LlmClient } from '../github-copilot/index.js';
 
 const logger = createLogger('GeminiClient');
 
