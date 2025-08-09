@@ -50,6 +50,7 @@ import {
 } from '../telemetry/types.js';
 import { ClearcutLogger } from '../telemetry/clearcut-logger/clearcut-logger.js';
 import { createLogger } from '../utils/logging.js';
+import { LlmClient } from './LlmClient.js';
 
 const logger = createLogger('GeminiClient');
 
@@ -91,7 +92,7 @@ export function findIndexAfterFraction(
   return contentLengths.length;
 }
 
-export class GeminiClient {
+export class GeminiClient implements LlmClient {
   private chat?: GeminiChat;
   private contentGenerator?: ContentGenerator;
   private embeddingModel: string;
@@ -148,6 +149,10 @@ export class GeminiClient {
 
   getAuthType(): AuthType | undefined {
     return this.config.getContentGeneratorConfig()?.authType;
+  }
+
+  getModel(): string | undefined {
+    return this.config.getModel();
   }
 
   async addHistory(content: Content) {
