@@ -10,7 +10,8 @@ import { DEFAULT_GEMINI_FLASH_LITE_MODEL, getLightweightModel } from '../config/
 import { AuthType } from '../core/contentGenerator.js';
 import { GeminiClient } from '../core/client.js';
 import { Config } from '../config/config.js';
-import { checkNextSpeaker, NextSpeakerResponse } from './nextSpeakerChecker.js';
+import { checkNextSpeaker, NextSpeakerResponse, checkNextSpeakerWithSelector } from './nextSpeakerChecker.js';
+import { TaskClientSelector, LlmTask } from '../github-copilot/index.js';
 import { GeminiChat } from '../core/geminiChat.js';
 
 // Mock GeminiClient and Config constructor
@@ -313,5 +314,33 @@ describe('checkNextSpeaker', () => {
       reasoning: "Determined that 'model' should speak next.",
       next_speaker: 'model'
     });
+  });
+
+  it('should use TaskClientSelector overrides when provided', async () => {
+    (chatInstance.getHistory as Mock).mockReturnValue([
+      { role: 'model', parts: [{ text: 'Some model output.' }] },
+    ] as Content[]);
+
+    const mockApiResponse: NextSpeakerResponse = {
+      reasoning: 'Override path',
+      next_speaker: 'user',
+    };
+    (mockGeminiClient.generateJson as Mock).mockResolvedValue(mockApiResponse);
+
+    const selector = {
+      getClientFor: vi.fn().mockReturnValue(mockGeminiClient),
+      getModelFor: vi.fn().mockReturnValue('override-model'),
+    } as unknown as TaskClientSelector;
+
+    const result = await checkNextSpeakerWithSelector(
+      chatInstance,
+      selector,
+      abortSignal,
+    );
+
+    expect(selector.getClientFor).toHaveBeenCalledWith(LlmTask.NEXT_SPEAKER);
+    const generateJsonCall = (mockGeminiClient.generateJson as Mock).mock.calls[0];
+    expect(generateJsonCall[3]).toBe('override-model');
+    expect(result).toEqual(mockApiResponse);
   });
 });

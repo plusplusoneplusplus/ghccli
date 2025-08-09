@@ -9,6 +9,7 @@ import { getLightweightModel } from '../config/models.js';
 import { GeminiClient } from '../core/client.js';
 import { GeminiChat } from '../core/geminiChat.js';
 import { isFunctionResponse } from './messageInspectors.js';
+import { TaskClientSelector, LlmTask } from '../github-copilot/index.js';
 
 const CHECK_PROMPT = `Analyze *only* the content and structure of your immediately preceding response (your last turn in the conversation history). Based *strictly* on that response, determine who should logically speak next: the 'user' or the 'model' (you).
 **Decision Rules (apply in order):**
@@ -115,6 +116,81 @@ export async function checkNextSpeaker(
       RESPONSE_SCHEMA,
       abortSignal,
       lightweightModel,
+    )) as unknown as NextSpeakerResponse;
+
+    if (
+      parsedResponse &&
+      parsedResponse.next_speaker &&
+      ['user', 'model'].includes(parsedResponse.next_speaker)
+    ) {
+      return parsedResponse;
+    }
+    return null;
+  } catch (error) {
+    console.warn(
+      'Failed to talk to Gemini endpoint when seeing if conversation should continue.',
+      error,
+    );
+    return null;
+  }
+}
+
+/**
+ * Variant of next-speaker check that routes through TaskClientSelector for
+ * client selection and per-task lightweight model resolution.
+ */
+export async function checkNextSpeakerWithSelector(
+  chat: GeminiChat,
+  selector: TaskClientSelector,
+  abortSignal: AbortSignal,
+): Promise<NextSpeakerResponse | null> {
+  const curatedHistory = chat.getHistory(/* curated */ true);
+  if (curatedHistory.length === 0) return null;
+
+  const comprehensiveHistory = chat.getHistory();
+  if (comprehensiveHistory.length === 0) return null;
+  const lastComprehensiveMessage = comprehensiveHistory[comprehensiveHistory.length - 1];
+
+  if (lastComprehensiveMessage && isFunctionResponse(lastComprehensiveMessage)) {
+    return {
+      reasoning:
+        'The last message was a function response, so the model should speak next.',
+      next_speaker: 'model',
+    };
+  }
+
+  if (
+    lastComprehensiveMessage &&
+    lastComprehensiveMessage.role === 'model' &&
+    lastComprehensiveMessage.parts &&
+    lastComprehensiveMessage.parts.length === 0
+  ) {
+    lastComprehensiveMessage.parts.push({ text: '' });
+    return {
+      reasoning:
+        'The last message was a filler model message with no content (nothing for user to act on), model should speak next.',
+      next_speaker: 'model',
+    };
+  }
+
+  const lastMessage = curatedHistory[curatedHistory.length - 1];
+  if (!lastMessage || lastMessage.role !== 'model') return null;
+
+  const contents: Content[] = [
+    ...curatedHistory,
+    { role: 'user', parts: [{ text: CHECK_PROMPT }] },
+  ];
+
+  try {
+    const client = selector.getClientFor(LlmTask.NEXT_SPEAKER);
+    const model = selector.getModelFor(LlmTask.NEXT_SPEAKER, () =>
+      getLightweightModel(client.getAuthType()),
+    );
+    const parsedResponse = (await client.generateJson(
+      contents,
+      RESPONSE_SCHEMA,
+      abortSignal,
+      model,
     )) as unknown as NextSpeakerResponse;
 
     if (
