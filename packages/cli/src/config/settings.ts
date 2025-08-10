@@ -9,18 +9,36 @@ import * as path from 'path';
 import { homedir, platform } from 'os';
 import * as dotenv from 'dotenv';
 import {
-  MCPServerConfig,
   GEMINI_CONFIG_DIR as GEMINI_DIR,
   getErrorMessage,
-  BugCommandSettings,
-  ChatCompressionSettings,
-  TelemetrySettings,
-  AuthType,
 } from '@google/gemini-cli-core';
 import stripJsonComments from 'strip-json-comments';
 import { DefaultLight } from '../ui/themes/default-light.js';
 import { DefaultDark } from '../ui/themes/default.js';
-import { CustomTheme } from '../ui/themes/theme.js';
+import { Settings as BaseSettings, MemoryImportFormat } from './settingsSchema.js';
+
+// GHCCLI Extensions to the Settings interface
+// These custom settings are specific to the GHCCLI fork and not part of upstream
+export interface GHCCLISettings {
+  // === CUSTOM WORKFLOW & AGENT SETTINGS (GHCCLI Extensions) ===
+  selectedAgent?: string;
+  // Approval mode setting for automatic confirmation of tool calls
+  approvalMode?: 'default' | 'autoEdit' | 'yolo';
+  // The selected model for the agent
+  selectedModel?: string;
+  // OpenAI logging setting
+  enableOpenAILogging?: boolean;
+  // Azure OpenAI UI settings
+  azureOpenAIEndpoint?: string;
+  azureOpenAIDeploymentName?: string;
+  azureOpenAIAPIVersion?: string;
+  azureOpenAIAPIKey?: string;
+}
+
+// Extended Settings type that includes both schema-generated settings and GHCCLI extensions
+export type Settings = BaseSettings & GHCCLISettings;
+
+export type { MemoryImportFormat };
 
 export const SETTINGS_DIRECTORY_NAME = '.ghccli';
 export const USER_SETTINGS_DIR = path.join(homedir(), SETTINGS_DIRECTORY_NAME);
@@ -44,7 +62,7 @@ export function getWorkspaceSettingsPath(workspaceDir: string): string {
   return path.join(workspaceDir, SETTINGS_DIRECTORY_NAME, 'settings.json');
 }
 
-export type DnsResolutionOrder = 'ipv4first' | 'verbatim';
+export type { DnsResolutionOrder } from './settingsSchema.js';
 
 export enum SettingScope {
   User = 'User',
@@ -62,102 +80,6 @@ export interface SummarizeToolOutputSettings {
 
 export interface AccessibilitySettings {
   disableLoadingPhrases?: boolean;
-}
-
-export interface Settings {
-  // === CUSTOM WORKFLOW & AGENT SETTINGS (GHCCLI Extensions) ===
-  // Keep these at the top to minimize merge conflicts with upstream changes
-  selectedAgent?: string;
-  // Approval mode setting for automatic confirmation of tool calls
-  approvalMode?: 'default' | 'autoEdit' | 'yolo';
-  // The selected model for the agent
-  selectedModel?: string;
-  // OpenAI logging setting
-  enableOpenAILogging?: boolean;
-  // Azure OpenAI UI settings
-  azureOpenAIEndpoint?: string;
-  azureOpenAIDeploymentName?: string;
-  azureOpenAIAPIVersion?: string;
-  azureOpenAIAPIKey?: string;
-  
-  // === ORIGINAL GEMINI CLI SETTINGS ===
-  theme?: string;
-  customThemes?: Record<string, CustomTheme>;
-  selectedAuthType?: AuthType;
-  useExternalAuth?: boolean;
-  sandbox?: boolean | string;
-  coreTools?: string[];
-  excludeTools?: string[];
-  toolDiscoveryCommand?: string;
-  toolCallCommand?: string;
-  mcpServerCommand?: string;
-  mcpServers?: Record<string, MCPServerConfig>;
-  allowMCPServers?: string[];
-  excludeMCPServers?: string[];
-  showMemoryUsage?: boolean;
-  contextFileName?: string | string[];
-  accessibility?: AccessibilitySettings;
-  telemetry?: TelemetrySettings;
-  usageStatisticsEnabled?: boolean;
-  preferredEditor?: string;
-  bugCommand?: BugCommandSettings;
-  checkpointing?: CheckpointingSettings;
-  autoConfigureMaxOldSpaceSize?: boolean;
-  /** The model name to use (e.g 'gemini-9.0-pro') */
-  model?: string;
-
-  // Git-aware file filtering settings
-  fileFiltering?: {
-    respectGitIgnore?: boolean;
-    respectGeminiIgnore?: boolean;
-    enableRecursiveFileSearch?: boolean;
-  };
-
-  hideWindowTitle?: boolean;
-
-  hideTips?: boolean;
-  hideBanner?: boolean;
-
-  // Setting for setting maximum number of user/model/tool turns in a session.
-  maxSessionTurns?: number;
-
-  // A map of tool names to their summarization settings.
-  summarizeToolOutput?: Record<string, SummarizeToolOutputSettings>;
-
-  vimMode?: boolean;
-  memoryImportFormat?: 'tree' | 'flat';
-
-  // Flag to be removed post-launch.
-  ideModeFeature?: boolean;
-  /// IDE mode setting configured via slash command toggle.
-  ideMode?: boolean;
-
-  // Flag to be removed post-launch.
-  folderTrustFeature?: boolean;
-  // Setting to track whether Folder trust is enabled.
-  folderTrust?: boolean;
-
-  // Setting to track if the user has seen the IDE integration nudge.
-  hasSeenIdeIntegrationNudge?: boolean;
-
-  // Setting for disabling auto-update.
-  disableAutoUpdate?: boolean;
-
-  // Setting for disabling the update nag message.
-  disableUpdateNag?: boolean;
-
-  memoryDiscoveryMaxDirs?: number;
-
-  // Environment variables to exclude from project .env files
-  excludedProjectEnvVars?: string[];
-  dnsResolutionOrder?: DnsResolutionOrder;
-
-  includeDirectories?: string[];
-
-  loadMemoryFromIncludeDirectories?: boolean;
-
-  chatCompression?: ChatCompressionSettings;
-  showLineNumbers?: boolean;
 }
 
 export interface SettingsError {
