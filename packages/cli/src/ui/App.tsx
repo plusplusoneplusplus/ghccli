@@ -253,6 +253,9 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     handleThemeHighlight,
   } = useThemeCommand(settings, setThemeError, addItem);
 
+  const { isSettingsDialogOpen, openSettingsDialog, closeSettingsDialog } =
+    useSettingsCommand();
+
   const { isFolderTrustDialogOpen, handleFolderTrustSelect } =
     useFolderTrust(settings);
 
@@ -306,12 +309,6 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     handleAgentSelect,
     availableAgents,
   } = useAgentCommand(config, settings, addItem);
-
-  const {
-    isSettingsDialogOpen,
-    openSettingsDialog,
-    closeSettingsDialog,
-  } = useSettingsCommand();
 
   const toggleCorgiMode = useCallback(() => {
     setCorgiMode((prev) => !prev);
