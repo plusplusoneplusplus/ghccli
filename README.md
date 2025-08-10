@@ -57,7 +57,49 @@ You have multiple options to install GHCCLI.
    brew install ghccli
    ```
 
-   Then, run the CLI from anywhere:
+#### System Requirements
+
+- Node.js version 20 or higher
+- macOS, Linux, or Windows
+
+## 📋 Key Features
+
+With Gemini CLI you can:
+
+- **Code Understanding & Generation**
+  - Query and edit large codebases
+  - Generate new apps from PDFs, images, or sketches using multimodal capabilities
+  - Debug issues and troubleshoot with natural language
+- **Automation & Integration**
+  - Automate operational tasks like querying pull requests or handling complex rebases
+  - Use MCP servers to connect new capabilities, including [media generation with Imagen, Veo or Lyria](https://github.com/GoogleCloudPlatform/vertex-ai-creative-studio/tree/main/experiments/mcp-genmedia)
+  - Run non-interactively in scripts for workflow automation
+- **Advanced Capabilities**
+  - Ground your queries with built-in [Google Search](https://ai.google.dev/gemini-api/docs/grounding) for real-time information
+  - Conversation checkpointing to save and resume complex sessions
+  - Custom context files (GEMINI.md) to tailor behavior for your projects
+
+- **🔗 GitHub Integration**
+  - Use the Gemini CLI GitHub Action for automated PR reviews
+  - Automated issue triage and on-demand AI assistance directly in your repositories
+  - Seamless integration with your GitHub workflows
+
+## 🔐 Authentication Options
+
+Choose the authentication method that best fits your needs:
+
+### Option 1: OAuth login (Using your Google Account)
+
+**✨ Best for:** Individual developers as well as anyone who has a Gemini Code Assist License. (see [quota limits and terms of service](https://cloud.google.com/gemini/docs/quotas) for details)
+
+**Benefits:**
+
+- **Free tier**: 60 requests/min and 1,000 requests/day
+- **Gemini 2.5 Pro** with 1M token context window
+- **No API key management** - just sign in with your Google account
+- **Automatic updates** to latest models
+
+#### Start Gemini CLI, then choose OAuth and follow the browser authentication flow when prompted
 
    ```bash
    ghccli
@@ -85,18 +127,21 @@ The Gemini API provides a free tier with [100 requests per day](https://ai.googl
 1. Generate a key from [Google AI Studio](https://aistudio.google.com/apikey).
 2. Set it as an environment variable in your terminal. Replace `YOUR_API_KEY` with your generated key.
 
-   ```bash
-   export GEMINI_API_KEY="YOUR_API_KEY"
-   ```
+```bash
+# Get your key from https://aistudio.google.com/apikey
+export GEMINI_API_KEY="YOUR_API_KEY"
+gemini
+```
 
-3. (Optionally) Upgrade your Gemini API project to a paid plan on the API key page (will automatically unlock [Tier 1 rate limits](https://ai.google.dev/gemini-api/docs/rate-limits#tier-1))
+### Option 3: Vertex AI
 
-### Use a Vertex AI API key:
+**✨ Best for:** Enterprise teams and production workloads
 
-The Vertex AI API provides a [free tier](https://cloud.google.com/vertex-ai/generative-ai/docs/start/express-mode/overview) using express mode for Gemini 2.5 Pro, control over which model you use, and access to higher rate limits with a billing account:
+**Benefits:**
 
-1. Generate a key from [Google Cloud](https://cloud.google.com/vertex-ai/generative-ai/docs/start/api-keys).
-2. Set it as an environment variable in your terminal. Replace `YOUR_API_KEY` with your generated key and set GOOGLE_GENAI_USE_VERTEXAI to true
+- **Enterprise features**: Advanced security and compliance
+- **Scalable**: Higher rate limits with billing account
+- **Integration**: Works with existing Google Cloud infrastructure
 
    ```bash
    export GOOGLE_API_KEY="YOUR_API_KEY"
@@ -157,23 +202,9 @@ git clone https://github.com/plusplusoneplusplus/ghccli
 cd ghccli
 ghccli
 > Give me a summary of all of the changes that went in yesterday
-```
+````
 
-### Next steps
-
-- Learn how to [contribute to or build from the source](./CONTRIBUTING.md).
-- Explore the available **[CLI Commands](./docs/cli/commands.md)**.
-- If you encounter any issues, review the **[troubleshooting guide](./docs/troubleshooting.md)**.
-- For more comprehensive documentation, see the [full documentation](./docs/index.md).
-- Take a look at some [popular tasks](#popular-tasks) for more inspiration.
-- Check out our **[Official Roadmap](./ROADMAP.md)**
-
-### Troubleshooting
-
-Head over to the [troubleshooting guide](docs/troubleshooting.md) if you're
-having issues.
-
-## GitHub Integration
+## 🔗 GitHub Integration
 
 Integrate Gemini CLI directly into your GitHub workflows with the [**Gemini CLI GitHub Action**](https://github.com/google-github-actions/run-gemini-cli). Key features include:
 
@@ -227,44 +258,42 @@ Start by `cd`ing into an existing or newly-cloned repository and running `ghccli
 ### Work with your existing code
 
 ```text
-> Implement a first draft for GitHub issue #123.
+> @github List my open pull requests
+> @slack Send a summary of today's commits to #dev channel
+> @database Run a query to find inactive users
 ```
 
-```text
-> Help me migrate this codebase to the latest version of Java. Start with a plan.
-```
+See the [MCP Server Integration guide](./docs/tools/mcp-server.md) for setup instructions.
 
-### Automate your workflows
+## 🤝 Contributing
 
-Use MCP servers to integrate your local system tools with your enterprise collaboration suite.
+We welcome contributions! Gemini CLI is fully open source (Apache 2.0), and we encourage the community to:
 
-```text
-> Make me a slide deck showing the git history from the last 7 days, grouped by feature and team member.
-```
+- Report bugs and suggest features
+- Improve documentation
+- Submit code improvements
+- Share your MCP servers and extensions
 
-```text
-> Make a full-screen web app for a wall display to show our most interacted-with GitHub issues.
-```
+See our [Contributing Guide](./CONTRIBUTING.md) for development setup, coding standards, and how to submit pull requests.
 
-### Interact with your system
+Check our [Official Roadmap](https://github.com/orgs/google-gemini/projects/11/) for planned features and priorities.
 
-```text
-> Convert all the images in this directory to png, and rename them to use dates from the exif data.
-```
+## 📖 Resources
 
-```text
-> Organize my PDF invoices by month of expenditure.
-```
+- **[Official Roadmap](./ROADMAP.md)** - See what's coming next
+- **[NPM Package](https://www.npmjs.com/package/@google/gemini-cli)** - Package registry
+- **[GitHub Issues](https://github.com/google-gemini/gemini-cli/issues)** - Report bugs or request features
+- **[Security Advisories](https://github.com/google-gemini/gemini-cli/security/advisories)** - Security updates
 
 ### Uninstall
 
-Head over to the [Uninstall](docs/Uninstall.md) guide for uninstallation instructions.
+See the [Uninstall Guide](docs/Uninstall.md) for removal instructions.
 
-## Terms of Service and Privacy Notice
+## 📄 Legal
 
 For details on the terms of service and privacy notice applicable to your use of GHCCLI, see the [Terms of Service and Privacy Notice](./docs/tos-privacy.md).
 
-## Security Disclosures
+---
 
 Please see our [security disclosure process](SECURITY.md). All [security advisories](https://github.com/plusplusoneplusplus/ghccli/security/advisories) are managed on Github.
 
