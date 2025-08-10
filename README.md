@@ -132,13 +132,24 @@ The Gemini API provides a free tier with [100 requests per day](https://ai.googl
 export GEMINI_API_KEY="YOUR_API_KEY"
 gemini
 ```
+```bash
+# Get your key from https://aistudio.google.com/apikey
+export GEMINI_API_KEY="YOUR_API_KEY"
+gemini
+```
 
+### Option 3: Vertex AI
 ### Option 3: Vertex AI
 
 **✨ Best for:** Enterprise teams and production workloads
+**✨ Best for:** Enterprise teams and production workloads
 
 **Benefits:**
+**Benefits:**
 
+- **Enterprise features**: Advanced security and compliance
+- **Scalable**: Higher rate limits with billing account
+- **Integration**: Works with existing Google Cloud infrastructure
 - **Enterprise features**: Advanced security and compliance
 - **Scalable**: Higher rate limits with billing account
 - **Integration**: Works with existing Google Cloud infrastructure
@@ -203,7 +214,9 @@ cd ghccli
 ghccli
 > Give me a summary of all of the changes that went in yesterday
 ````
+````
 
+## 🔗 GitHub Integration
 ## 🔗 GitHub Integration
 
 Integrate Gemini CLI directly into your GitHub workflows with the [**Gemini CLI GitHub Action**](https://github.com/google-github-actions/run-gemini-cli). Key features include:
@@ -284,15 +297,44 @@ Check our [Official Roadmap](https://github.com/orgs/google-gemini/projects/11/)
 - **[NPM Package](https://www.npmjs.com/package/@google/gemini-cli)** - Package registry
 - **[GitHub Issues](https://github.com/google-gemini/gemini-cli/issues)** - Report bugs or request features
 - **[Security Advisories](https://github.com/google-gemini/gemini-cli/security/advisories)** - Security updates
+> @github List my open pull requests
+> @slack Send a summary of today's commits to #dev channel
+> @database Run a query to find inactive users
+```
+
+See the [MCP Server Integration guide](./docs/tools/mcp-server.md) for setup instructions.
+
+## 🤝 Contributing
+
+We welcome contributions! Gemini CLI is fully open source (Apache 2.0), and we encourage the community to:
+
+- Report bugs and suggest features
+- Improve documentation
+- Submit code improvements
+- Share your MCP servers and extensions
+
+See our [Contributing Guide](./CONTRIBUTING.md) for development setup, coding standards, and how to submit pull requests.
+
+Check our [Official Roadmap](https://github.com/orgs/google-gemini/projects/11/) for planned features and priorities.
+
+## 📖 Resources
+
+- **[Official Roadmap](./ROADMAP.md)** - See what's coming next
+- **[NPM Package](https://www.npmjs.com/package/@google/gemini-cli)** - Package registry
+- **[GitHub Issues](https://github.com/google-gemini/gemini-cli/issues)** - Report bugs or request features
+- **[Security Advisories](https://github.com/google-gemini/gemini-cli/security/advisories)** - Security updates
 
 ### Uninstall
 
 See the [Uninstall Guide](docs/Uninstall.md) for removal instructions.
+See the [Uninstall Guide](docs/Uninstall.md) for removal instructions.
 
+## 📄 Legal
 ## 📄 Legal
 
 For details on the terms of service and privacy notice applicable to your use of GHCCLI, see the [Terms of Service and Privacy Notice](./docs/tos-privacy.md).
 
+---
 ---
 
 Please see our [security disclosure process](SECURITY.md). All [security advisories](https://github.com/plusplusoneplusplus/ghccli/security/advisories) are managed on Github.
