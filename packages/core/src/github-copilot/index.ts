@@ -14,6 +14,12 @@ export type {
   ClientProfileKey,
   ClientRegistryOptions,
 } from './ClientRegistry.js';
-export { TaskClientSelector, LlmTask } from './TaskClientSelector.js';
+export {
+  TaskClientSelector,
+  LlmTask,
+  setGlobalTaskClientSelector,
+  getGlobalTaskClientSelector,
+  hasGlobalTaskClientSelector,
+} from './TaskClientSelector.js';
 
 

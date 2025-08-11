@@ -70,4 +70,22 @@ export class TaskClientSelector {
   }
 }
 
+// Global/shared selector support (optional)
+let GLOBAL_TASK_CLIENT_SELECTOR: TaskClientSelector | undefined;
+
+export function setGlobalTaskClientSelector(selector: TaskClientSelector): void {
+  GLOBAL_TASK_CLIENT_SELECTOR = selector;
+}
+
+export function getGlobalTaskClientSelector(): TaskClientSelector {
+  if (!GLOBAL_TASK_CLIENT_SELECTOR) {
+    throw new Error('Global TaskClientSelector has not been set');
+  }
+  return GLOBAL_TASK_CLIENT_SELECTOR;
+}
+
+export function hasGlobalTaskClientSelector(): boolean {
+  return !!GLOBAL_TASK_CLIENT_SELECTOR;
+}
+
 
