@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { FunctionDeclaration, PartListUnion, Schema, Type } from '@google/genai';
+import { FunctionDeclaration, PartListUnion } from '@google/genai';
 import { ToolErrorType } from './tool-error.js';
 import { DiffUpdateResult } from '../ide/ideContext.js';
 
@@ -186,7 +186,7 @@ export abstract class DeclarativeTool<
     readonly displayName: string,
     readonly description: string,
     readonly icon: Icon,
-    readonly parameterSchema: Schema,
+    readonly parameterSchema: unknown,
     readonly isOutputMarkdown: boolean = true,
     readonly canUpdateOutput: boolean = false,
   ) {}
@@ -195,7 +195,7 @@ export abstract class DeclarativeTool<
     return {
       name: this.name,
       description: this.description,
-      parameters: this.parameterSchema,
+      parametersJsonSchema: this.parameterSchema,
     };
   }
 
@@ -288,7 +288,7 @@ export abstract class BaseTool<
     readonly displayName: string,
     readonly description: string,
     readonly icon: Icon,
-    readonly parameterSchema: Schema,
+    readonly parameterSchema: unknown,
     readonly isOutputMarkdown: boolean = true,
     readonly canUpdateOutput: boolean = false,
   ) {
