@@ -963,8 +963,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
 
           {shouldShowIdePrompt ? (
             <IdeIntegrationNudge
-              question="Do you want to connect your VS Code editor to Gemini CLI?"
-              description="If you select Yes, we'll install an extension that allows the CLI to access your open files and display diffs directly in VS Code."
+              ideName={config.getIdeClient().getDetectedIdeDisplayName()}
               onComplete={handleIdePromptComplete}
             />
           ) : isFolderTrustDialogOpen ? (
