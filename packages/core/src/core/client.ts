@@ -7,7 +7,6 @@
 import {
   EmbedContentParameters,
   GenerateContentConfig,
-  SchemaUnion,
   PartListUnion,
   Content,
   Tool,
@@ -582,7 +581,7 @@ export class GeminiClient implements LlmClient {
 
   async generateJson(
     contents: Content[],
-    schema: SchemaUnion,
+    schema: Record<string, unknown>,
     abortSignal: AbortSignal,
     model?: string,
     config: GenerateContentConfig = {},
@@ -606,7 +605,7 @@ export class GeminiClient implements LlmClient {
             config: {
               ...requestConfig,
               systemInstruction,
-              responseSchema: schema,
+              responseJsonSchema: schema,
               responseMimeType: 'application/json',
             },
             contents,
