@@ -379,6 +379,112 @@ The CLI automatically loads environment variables from an `.env` file. The loadi
   - Can be overridden by the `--model` command-line argument.
   - Example: `export OPENAI_MODEL="gpt-4"`
 
+## LLM Client Profiles and Per‑Task Overrides
+
+The CLI supports configuring multiple LLM client profiles and mapping specific tasks to those profiles. This enables scenarios like using OpenAI as your primary provider while routing lightweight summarization to OpenRouter.
+
+These configurations are read by an internal TaskClientSelector and are opt-in; if not provided, the default behavior remains unchanged (Gemini provider with current defaults).
+
+### Settings structure
+
+Add an `llm` section to your settings.json:
+
+```json
+{
+  "llm": {
+    "primary": "primary", // optional: default profile key to use when none is specified
+    "profiles": {
+      "primary": { "provider": "openai", "model": "gpt-4o" },
+      "lightweight": { "provider": "openrouter", "model": "gpt-4o-mini" },
+      "gemini": { "provider": "gemini", "model": "gemini-2.5-flash" }
+    },
+    "taskOverrides": {
+      // Route built-in tasks to specific profiles
+      "lightweight_summary": "lightweight",
+      "next_speaker": "lightweight"
+    }
+  }
+}
+```
+
+- `profiles`: A map of profile keys to profile descriptors.
+  - `provider`: One of `gemini`, `openai`, or `openrouter`.
+  - `model` (optional): Default model for that profile; if omitted, the runtime default for that provider is used.
+  - `profileName` (optional): Human-friendly label.
+- `primary`: Optional string key naming the default profile. If omitted, behavior falls back to the existing default (Gemini).
+- `taskOverrides`: Map of task name to profile key. Supported tasks today:
+  - `primary` (general)
+  - `lightweight_summary` (summarizer)
+  - `next_speaker` (conversation continuation check)
+
+If a task has no override, it falls back to the `primary` profile; if `primary` is not set, current defaults apply.
+
+### Environment variables per provider
+
+Set the appropriate credentials for any providers you reference in profiles:
+
+- Gemini
+  - `GEMINI_API_KEY` (or `GOOGLE_API_KEY` / Vertex) and optionally `GEMINI_MODEL`
+- OpenAI
+  - `OPENAI_API_KEY`, `OPENAI_MODEL` (optional), `OPENAI_BASE_URL` (optional)
+- OpenRouter (OpenAI-compatible)
+  - Typically uses `OPENAI_API_KEY` with a different base URL, e.g.:
+    - `OPENAI_API_KEY` = your OpenRouter token
+    - `OPENAI_BASE_URL` = `https://openrouter.ai/api/v1`
+
+Note: When a profile specifies `model`, that model is preferred for that task. If not specified, the CLI uses the provider’s default or the environment-specific default (e.g., `OPENAI_MODEL`).
+
+### Examples
+
+1) OpenAI as primary, OpenRouter for lightweight tasks
+
+settings.json:
+
+```json
+{
+  "llm": {
+    "primary": "primary",
+    "profiles": {
+      "primary": { "provider": "openai", "model": "gpt-4o" },
+      "lightweight": {
+        "provider": "openrouter",
+        "model": "gpt-4o-mini"
+      }
+    },
+    "taskOverrides": {
+      "lightweight_summary": "lightweight",
+      "next_speaker": "lightweight"
+    }
+  }
+}
+```
+
+env:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export OPENAI_MODEL="gpt-4o" # optional if set in profile
+export OPENAI_BASE_URL="https://api.openai.com/v1"
+
+# For OpenRouter profile
+export OPENAI_API_KEY="or-..."        # your OpenRouter key
+export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
+```
+
+2) Gemini-only (implicit default; no overrides)
+
+```json
+{
+  "llm": {
+    "profiles": {
+      "primary": { "provider": "gemini" }
+    }
+  }
+}
+```
+
+In the absence of `llm` configuration, the CLI preserves current default behavior.
+
 ## Command-Line Arguments
 
 Arguments passed directly when running the CLI can override other configurations for that specific session.
