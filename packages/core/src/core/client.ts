@@ -7,7 +7,6 @@
 import {
   EmbedContentParameters,
   GenerateContentConfig,
-  SchemaUnion,
   PartListUnion,
   Content,
   Tool,
