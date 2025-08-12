@@ -511,7 +511,7 @@ export class GeminiClient implements LlmClient {
       yield { type: GeminiEventType.ChatCompressed, value: compressed };
     }
 
-    if (this.config.getIdeModeFeature() && this.config.getIdeMode()) {
+    if (this.config.getIdeMode()) {
       const { contextParts, newIdeContext } = this.getIdeContextParts(
         this.forceFullIdeContext || this.getHistory().length === 0,
       );
