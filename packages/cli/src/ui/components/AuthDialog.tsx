@@ -5,12 +5,13 @@
  */
 
 import React, { useState } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text } from 'ink';
 import { Colors } from '../colors.js';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
 import { LoadedSettings, SettingScope } from '../../config/settings.js';
 import { AuthType } from '@google/gemini-cli-core';
 import { validateAuthMethod } from '../../config/auth.js';
+import { useKeypress } from '../hooks/useKeypress.js';
 import { GitHubCopilotAuthDialog, AzureOpenAIAuthDialog, type AzureOpenAIValues } from '../github-copilot/index.js';
 
 interface AuthDialogProps {
@@ -120,6 +121,7 @@ export function AuthDialog({
   const handleGitHubCopilotCancel = () => {
     setShowGitHubCopilotDialog(false);
   };
+
   const handleAzureApply = (values: AzureOpenAIValues, scope: SettingScope) => {
     // Persist to settings
     settings.setValue(scope, 'azureOpenAIEndpoint', values.endpoint);
@@ -142,35 +144,43 @@ export function AuthDialog({
     setShowAzureDialog(false);
   };
 
-
   const handleGitHubCopilotError = (error: string) => {
     setShowGitHubCopilotDialog(false);
     setErrorMessage(`GitHub Copilot authentication failed: ${error}`);
   };
 
-  useInput((_input, key) => {
-    if (key.escape) {
-      // If GitHub Copilot dialog is showing, close it first
-      if (showGitHubCopilotDialog) {
-        setShowGitHubCopilotDialog(false);
-        return;
+  useKeypress(
+    (key) => {
+      if (key.name === 'escape') {
+        // If GitHub Copilot dialog is showing, close it first
+        if (showGitHubCopilotDialog) {
+          setShowGitHubCopilotDialog(false);
+          return;
+        }
+
+        // If Azure dialog is showing, close it first
+        if (showAzureDialog) {
+          setShowAzureDialog(false);
+          return;
+        }
+
+        // Prevent exit if there is an error message.
+        // This means they user is not authenticated yet.
+        if (errorMessage) {
+          return;
+        }
+        if (settings.merged.selectedAuthType === undefined) {
+          // Prevent exiting if no auth method is set
+          setErrorMessage(
+            'You must select an auth method to proceed. Press Ctrl+C twice to exit.',
+          );
+          return;
+        }
+        onSelect(undefined, SettingScope.User);
       }
-      
-      // Prevent exit if there is an error message.
-      // This means they user is not authenticated yet.
-      if (errorMessage) {
-        return;
-      }
-      if (settings.merged.selectedAuthType === undefined) {
-        // Prevent exiting if no auth method is set
-        setErrorMessage(
-          'You must select an auth method to proceed. Press Ctrl+C twice to exit.',
-        );
-        return;
-      }
-      onSelect(undefined, SettingScope.User);
-    }
-  });
+    },
+    { isActive: true },
+  );
 
   // Show GitHub Copilot dialog if requested
   if (showGitHubCopilotDialog) {
