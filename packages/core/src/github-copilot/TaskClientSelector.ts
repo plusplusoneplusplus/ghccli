@@ -5,11 +5,11 @@
  */
 
 import type { LlmClient } from './index.js';
-import type {
-  ClientProfile,
-  ClientProfileKey,
+import {
   ClientRegistry,
-} from './ClientRegistry.js';
+}
+  from './ClientRegistry.js';
+import type { ClientProfile, ClientProfileKey } from './ClientRegistry.js';
 
 export enum LlmTask {
   PRIMARY = 'primary',
@@ -86,6 +86,30 @@ export function getGlobalTaskClientSelector(): TaskClientSelector {
 
 export function hasGlobalTaskClientSelector(): boolean {
   return !!GLOBAL_TASK_CLIENT_SELECTOR;
+}
+
+/**
+ * Ensure a default TaskClientSelector exists globally. Returns the global instance.
+ * Accepts minimal getters to avoid coupling with Config and prevent circular deps.
+ */
+export function initDefaultTaskClientSelector(options: {
+  getModel: () => string;
+  getGeminiClient: () => LlmClient;
+}): TaskClientSelector {
+  if (!hasGlobalTaskClientSelector()) {
+    const registry = new ClientRegistry({
+      resolveProfile: () => ({ provider: 'gemini', model: options.getModel() }),
+      createGeminiClient: () => options.getGeminiClient(),
+    });
+
+    const selector = new TaskClientSelector({
+      registry,
+      resolveTaskProfileKey: () => LlmTask.PRIMARY,
+      resolveProfile: () => ({ provider: 'gemini', model: options.getModel() }),
+    });
+    setGlobalTaskClientSelector(selector);
+  }
+  return getGlobalTaskClientSelector();
 }
 
 

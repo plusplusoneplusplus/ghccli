@@ -20,6 +20,7 @@ export {
   setGlobalTaskClientSelector,
   getGlobalTaskClientSelector,
   hasGlobalTaskClientSelector,
+  initDefaultTaskClientSelector,
 } from './TaskClientSelector.js';
 
 

@@ -43,7 +43,7 @@ export interface ShellToolParams {
 import { spawn } from 'child_process';
 import { execa } from 'execa';
 import { summarizeToolOutputWithSelector } from '../utils/summarizer.js';
-import { ClientRegistry, TaskClientSelector } from '../github-copilot/index.js';
+import { TaskClientSelector, getGlobalTaskClientSelector } from '../github-copilot/index.js';
 
 const OUTPUT_UPDATE_INTERVAL_MS = 1000;
 
@@ -97,17 +97,8 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
       false, // output is not markdown
       true, // output can be updated
     );
-
-    // Initialize a default TaskClientSelector that preserves existing behavior
-    const registry = new ClientRegistry({
-      resolveProfile: () => ({ provider: 'gemini' }),
-      createGeminiClient: () => this.config.getGeminiClient(),
-    });
-    this.taskClientSelector = new TaskClientSelector({
-      registry,
-      resolveTaskProfileKey: () => 'primary',
-      resolveProfile: () => ({ provider: 'gemini' }),
-    });
+    // Keep a reference for local usage as well
+    this.taskClientSelector = getGlobalTaskClientSelector();
   }
 
   getDescription(params: ShellToolParams): string {

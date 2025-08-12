@@ -353,6 +353,17 @@ export class Config {
   }
 
   async initialize(): Promise<void> {
+    // Initialize shared LLM client selector once per process
+    try {
+      const { initDefaultTaskClientSelector } = await import('../github-copilot/index.js');
+      initDefaultTaskClientSelector({
+        getModel: () => this.getModel(),
+        getGeminiClient: () => this.getGeminiClient(),
+      });
+    } catch {
+      console.error('Failed to initialize default task client selector');
+    }
+
     // Initialize centralized FileDiscoveryService
     this.getFileService();
     if (this.getCheckpointingEnabled()) {
