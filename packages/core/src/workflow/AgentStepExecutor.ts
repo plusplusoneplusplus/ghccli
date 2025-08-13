@@ -343,6 +343,7 @@ export class AgentStepExecutor extends StepExecutor {
         toolRegistry: executorConfig.config.getToolRegistry(),
         getPreferredEditor: () => undefined,
         config: executorConfig.config,
+        onEditorClose: () => {},
         onAllToolCallsComplete: (completedCalls) => {
           // Extract results from completed calls
           for (const call of completedCalls) {

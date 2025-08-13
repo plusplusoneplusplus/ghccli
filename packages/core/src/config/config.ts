@@ -158,6 +158,8 @@ export interface ConfigParameters {
   agent?: string;
   enableOpenAILogging?: boolean;
   outputLoggerFile?: string;
+  outputFormat?: string;
+  prettyPrint?: boolean;
   approvalMode?: ApprovalMode;
   
   // === ORIGINAL GEMINI CLI CONFIGURATIONS ===

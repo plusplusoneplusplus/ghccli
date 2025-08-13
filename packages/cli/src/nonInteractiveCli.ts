@@ -45,11 +45,13 @@ export async function runNonInteractive(
     debugMode: config.getDebugMode(),
   });
 
+  let turnCount = 0;
+
   try {
     await config.initialize();
     consolePatcher.patch();
 
-  // Handle EPIPE errors when the output is piped to a command that closes early.
+    // Handle EPIPE errors when the output is piped to a command that closes early.
     process.stdout.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EPIPE') {
         // Exit gracefully if the pipe is closed.
@@ -64,7 +66,7 @@ export async function runNonInteractive(
     let currentMessages: Content[] = [
       { role: 'user', parts: [{ text: input }] },
     ];
-    let turnCount = 0;
+    
     while (true) {
       turnCount++;
       if (
