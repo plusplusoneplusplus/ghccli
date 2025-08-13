@@ -17,6 +17,7 @@ import {
 import { Content, Part, FunctionCall } from '@google/genai';
 
 import { parseAndFormatApiError } from './ui/utils/errorParsing.js';
+import { ConsolePatcher } from './ui/utils/ConsolePatcher.js';
 
 // === CUSTOM JSON OUTPUT SUPPORT (GHCCLI Extensions) ===
 // Keep JSON imports at the top to minimize upstream merge conflicts
@@ -31,8 +32,7 @@ export async function runNonInteractive(
   outputFormat?: string,
   prettyPrint?: boolean,
 ): Promise<void> {
-  await config.initialize();
-  
+    
   // === CUSTOM JSON OUTPUT SETUP (GHCCLI Extensions) ===
   // Keep JSON setup isolated to minimize upstream merge conflicts
   const isJsonOutput = outputFormat === 'json';
@@ -40,21 +40,33 @@ export async function runNonInteractive(
   let contentBuffer = '';
   let toolCallResults: ToolCallResult[] = [];
 
-  // Handle EPIPE errors when the output is piped to a command that closes early.
-  process.stdout.on('error', (err: NodeJS.ErrnoException) => {
-    if (err.code === 'EPIPE') {
-      // Exit gracefully if the pipe is closed.
-      process.exit(0);
-    }
+  const consolePatcher = new ConsolePatcher({
+    stderr: true,
+    debugMode: config.getDebugMode(),
   });
 
-  const geminiClient = config.getGeminiClient();
-  const toolRegistry: ToolRegistry = await config.getToolRegistry();
-
-  const abortController = new AbortController();
-  let currentMessages: Content[] = [{ role: 'user', parts: [{ text: input }] }];
   let turnCount = 0;
+
   try {
+    await config.initialize();
+    consolePatcher.patch();
+
+    // Handle EPIPE errors when the output is piped to a command that closes early.
+    process.stdout.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EPIPE') {
+        // Exit gracefully if the pipe is closed.
+        process.exit(0);
+      }
+    });
+
+    const geminiClient = config.getGeminiClient();
+    const toolRegistry: ToolRegistry = await config.getToolRegistry();
+
+    const abortController = new AbortController();
+    let currentMessages: Content[] = [
+      { role: 'user', parts: [{ text: input }] },
+    ];
+    
     while (true) {
       turnCount++;
       if (
@@ -223,6 +235,7 @@ export async function runNonInteractive(
     }
     process.exit(1);
   } finally {
+    consolePatcher.cleanup();
     if (isTelemetrySdkInitialized()) {
       await shutdownTelemetry();
     }

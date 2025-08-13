@@ -561,6 +561,7 @@ export class AgentInvocationTool extends BaseTool<
         toolRegistry: this.config.getToolRegistry(),
         getPreferredEditor: () => undefined,
         config: this.config,
+        onEditorClose: () => {},
         onAllToolCallsComplete: (completedCalls) => {
           // Extract results from completed calls
           for (const call of completedCalls) {
