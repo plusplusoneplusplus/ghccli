@@ -45,6 +45,8 @@ import {
 const logger = createLogger('CLI');
 // === END GHCCLI ===
 
+import { isWorkspaceTrusted } from './trustedFolders.js';
+
 export interface CliArgs {
   // === CUSTOM WORKFLOW & AGENT CLI ARGS (GHCCLI Extensions) ===
   // Keep these at the top to minimize merge conflicts with upstream changes
@@ -366,8 +368,9 @@ export async function loadCliConfig(
   const ideMode = settings.ideMode ?? false;
 
   const folderTrustFeature = settings.folderTrustFeature ?? false;
-  const folderTrustSetting = settings.folderTrust ?? false;
+  const folderTrustSetting = settings.folderTrust ?? true;
   const folderTrust = folderTrustFeature && folderTrustSetting;
+  const trustedFolder = folderTrust ? isWorkspaceTrusted() : true;
 
   const allExtensions = annotateActiveExtensions(
     extensions,
@@ -585,6 +588,7 @@ export async function loadCliConfig(
     folderTrustFeature,
     folderTrust,
     interactive,
+    trustedFolder,
   });
 }
 
