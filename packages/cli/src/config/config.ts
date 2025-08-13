@@ -22,7 +22,6 @@ import {
   FileDiscoveryService,
   TelemetryTarget,
   FileFilteringOptions,
-  IdeClient,
   LogLevel,
   setGlobalLoggerConfig,
 } from '@google/gemini-cli-core';
@@ -31,6 +30,7 @@ import { Settings } from './settings.js';
 import { Extension, annotateActiveExtensions } from './extension.js';
 import { getCliVersion } from '../utils/version.js';
 import { loadSandboxConfig } from './sandboxConfig.js';
+import { resolvePath } from '../utils/resolvePath.js';
 
 import { createLogger } from '@google/gemini-cli-core';
 
@@ -70,6 +70,7 @@ export interface CliArgs {
   ideModeFeature: boolean | undefined;
   proxy: string | undefined;
   includeDirectories: string[] | undefined;
+  loadMemoryFromIncludeDirectories: boolean | undefined;
 }
 
 export async function parseArguments(): Promise<CliArgs> {
@@ -242,6 +243,12 @@ export async function parseArguments(): Promise<CliArgs> {
         // Handle comma-separated values
         dirs.flatMap((dir) => dir.split(',').map((d) => d.trim())),
     })
+    .option('load-memory-from-include-directories', {
+      type: 'boolean',
+      description:
+        'If true, when refreshing memory, GEMINI.md files should be loaded from all directories that are added. If false, GEMINI.md files should only be loaded from the primary working directory.',
+      default: false,
+    })
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
     .help()
@@ -269,6 +276,7 @@ export async function parseArguments(): Promise<CliArgs> {
 // TODO: Consider if App.tsx should get memory via a server call or if Config should refresh itself.
 export async function loadHierarchicalGeminiMemory(
   currentWorkingDirectory: string,
+  includeDirectoriesToReadGemini: readonly string[] = [],
   debugMode: boolean,
   fileService: FileDiscoveryService,
   settings: Settings,
@@ -294,6 +302,7 @@ export async function loadHierarchicalGeminiMemory(
   // Directly call the server function with the corrected path.
   return loadServerHierarchicalMemory(
     effectiveCwd,
+    includeDirectoriesToReadGemini,
     debugMode,
     fileService,
     extensionContextFilePaths,
@@ -329,13 +338,10 @@ export async function loadCliConfig(
   });
 
   const memoryImportFormat = settings.memoryImportFormat || 'tree';
+
   const ideMode = settings.ideMode ?? false;
-
   const ideModeFeature =
-    (argv.ideModeFeature ?? settings.ideModeFeature ?? false) &&
-    !process.env.SANDBOX;
-
-  const ideClient = IdeClient.getInstance(ideMode && ideModeFeature);
+    argv.ideModeFeature ?? settings.ideModeFeature ?? false;
 
   const allExtensions = annotateActiveExtensions(
     extensions,
@@ -368,9 +374,14 @@ export async function loadCliConfig(
     ...settings.fileFiltering,
   };
 
+  const includeDirectories = (settings.includeDirectories || [])
+    .map(resolvePath)
+    .concat((argv.includeDirectories || []).map(resolvePath));
+
   // Call the (now wrapper) loadHierarchicalGeminiMemory which calls the server's version
   const { memoryContent, fileCount } = await loadHierarchicalGeminiMemory(
     process.cwd(),
+    settings.loadMemoryFromIncludeDirectories ? includeDirectories : [],
     debugMode,
     fileService,
     settings,
@@ -436,7 +447,11 @@ export async function loadCliConfig(
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
     sandbox: sandboxConfig,
     targetDir: process.cwd(),
-    includeDirectories: argv.includeDirectories,
+    includeDirectories,
+    loadMemoryFromIncludeDirectories:
+      argv.loadMemoryFromIncludeDirectories ||
+      settings.loadMemoryFromIncludeDirectories ||
+      false,
     debugMode,
     question: argv.promptInteractive || argv.prompt || '',
     fullContext: argv.allFiles || argv.all_files || false,
@@ -503,10 +518,11 @@ export async function loadCliConfig(
     summarizeToolOutput: settings.summarizeToolOutput,
     ideMode,
     ideModeFeature,
-    ideClient,
     agent: argv.agent || settings.selectedAgent || 'default',
     enableOpenAILogging: settings.enableOpenAILogging ?? true,
-    outputLoggerFile: argv.outputLoggerFile
+    outputLoggerFile: argv.outputLoggerFile,
+    outputFormat: argv.outputFormat,
+    prettyPrint: argv.prettyPrint,
   });
 }
 
