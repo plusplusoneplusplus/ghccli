@@ -17,7 +17,7 @@ import { createCodeAssistContentGenerator } from '../code_assist/codeAssist.js';
 import { createGitHubCopilotContentGenerator } from '../github-copilot/github-copilot-content-generator.js';
 import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
 import { Config } from '../config/config.js';
-import { getEffectiveModel } from './modelCheck.js';
+
 import { UserTierId } from '../code_assist/types.js';
 import { LoggingContentGenerator } from './loggingContentGenerator.js';
 
@@ -151,11 +151,6 @@ export function createContentGeneratorConfig(
   if (authType === AuthType.USE_GEMINI && geminiApiKey) {
     contentGeneratorConfig.apiKey = geminiApiKey;
     contentGeneratorConfig.vertexai = false;
-    getEffectiveModel(
-      contentGeneratorConfig.apiKey,
-      contentGeneratorConfig.model,
-      contentGeneratorConfig.proxy,
-    );
 
     return contentGeneratorConfig;
   }
