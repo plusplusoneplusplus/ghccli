@@ -24,7 +24,7 @@ function updateWorkspacePath(context: vscode.ExtensionContext) {
   if (workspaceFolders && workspaceFolders.length > 0) {
     const workspacePaths = workspaceFolders
       .map((folder) => folder.uri.fsPath)
-      .join(path.delimiter);
+      .join(':');
     context.environmentVariableCollection.replace(
       IDE_WORKSPACE_PATH_ENV_VAR,
       workspacePaths,

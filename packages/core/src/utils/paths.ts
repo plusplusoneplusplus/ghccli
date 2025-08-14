@@ -218,3 +218,23 @@ export function getUserAgentsDir(): string {
 export function getProjectAgentsDir(projectRoot: string): string {
   return path.join(projectRoot, GEMINI_DIR, 'agents');
 }
+
+/**
+ * Checks if a path is a subpath of another path.
+ * @param parentPath The parent path.
+ * @param childPath The child path.
+ * @returns True if childPath is a subpath of parentPath, false otherwise.
+ */
+export function isSubpath(parentPath: string, childPath: string): boolean {
+  const isWindows = os.platform() === 'win32';
+  const pathModule = isWindows ? path.win32 : path;
+
+  // On Windows, path.relative is case-insensitive. On POSIX, it's case-sensitive.
+  const relative = pathModule.relative(parentPath, childPath);
+
+  return (
+    !relative.startsWith(`..${pathModule.sep}`) &&
+    relative !== '..' &&
+    !pathModule.isAbsolute(relative)
+  );
+}
