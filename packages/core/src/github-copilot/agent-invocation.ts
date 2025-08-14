@@ -642,6 +642,7 @@ export class AgentInvocationTool extends BaseTool<
         toolRegistry: this.config.getToolRegistry(),
         getPreferredEditor: () => undefined,
         config: agentToolConfig as Config, // Use the modified config
+        getTerminalSize: () => ({ columns: 80, rows: 24 }),
         onEditorClose: () => {},
         onAllToolCallsComplete: async (completedCalls) => {
           if (isResolved) return;

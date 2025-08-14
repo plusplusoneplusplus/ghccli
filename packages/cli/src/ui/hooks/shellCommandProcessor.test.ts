@@ -130,8 +130,6 @@ describe('useShellCommandProcessor', () => {
   ): ShellExecutionResult => ({
     rawOutput: Buffer.from(overrides.output || ''),
     output: 'Success',
-    stdout: 'Success',
-    stderr: '',
     exitCode: 0,
     signal: null,
     error: null,
@@ -249,7 +247,6 @@ describe('useShellCommandProcessor', () => {
       act(() => {
         mockShellOutputCallback({
           type: 'data',
-          stream: 'stdout',
           chunk: 'hello',
         });
       });
@@ -260,12 +257,9 @@ describe('useShellCommandProcessor', () => {
       // Advance time and send another event to trigger the throttled update
       await act(async () => {
         await vi.advanceTimersByTimeAsync(OUTPUT_UPDATE_INTERVAL_MS + 1);
-      });
-      act(() => {
         mockShellOutputCallback({
           type: 'data',
-          stream: 'stdout',
-          chunk: ' world',
+          chunk: 'hello world',
         });
       });
 
