@@ -51,6 +51,9 @@ interface MockServerConfig {
   accessibility?: AccessibilitySettings;
   embeddingModel: string;
 
+  // === GHCCLI ===
+  getCurrentAgent: Mock<() => string>;
+  // === END GHCCLI ===
   getApiKey: Mock<() => string>;
   getModel: Mock<() => string>;
   getSandbox: Mock<() => SandboxConfig | undefined>;
@@ -84,7 +87,6 @@ interface MockServerConfig {
   getAllGeminiMdFilenames: Mock<() => string[]>;
   getGeminiClient: Mock<() => GeminiClient | undefined>;
   getUserTier: Mock<() => Promise<string | undefined>>;
-  getCurrentAgent: Mock<() => string>;
 }
 
 // Mock @google/gemini-cli-core and its Config class

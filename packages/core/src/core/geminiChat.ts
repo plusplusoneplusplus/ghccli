@@ -33,7 +33,10 @@ import {
   ApiResponseEvent,
 } from '../telemetry/types.js';
 import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
+
+// === GHCCLI ===
 import { getCoreSystemPrompt } from './prompts.js';
+// === END GHCCLI ===
 
 /**
  * Returns true if the response is valid, false otherwise.

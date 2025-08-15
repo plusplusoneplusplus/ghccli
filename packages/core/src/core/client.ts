@@ -48,11 +48,14 @@ import {
   MalformedJsonResponseEvent,
   NextSpeakerCheckEvent,
 } from '../telemetry/types.js';
+
+// === GHCCLI ===
 import { ClearcutLogger } from '../telemetry/clearcut-logger/clearcut-logger.js';
 import { createLogger } from '../utils/logging.js';
 import type { LlmClient } from '../github-copilot/index.js';
 
 const logger = createLogger('GeminiClient');
+// === END GHCCLI ===
 
 function isThinkingSupported(model: string) {
   if (model.startsWith('gemini-2.5')) return true;

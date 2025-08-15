@@ -22,8 +22,7 @@ import {
   FileDiscoveryService,
   TelemetryTarget,
   FileFilteringOptions,
-  LogLevel,
-  setGlobalLoggerConfig,
+  IdeClient,
 } from '@google/gemini-cli-core';
 import { Settings } from './settings.js';
 
@@ -32,7 +31,13 @@ import { getCliVersion } from '../utils/version.js';
 import { loadSandboxConfig } from './sandboxConfig.js';
 import { resolvePath } from '../utils/resolvePath.js';
 
-import { createLogger } from '@google/gemini-cli-core';
+// === GHCCLI ===
+import {
+  createLogger,
+  LogLevel,
+  setGlobalLoggerConfig
+} from '@google/gemini-cli-core';
+// === END GHCCLI ===
 
 const logger = createLogger('CLI');
 
@@ -215,6 +220,16 @@ export async function parseArguments(): Promise<CliArgs> {
       description:
         'Proxy for gemini client, like schema://user:password@host:port',
     })
+    .option('include-directories', {
+      type: 'array',
+      string: true,
+      description:
+        'Additional directories to include in the workspace (comma-separated or multiple --include-directories)',
+      coerce: (dirs: string[]) =>
+        // Handle comma-separated values
+        dirs.flatMap((dir) => dir.split(',').map((d) => d.trim())),
+    })
+    // === GHCCLI ===
     .option('agent', {
       alias: 'g',
       type: 'string',
@@ -249,6 +264,7 @@ export async function parseArguments(): Promise<CliArgs> {
         'If true, when refreshing memory, GEMINI.md files should be loaded from all directories that are added. If false, GEMINI.md files should only be loaded from the primary working directory.',
       default: false,
     })
+    // === END GHCCLI ===
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
     .help()
@@ -518,11 +534,13 @@ export async function loadCliConfig(
     summarizeToolOutput: settings.summarizeToolOutput,
     ideMode,
     ideModeFeature,
+    // === GHCCLI ===
     agent: argv.agent || settings.selectedAgent || 'default',
     enableOpenAILogging: settings.enableOpenAILogging ?? true,
     outputLoggerFile: argv.outputLoggerFile,
     outputFormat: argv.outputFormat,
     prettyPrint: argv.prettyPrint,
+    // === END GHCCLI ===
   });
 }
 

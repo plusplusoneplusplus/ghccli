@@ -38,9 +38,6 @@ import { ThemeDialog } from './components/ThemeDialog.js';
 import { AuthDialog } from './components/AuthDialog.js';
 import { AuthInProgress } from './components/AuthInProgress.js';
 import { EditorSettingsDialog } from './components/EditorSettingsDialog.js';
-import { ModelDialog } from './components/ModelDialog.js';
-import { AgentDialog } from './components/AgentDialog.js';
-import { AVAILABLE_MODELS } from './constants/models.js';
 import { ShellConfirmationDialog } from './components/ShellConfirmationDialog.js';
 import { Colors } from './colors.js';
 import { loadHierarchicalGeminiMemory } from '../config/config.js';
@@ -94,6 +91,12 @@ import { ShowMoreLines } from './components/ShowMoreLines.js';
 import { PrivacyNotice } from './privacy/PrivacyNotice.js';
 import { setUpdateHandler } from '../utils/handleAutoUpdate.js';
 import { appEvents, AppEvent } from '../utils/events.js';
+
+// === GHCCLI ===
+import { ModelDialog } from './components/ModelDialog.js';
+import { AgentDialog } from './components/AgentDialog.js';
+import { AVAILABLE_MODELS } from './constants/models.js';
+// === END GHCCLI ===
 
 const CTRL_EXIT_PROMPT_DURATION_MS = 1000;
 

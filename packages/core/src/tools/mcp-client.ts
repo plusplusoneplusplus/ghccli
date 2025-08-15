@@ -33,9 +33,11 @@ import { MCPOAuthProvider } from '../mcp/oauth-provider.js';
 import { OAuthUtils } from '../mcp/oauth-utils.js';
 import { MCPOAuthTokenStorage } from '../mcp/oauth-token-storage.js';
 import { getErrorMessage } from '../utils/errors.js';
-import { createLogger, LogLevel } from '../utils/logging.js';
 
+// === GHCCLI ===
+import { createLogger, LogLevel } from '../utils/logging.js';
 const logger = createLogger('MCPClient');
+// === END GHCCLI ===
 
 export const MCP_DEFAULT_TIMEOUT_MSEC = 10 * 60 * 1000; // default to 10 minutes
 
