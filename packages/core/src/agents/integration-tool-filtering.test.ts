@@ -8,8 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Config } from '../config/config.js';
 import { ContentGenerator } from '../core/contentGenerator.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
-import { BaseTool, Kind, ToolResult } from '../tools/tools.js';
-import { Type } from '@google/genai';
+import { MockTool } from '../test-utils/tools.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -24,94 +23,7 @@ vi.mock('../core/prompts.js', () => ({
 }));
 
 // Create mock tools for testing
-class MockReadTool extends BaseTool<Record<string, unknown>, ToolResult> {
-  constructor() {
-    super(
-      'read_file',
-      'Read File',
-      'Reads content from a file',
-      Kind.Read,
-      {
-        type: Type.OBJECT,
-        properties: {
-          path: { type: Type.STRING, description: 'File path to read' },
-        },
-        required: ['path'],
-      }
-    );
-  }
-
-  async execute(): Promise<ToolResult> {
-    return { llmContent: 'File content', returnDisplay: 'File content' };
-  }
-}
-
-class MockWriteTool extends BaseTool<Record<string, unknown>, ToolResult> {
-  constructor() {
-    super(
-      'write_file',
-      'Write File',
-      'Writes content to a file',
-      Kind.Edit,
-      {
-        type: Type.OBJECT,
-        properties: {
-          path: { type: Type.STRING, description: 'File path to write' },
-          content: { type: Type.STRING, description: 'Content to write' },
-        },
-        required: ['path', 'content'],
-      }
-    );
-  }
-
-  async execute(): Promise<ToolResult> {
-    return { llmContent: 'File written', returnDisplay: 'File written' };
-  }
-}
-
-class MockShellTool extends BaseTool<Record<string, unknown>, ToolResult> {
-  constructor() {
-    super(
-      'run_shell_command',
-      'Run Shell Command',
-      'Executes a shell command',
-      Kind.Execute,
-      {
-        type: Type.OBJECT,
-        properties: {
-          command: { type: Type.STRING, description: 'Command to execute' },
-        },
-        required: ['command'],
-      }
-    );
-  }
-
-  async execute(): Promise<ToolResult> {
-    return { llmContent: 'Command executed', returnDisplay: 'Command executed' };
-  }
-}
-
-class MockWebTool extends BaseTool<Record<string, unknown>, ToolResult> {
-  constructor() {
-    super(
-      'web_search',
-      'Web Search',
-      'Searches the web',
-      Kind.Fetch,
-      {
-        type: Type.OBJECT,
-        properties: {
-          query: { type: Type.STRING, description: 'Search query' },
-        },
-        required: ['query'],
-      }
-    );
-  }
-
-  async execute(): Promise<ToolResult> {
-    return { llmContent: 'Search results', returnDisplay: 'Search results' };
-  }
-}
+// Mock tools are now imported from test-utils
 
 describe('AgentChat Tool Filtering Integration', () => {
   let mockConfig: Config;
@@ -169,10 +81,10 @@ systemPrompt:
 
     // Create tool registry and register test tools
     toolRegistry = new ToolRegistry(mockConfig);
-    toolRegistry.registerTool(new MockReadTool());
-    toolRegistry.registerTool(new MockWriteTool());
-    toolRegistry.registerTool(new MockShellTool());
-    toolRegistry.registerTool(new MockWebTool());
+    toolRegistry.registerTool(new MockTool('read_file', 'Read File', 'Reads content from a file'));
+    toolRegistry.registerTool(new MockTool('write_file', 'Write File', 'Writes content to a file'));
+    toolRegistry.registerTool(new MockTool('run_shell_command', 'Run Shell Command', 'Executes a shell command'));
+    toolRegistry.registerTool(new MockTool('web_search', 'Web Search', 'Searches the web'));
 
     // Mock the config to return our tool registry
     (mockConfig.getToolRegistry as any).mockResolvedValue(toolRegistry);

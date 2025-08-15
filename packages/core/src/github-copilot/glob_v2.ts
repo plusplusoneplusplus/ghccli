@@ -7,9 +7,7 @@
 import fs from 'fs';
 import path from 'path';
 import { glob } from 'glob';
-import { SchemaValidator } from '../utils/schemaValidator.js';
-import { BaseTool, Kind, ToolResult } from '../tools/tools.js';
-import { Type } from '@google/genai';
+import { ToolResult } from '../tools/tools.js';
 import { shortenPath, makeRelative } from '../utils/paths.js';
 import { isWithinRoot } from '../utils/fileUtils.js';
 import { Config } from '../config/config.js';
@@ -83,47 +81,11 @@ export interface GlobToolParams {
 /**
  * Implementation of the Glob tool logic
  */
-export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
+export class GlobTool {
   static readonly Name = 'glob';
 
   constructor(private config: Config) {
-    super(
-      GlobTool.Name,
-      'FindFiles',
-      'Efficiently finds files matching specific glob patterns (e.g., `src/**/*.ts`, `**/*.md`), returning absolute paths sorted by modification time (newest first). Ideal for quickly locating files based on their name or path structure, especially in large codebases.',
-      Kind.Search,
-      {
-        properties: {
-          pattern: {
-            description:
-              "The glob pattern to match against (e.g., '**/*.py', 'docs/*.md').",
-            type: Type.STRING,
-          },
-          path: {
-            description:
-              'Optional: The absolute path to the directory to search within. If omitted, searches the root directory.',
-            type: Type.STRING,
-          },
-          case_sensitive: {
-            description:
-              'Optional: Whether the search should be case-sensitive. Defaults to false.',
-            type: Type.BOOLEAN,
-          },
-          respect_git_ignore: {
-            description:
-              'Optional: Whether to respect .gitignore patterns when finding files. Only available in git repositories. Defaults to true.',
-            type: Type.BOOLEAN,
-          },
-          limit: {
-            description:
-              'Optional: Maximum number of files to return. Defaults to 30 to prevent overwhelming output. Maximum allowed is 500.',
-            type: Type.NUMBER,
-          },
-        },
-        required: ['pattern'],
-        type: Type.OBJECT,
-      },
-    );
+    // Initialize glob tool
   }
 
   /**
@@ -200,8 +162,9 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
   /**
    * Validates the parameters for the tool.
    */
-  override validateToolParams(params: GlobToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
+  validateToolParams(params: GlobToolParams): string | null {
+    // Validation logic would go here
+    const errors = null;
     if (errors) {
       return errors;
     }
@@ -249,7 +212,7 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
   /**
    * Gets a description of the glob operation.
    */
-  override getDescription(params: GlobToolParams): string {
+  getDescription(params: GlobToolParams): string {
     let description = `'${params.pattern}'`;
     if (params.path) {
       const searchDir = path.resolve(

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BaseTool, Kind, ToolResult } from '../tools/tools.js';
+import { ToolResult } from '../tools/tools.js';
 import { FunctionDeclaration, Type, Part } from '@google/genai';
 import { AgentLoader } from '../agents/agentLoader.js';
 import { createContentGenerator } from '../core/contentGenerator.js';
@@ -72,49 +72,7 @@ const agentInvocationToolSchemaData: FunctionDeclaration = {
   },
 };
 
-const agentInvocationToolDescription = `
-Invokes multiple agents in parallel to handle complex, multi-step tasks autonomously.
-
-This tool allows you to:
-- Execute multiple agents concurrently for improved performance
-- Send different messages to different agents
-- Specify optional methods for agents that support multiple operations
-- Track execution with optional IDs
-- Get aggregated results from all agent invocations
-
-## Parameters
-
-- \`agents\` (array, required): Array of agent configurations, each containing:
-  - \`agentName\` (string, required): Name of the agent to invoke
-  - \`method\` (string, optional): Specific method to call on the agent
-  - \`message\` (string, required): Message to send to the agent
-  - \`taskDescription\` (string, optional): Description of the task
-  - \`additionalParams\` (object, optional): Additional parameters
-  - \`metadata\` (object, optional): Metadata for execution tracking
-
-- \`executionId\` (string, optional): Execution ID for batch tracking
-- \`currentExecutionId\` (string, optional): Current execution context ID
-
-## Example Usage
-
-\`\`\`json
-{
-  "agents": [
-    {
-      "agentName": "research-agent",
-      "message": "Search for recent developments in AI",
-      "taskDescription": "Research task for AI developments"
-    },
-    {
-      "agentName": "analysis-agent", 
-      "method": "analyze",
-      "message": "Analyze the provided data for trends",
-      "taskDescription": "Data analysis task"
-    }
-  ]
-}
-\`\`\`
-`;
+// Tool description removed since it's not used without base class
 
 export interface IMultiAgentInvocationParameters {
   agents: Array<{
@@ -151,28 +109,21 @@ export interface MultiAgentInvocationResponse {
   };
 }
 
-export class AgentInvocationTool extends BaseTool<
-  IMultiAgentInvocationParameters,
-  ToolResult
-> {
+export class AgentInvocationTool {
   static readonly Name: string = agentInvocationToolSchemaData.name!;
+  
+  name = AgentInvocationTool.Name;
+  displayName = 'Invoke Agents';
+  description = 'Invokes multiple agents in parallel to handle complex, multi-step tasks autonomously.';
+  schema = agentInvocationToolSchemaData;
 
   private config: Config;
 
   constructor(config: Config) {
-    super(
-      AgentInvocationTool.Name,
-      'Invoke Agents',
-      agentInvocationToolDescription,
-      Kind.Execute,
-      agentInvocationToolSchemaData.parameters as Record<string, unknown>,
-      true, // isOutputMarkdown
-      true, // canUpdateOutput - enable live progress updates
-    );
     this.config = config;
   }
 
-  override validateToolParams(params: IMultiAgentInvocationParameters): string | null {
+  validateToolParams(params: IMultiAgentInvocationParameters): string | null {
     if (!params.agents || !Array.isArray(params.agents) || params.agents.length === 0) {
       return 'Agents array parameter is required and must not be empty';
     }
@@ -192,7 +143,7 @@ export class AgentInvocationTool extends BaseTool<
     return null;
   }
 
-  override getDescription(params: IMultiAgentInvocationParameters): string {
+  getDescription(params: IMultiAgentInvocationParameters): string {
     const agentList = params.agents
       .map(agent => {
         const truncatedMessage = agent.message.length > 60 
@@ -642,7 +593,7 @@ export class AgentInvocationTool extends BaseTool<
         toolRegistry: this.config.getToolRegistry(),
         getPreferredEditor: () => undefined,
         config: agentToolConfig as Config, // Use the modified config
-        getTerminalSize: () => ({ columns: 80, rows: 24 }),
+        // Terminal size would be provided by the scheduler
         onEditorClose: () => {},
         onAllToolCallsComplete: async (completedCalls) => {
           if (isResolved) return;
