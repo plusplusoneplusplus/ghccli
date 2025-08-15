@@ -22,7 +22,6 @@ import {
   FileDiscoveryService,
   TelemetryTarget,
   FileFilteringOptions,
-  IdeClient,
 } from '@google/gemini-cli-core';
 import { Settings } from './settings.js';
 
@@ -37,9 +36,9 @@ import {
   LogLevel,
   setGlobalLoggerConfig
 } from '@google/gemini-cli-core';
-// === END GHCCLI ===
 
 const logger = createLogger('CLI');
+// === END GHCCLI ===
 
 export interface CliArgs {
   // === CUSTOM WORKFLOW & AGENT CLI ARGS (GHCCLI Extensions) ===
