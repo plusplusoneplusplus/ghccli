@@ -35,7 +35,7 @@ export interface CommandBatch {
 }
 
 export interface ShellToolParams {
-  commands: string | CommandBatch[];
+  commands: string | string[] | CommandBatch[];
   description?: string;
   directory?: string;
   stopOnError?: boolean;
@@ -72,7 +72,7 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
         type: Type.OBJECT,
         properties: {
           commands: {
-            description: 'Single bash command (string) or array of commands to execute sequentially. For batch execution, provide array of {command: string, description?: string, continueOnError?: boolean} objects.',
+            description: 'Single bash command (string), array of command strings, or array of command objects to execute sequentially. For batch execution, you can provide either an array of strings or an array of {command: string, description?: string, continueOnError?: boolean} objects.',
           },
           description: {
             type: Type.STRING,
@@ -105,7 +105,9 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     } else {
       // For batch commands, show count and first command
       const count = params.commands.length;
-      const firstCommand = params.commands[0]?.command || '';
+      const firstCommand = typeof params.commands[0] === 'string' 
+        ? params.commands[0] as string
+        : (params.commands[0] as CommandBatch)?.command || '';
       if (count === 1) {
         description = firstCommand;
       } else {
@@ -151,6 +153,9 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
       { pattern: /\brm\s+.*-fr?\b/i, message: 'rm -fr commands are not allowed for security reasons' },
       { pattern: /\brm\s+.*--recursive.*--force\b/i, message: 'Recursive force removal commands are not allowed' },
       { pattern: /\brm\s+.*--force.*--recursive\b/i, message: 'Force recursive removal commands are not allowed' },
+      // Additional variations to catch different rm -rf patterns
+      { pattern: /\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s/i, message: 'rm -rf commands are not allowed for security reasons' },
+      { pattern: /\brm\s+-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*\s/i, message: 'rm -fr commands are not allowed for security reasons' },
       
       // Permission changes
       { pattern: /\bchmod\s+777\b/i, message: 'chmod 777 is not allowed for security reasons' },
@@ -275,7 +280,9 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     // Normalize commands to array format for consistent validation
     const commandsArray = typeof params.commands === 'string' 
       ? [{ command: params.commands }] 
-      : params.commands;
+      : Array.isArray(params.commands) && typeof params.commands[0] === 'string'
+        ? (params.commands as string[]).map(cmd => ({ command: cmd }))
+        : params.commands as CommandBatch[];
     
     const isSingleStringMode = typeof params.commands === 'string';
 
@@ -343,7 +350,9 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     // Normalize commands to array format
     const commandsArray = typeof params.commands === 'string' 
       ? [{ command: params.commands }] 
-      : params.commands;
+      : Array.isArray(params.commands) && typeof params.commands[0] === 'string'
+        ? (params.commands as string[]).map(cmd => ({ command: cmd }))
+        : params.commands as CommandBatch[];
 
     // Get all root commands from all commands
     const allRootCommands = new Set<string>();
@@ -356,10 +365,12 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     } else {
       // For batch commands, show summary and collect all root commands
       const count = params.commands.length;
-      const firstCommand = params.commands[0]?.command || '';
+      const firstCommand = typeof params.commands[0] === 'string' 
+        ? params.commands[0] as string
+        : (params.commands[0] as CommandBatch)?.command || '';
       displayCommand = count === 1 ? firstCommand : `${count} commands: ${firstCommand}${count > 1 ? ' ...' : ''}`;
       
-      params.commands.forEach(cmdInfo => {
+      commandsArray.forEach(cmdInfo => {
         const command = stripShellWrapper(cmdInfo.command);
         getCommandRoots(command).forEach(cmd => allRootCommands.add(cmd));
       });
@@ -411,7 +422,9 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     // Normalize commands to array format
     const commandsArray = typeof params.commands === 'string' 
       ? [{ command: params.commands }] 
-      : params.commands;
+      : Array.isArray(params.commands) && typeof params.commands[0] === 'string'
+        ? (params.commands as string[]).map(cmd => ({ command: cmd }))
+        : params.commands as CommandBatch[];
 
     const isBatchMode = typeof params.commands !== 'string';
     const stopOnError = params.stopOnError !== false; // Default to true

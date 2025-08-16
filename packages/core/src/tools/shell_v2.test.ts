@@ -402,14 +402,13 @@ describe('Sequential Command Execution', () => {
     const params = {
       commands: [
         { command: 'echo hello' },
-        { command: 'rm -rf /' }, // This should be blocked
+        { command: '' }, // Empty command should be blocked
         { command: 'echo world' }
       ]
     };
     
     const result = shellTool.validateToolParams(params);
-    expect(result).toContain('Command 2:');
-    expect(result).toContain('security reasons');
+    expect(result).toContain('Command 2 cannot be empty.');
   });
 
   it('should handle empty command in batch', () => {
@@ -431,6 +430,44 @@ describe('Sequential Command Execution', () => {
     expect(result).toBe('At least one command is required.');
   });
 
+  it('should accept array of strings as commands', () => {
+    const params = {
+      commands: [
+        'git add file.json',
+        'git commit -m "Add file"'
+      ]
+    };
+    
+    const result = shellTool.validateToolParams(params);
+    expect(result).toBeNull(); // No validation errors
+  });
+
+  it('should validate all commands in string array', () => {
+    const params = {
+      commands: [
+        'echo hello',
+        '', // Empty command should be blocked
+        'echo world'
+      ]
+    };
+    
+    const result = shellTool.validateToolParams(params);
+    expect(result).toContain('Command 2 cannot be empty.');
+  });
+
+  it('should handle empty command in string array', () => {
+    const params = {
+      commands: [
+        'echo hello',
+        '', // empty string
+        'echo world'
+      ]
+    };
+    
+    const result = shellTool.validateToolParams(params);
+    expect(result).toBe('Command 2 cannot be empty.');
+  });
+
   it('should generate proper description for batch commands', () => {
     const params = {
       commands: [
@@ -444,6 +481,21 @@ describe('Sequential Command Execution', () => {
     const description = shellTool.getDescription(params);
     expect(description).toContain('3 commands: npm install ...');
     expect(description).toContain('(Full build pipeline)');
+  });
+
+  it('should generate proper description for string array commands', () => {
+    const params = {
+      commands: [
+        'git add file.json',
+        'git commit -m "message"',
+        'git push'
+      ],
+      description: 'Git workflow'
+    };
+    
+    const description = shellTool.getDescription(params);
+    expect(description).toContain('3 commands: git add file.json ...');
+    expect(description).toContain('(Git workflow)');
   });
 
   it('should generate proper description for single command in array', () => {
@@ -499,6 +551,24 @@ describe('Dangerous Pattern Detection', () => {
         const params = { commands: 'rm file.txt' };
         const result = shellTool.validateToolParams(params);
         expect(result).toBeNull();
+      });
+
+      it('should block rm -rf with additional flags', () => {
+        const params = { commands: 'rm -irf /tmp' };
+        const result = shellTool.validateToolParams(params);
+        expect(result).toBe('rm -rf commands are not allowed for security reasons');
+      });
+
+      it('should block rm -fr with additional flags', () => {
+        const params = { commands: 'rm -ifr /tmp' };
+        const result = shellTool.validateToolParams(params);
+        expect(result).toBe('rm -fr commands are not allowed for security reasons');
+      });
+
+      it('should block rm with mixed flags containing rf', () => {
+        const params = { commands: 'rm -vrf /tmp' };
+        const result = shellTool.validateToolParams(params);
+        expect(result).toBe('rm -rf commands are not allowed for security reasons');
       });
     });
 
