@@ -7,11 +7,11 @@
 import {
   OAuth2Client,
   Credentials,
-  CodeChallengeMethod,
+  // CodeChallengeMethod, // unused
 } from 'google-auth-library';
-import * as http from 'http';
-import * as url from 'url';
-import * as crypto from 'crypto';
+// import * as http from 'http'; // unused
+// import * as url from 'url'; // unused
+// import * as crypto from 'crypto'; // unused
 import * as net from 'net';
 import * as path from 'node:path';
 import { promises as fs } from 'node:fs';
@@ -23,7 +23,7 @@ import {
   clearCachedGoogleAccount,
 } from '../utils/user_account.js';
 import { AuthType } from '../core/contentGenerator.js';
-import * as readline from 'node:readline';
+// import * as readline from 'node:readline'; // unused
 
 //  OAuth Client ID used to initiate OAuth2Client class.
 const OAUTH_CLIENT_ID =
@@ -38,17 +38,17 @@ const OAUTH_CLIENT_ID =
 const OAUTH_CLIENT_SECRET = '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';
 
 // OAuth Scopes for Cloud Code authorization.
-const OAUTH_SCOPE = [
-  'https://www.googleapis.com/auth/cloud-platform',
-  'https://www.googleapis.com/auth/userinfo.email',
-  'https://www.googleapis.com/auth/userinfo.profile',
-];
+// const OAUTH_SCOPE = [ // unused
+//   'https://www.googleapis.com/auth/cloud-platform',
+//   'https://www.googleapis.com/auth/userinfo.email',
+//   'https://www.googleapis.com/auth/userinfo.profile',
+// ];
 
-const HTTP_REDIRECT = 301;
-const SIGN_IN_SUCCESS_URL =
-  'https://developers.google.com/gemini-code-assist/auth_success_gemini';
-const SIGN_IN_FAILURE_URL =
-  'https://developers.google.com/gemini-code-assist/auth_failure_gemini';
+// const HTTP_REDIRECT = 301; // unused
+// const SIGN_IN_SUCCESS_URL = // unused
+//   'https://developers.google.com/gemini-code-assist/auth_success_gemini';
+// const SIGN_IN_FAILURE_URL = // unused
+//   'https://developers.google.com/gemini-code-assist/auth_failure_gemini';
 
 const GEMINI_DIR = '.gemini';
 const CREDENTIAL_FILENAME = 'oauth_creds.json';
@@ -86,11 +86,11 @@ async function initOauthClient(
   });
 
   if (
-    process.env.GOOGLE_GENAI_USE_GCA &&
-    process.env.GOOGLE_CLOUD_ACCESS_TOKEN
+    process.env['GOOGLE_GENAI_USE_GCA'] &&
+    process.env['GOOGLE_CLOUD_ACCESS_TOKEN']
   ) {
     client.setCredentials({
-      access_token: process.env.GOOGLE_CLOUD_ACCESS_TOKEN,
+      access_token: process.env['GOOGLE_CLOUD_ACCESS_TOKEN'],
     });
     await fetchAndCacheUserInfo(client);
     return client;
@@ -130,6 +130,8 @@ export async function getOauthClient(
   return oauthClientPromises.get(authType)!;
 }
 
+/* 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function authWithUserCode(client: OAuth2Client): Promise<boolean> {
   const redirectUri = 'https://codeassist.google.com/authcode';
   const codeVerifier = await client.generateCodeVerifierAsync();
@@ -175,11 +177,14 @@ async function authWithUserCode(client: OAuth2Client): Promise<boolean> {
   }
   return true;
 }
+*/
 
+/* 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function authWithWeb(client: OAuth2Client): Promise<OauthWebLogin> {
   const port = await getAvailablePort();
   // The hostname used for the HTTP server binding (e.g., '0.0.0.0' in Docker).
-  const host = process.env.OAUTH_CALLBACK_HOST || 'localhost';
+  const host = process.env['OAUTH_CALLBACK_HOST'] || 'localhost';
   // The `redirectUri` sent to Google's authorization server MUST use a loopback IP literal
   // (i.e., 'localhost' or '127.0.0.1'). This is a strict security policy for credentials of
   // type 'Desktop app' or 'Web application' (when using loopback flow) to mitigate
@@ -249,12 +254,13 @@ async function authWithWeb(client: OAuth2Client): Promise<OauthWebLogin> {
     loginCompletePromise,
   };
 }
+*/
 
 export function getAvailablePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     let port = 0;
     try {
-      const portStr = process.env.OAUTH_CALLBACK_PORT;
+      const portStr = process.env['OAUTH_CALLBACK_PORT'];
       if (portStr) {
         port = parseInt(portStr, 10);
         if (isNaN(port) || port <= 0 || port > 65535) {
@@ -284,7 +290,8 @@ export function getAvailablePort(): Promise<number> {
 async function loadCachedCredentials(client: OAuth2Client): Promise<boolean> {
   try {
     const keyFile =
-      process.env.GOOGLE_APPLICATION_CREDENTIALS || getCachedCredentialPath();
+      process.env['GOOGLE_APPLICATION_CREDENTIALS'] ||
+      getCachedCredentialPath();
 
     const creds = await fs.readFile(keyFile, 'utf-8');
     client.setCredentials(JSON.parse(creds));

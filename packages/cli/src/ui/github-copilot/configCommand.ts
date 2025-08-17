@@ -37,8 +37,8 @@ export const configCommand: SlashCommand = {
     message += `  model: \u001b[32m${config.getModel()}\u001b[0m\n`;
     message += `  agent: \u001b[32m${config.getAgent()}\u001b[0m\n`;
     message += `  maxSessionTurns: \u001b[32m${config.getMaxSessionTurns() === -1 ? 'unlimited' : config.getMaxSessionTurns()}\u001b[0m\n`;
-    if (process.env.GOOGLE_CLOUD_PROJECT) {
-      message += `  GOOGLE_CLOUD_PROJECT: \u001b[32m${process.env.GOOGLE_CLOUD_PROJECT}\u001b[0m\n`;
+    if (process.env['GOOGLE_CLOUD_PROJECT']) {
+      message += `  GOOGLE_CLOUD_PROJECT: \u001b[32m${process.env['GOOGLE_CLOUD_PROJECT']}\u001b[0m\n`;
     }
 
     // Sandbox Configuration

@@ -39,9 +39,9 @@ describe('Shell Command Processor - Encoding Functions', () => {
     resetEncodingCache();
 
     // Clear environment variables that might affect tests
-    delete process.env.LC_ALL;
-    delete process.env.LC_CTYPE;
-    delete process.env.LANG;
+    delete process.env['LC_ALL'];
+    delete process.env['LC_CTYPE'];
+    delete process.env['LANG'];
   });
 
   afterEach(() => {

@@ -105,7 +105,7 @@ export class AgentChat extends GeminiChat {
       try {
         userName = os.userInfo().username;
       } catch (e) {
-        userName = process.env.USER || process.env.USERNAME || '';
+        userName = process.env['USER'] || process.env['USERNAME'] || '';
       }
       promptContent = promptContent.replace(
         '{{.UserName}}',
@@ -130,10 +130,10 @@ export class AgentChat extends GeminiChat {
         
         if (platform === 'win32') {
           // Windows shell detection
-          if (process.env.PSModulePath) {
+          if (process.env['PSModulePath']) {
             shell = 'powershell';
-          } else if (process.env.ComSpec) {
-            const comSpec = process.env.ComSpec.toLowerCase();
+          } else if (process.env['ComSpec']) {
+            const comSpec = process.env['ComSpec'].toLowerCase();
             if (comSpec.includes('powershell')) {
               shell = 'powershell';
             } else if (comSpec.includes('cmd')) {
@@ -146,7 +146,7 @@ export class AgentChat extends GeminiChat {
           }
         } else {
           // Unix-like systems (Linux, macOS)
-          shell = process.env.SHELL || '';
+          shell = process.env['SHELL'] || '';
           if (shell) {
             // Extract shell name from path (e.g., /bin/bash -> bash)
             shell = shell.split('/').pop() || shell;

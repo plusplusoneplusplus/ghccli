@@ -17,7 +17,7 @@ describe('configCommand', () => {
 
   beforeEach(() => {
     // Clear environment variables for clean tests
-    delete process.env.GOOGLE_CLOUD_PROJECT;
+    delete process.env['GOOGLE_CLOUD_PROJECT'];
   });
 
   afterEach(() => {
@@ -434,7 +434,7 @@ describe('configCommand', () => {
 
   describe('with GOOGLE_CLOUD_PROJECT environment variable', () => {
     beforeEach(() => {
-      process.env.GOOGLE_CLOUD_PROJECT = 'test-gcp-project';
+      process.env['GOOGLE_CLOUD_PROJECT'] = 'test-gcp-project';
 
       const mockConfig = {
         getModel: vi.fn().mockReturnValue('gemini-1.5-pro'),

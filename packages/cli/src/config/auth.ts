@@ -17,7 +17,7 @@ export const validateAuthMethod = (authMethod: string): string | null => {
   }
 
   if (authMethod === AuthType.USE_GEMINI) {
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env['GEMINI_API_KEY']) {
       return 'GEMINI_API_KEY environment variable not found. Add that to your environment and try again (no reload needed if using .env)!';
     }
     return null;
@@ -25,8 +25,9 @@ export const validateAuthMethod = (authMethod: string): string | null => {
 
   if (authMethod === AuthType.USE_VERTEX_AI) {
     const hasVertexProjectLocationConfig =
-      !!process.env.GOOGLE_CLOUD_PROJECT && !!process.env.GOOGLE_CLOUD_LOCATION;
-    const hasGoogleApiKey = !!process.env.GOOGLE_API_KEY;
+      !!process.env['GOOGLE_CLOUD_PROJECT'] &&
+      !!process.env['GOOGLE_CLOUD_LOCATION'];
+    const hasGoogleApiKey = !!process.env['GOOGLE_API_KEY'];
     if (!hasVertexProjectLocationConfig && !hasGoogleApiKey) {
       return (
         'When using Vertex AI, you must specify either:\n' +
@@ -43,7 +44,7 @@ export const validateAuthMethod = (authMethod: string): string | null => {
     // 1. GITHUB_TOKEN or GITHUB_COPILOT_TOKEN environment variable
     // 2. Stored token file in ~/.gemini/.github_token
     // 3. Interactive OAuth device flow (no validation needed)
-    !!(process.env.GITHUB_TOKEN || process.env.GITHUB_COPILOT_TOKEN);
+    !!(process.env['GITHUB_TOKEN'] || process.env['GITHUB_COPILOT_TOKEN']);
     
     // For now, we don't require environment variables since the auth module
     // can handle device flow authentication interactively
@@ -52,9 +53,9 @@ export const validateAuthMethod = (authMethod: string): string | null => {
 
   // Azure OpenAI (API key)
   if (authMethod === AuthType.AZURE_OPENAI) {
-    const hasKey = !!process.env.AZURE_OPENAI_API_KEY;
-    const hasEndpoint = !!process.env.AZURE_OPENAI_ENDPOINT;
-    const hasDeployment = !!process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
+    const hasKey = !!process.env['AZURE_OPENAI_API_KEY'];
+    const hasEndpoint = !!process.env['AZURE_OPENAI_ENDPOINT'];
+    const hasDeployment = !!process.env['AZURE_OPENAI_DEPLOYMENT_NAME'];
     if (!hasKey || !hasEndpoint || !hasDeployment) {
       return (
         'When using Azure OpenAI, you must specify:\n' +

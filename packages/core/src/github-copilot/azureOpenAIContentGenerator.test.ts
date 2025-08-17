@@ -64,11 +64,11 @@ describe('AzureOpenAIContentGenerator (API key auth)', () => {
     createCalls = [];
     openAIConstructorCalls.length = 0;
     vi.clearAllMocks();
-    process.env.AZURE_OPENAI_API_KEY = 'env-azure-key';
+    process.env['AZURE_OPENAI_API_KEY'] = 'env-azure-key';
   });
 
   afterEach(() => {
-    delete process.env.AZURE_OPENAI_API_KEY;
+    delete process.env['AZURE_OPENAI_API_KEY'];
   });
 
   it('adds api-version query and api-key header, and sets Azure base URL', async () => {

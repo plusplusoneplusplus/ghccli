@@ -15,6 +15,7 @@ import {
   GeminiClient,
   isBinary,
   ShellExecutionService,
+  ShellExecutionResult,
 } from '@google/gemini-cli-core';
 import { type PartListUnion } from '@google/genai';
 import { UseHistoryManagerReturn } from './useHistoryManager.js';

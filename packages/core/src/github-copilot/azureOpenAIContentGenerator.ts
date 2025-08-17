@@ -23,14 +23,14 @@ export class AzureOpenAIContentGenerator extends OpenAIContentGenerator {
   ) {
     // Set base URL for OpenAI SDK through env var that OpenAIContentGenerator reads
     // We temporarily set process.env.OPENAI_BASE_URL for this instance creation.
-    const previousBaseUrl = process.env.OPENAI_BASE_URL;
-    process.env.OPENAI_BASE_URL = `${options.endpoint}/openai/deployments/${model}`;
+    const previousBaseUrl = process.env['OPENAI_BASE_URL'];
+    process.env['OPENAI_BASE_URL'] = `${options.endpoint}/openai/deployments/${model}`;
     super(apiKey, model, config);
     // Restore previous value to avoid leaking into other instances
     if (previousBaseUrl === undefined) {
-      delete process.env.OPENAI_BASE_URL;
+      delete process.env['OPENAI_BASE_URL'];
     } else {
-      process.env.OPENAI_BASE_URL = previousBaseUrl;
+      process.env['OPENAI_BASE_URL'] = previousBaseUrl;
     }
 
     this.apiVersion = options.apiVersion;
@@ -48,7 +48,7 @@ export class AzureOpenAIContentGenerator extends OpenAIContentGenerator {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const clientAny = (this as any).client as { apiKey?: string };
     return {
-      headers: { 'api-key': clientAny.apiKey || process.env.AZURE_OPENAI_API_KEY || '' },
+      headers: { 'api-key': clientAny.apiKey || process.env['AZURE_OPENAI_API_KEY'] || '' },
       query: { 'api-version': this.apiVersion },
     } as any;
   }

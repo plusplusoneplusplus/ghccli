@@ -125,7 +125,7 @@ import {
       this.model = model;
       this.config = config;
       this.sessionLogger = createSessionLogger(config.getSessionId(), config.getOutputLoggerFile());
-      const baseURL = process.env.OPENAI_BASE_URL || '';
+      const baseURL = process.env['OPENAI_BASE_URL'] || '';
   
       // Configure timeout settings - using progressive timeouts
       const timeoutConfig = {

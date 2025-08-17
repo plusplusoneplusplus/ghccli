@@ -205,19 +205,19 @@ describe('GitHubCopilotTokenManager', () => {
 
     it('should return environment variable when no file exists', async () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
-      process.env.GITHUB_TOKEN = 'env-token';
+      process.env['GITHUB_TOKEN'] = 'env-token';
 
       const result = await GitHubCopilotTokenManager.getGitHubToken(false);
       
       expect(result).toBe('env-token');
       
-      delete process.env.GITHUB_TOKEN;
+      delete process.env['GITHUB_TOKEN'];
     });
 
     it('should return null when no token is available', async () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
-      delete process.env.GITHUB_TOKEN;
-      delete process.env.GITHUB_COPILOT_TOKEN;
+      delete process.env['GITHUB_TOKEN'];
+      delete process.env['GITHUB_COPILOT_TOKEN'];
 
       const result = await GitHubCopilotTokenManager.getGitHubToken(false);
       

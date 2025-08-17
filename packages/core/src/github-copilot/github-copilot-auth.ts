@@ -495,7 +495,7 @@ export class GitHubCopilotTokenManager {
     }
 
     // Fallback to environment variable
-    const envToken = process.env.GITHUB_TOKEN || process.env.GITHUB_COPILOT_TOKEN;
+    const envToken = process.env['GITHUB_TOKEN'] || process.env['GITHUB_COPILOT_TOKEN'];
     if (envToken) {
       logger.debug('Using token from environment variable');
       return envToken;

@@ -80,21 +80,21 @@ export function createContentGeneratorConfig(
   config: Config,
   authType: AuthType | undefined,
 ): ContentGeneratorConfig {
-  const geminiApiKey = process.env.GEMINI_API_KEY || undefined;
-  const googleApiKey = process.env.GOOGLE_API_KEY || undefined;
-  const googleCloudProject = process.env.GOOGLE_CLOUD_PROJECT || undefined;
-  const googleCloudLocation = process.env.GOOGLE_CLOUD_LOCATION || undefined;
-  const openaiApiKey = process.env.OPENAI_API_KEY || undefined;
-  const azureApiKey = process.env.AZURE_OPENAI_API_KEY || undefined;
-  const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || undefined;
-  const azureDeploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || undefined;
-  const azureApiVersion = process.env.AZURE_OPENAI_API_VERSION || '2024-02-15-preview';
+  const geminiApiKey = process.env['GEMINI_API_KEY'] || undefined;
+  const googleApiKey = process.env['GOOGLE_API_KEY'] || undefined;
+  const googleCloudProject = process.env['GOOGLE_CLOUD_PROJECT'] || undefined;
+  const googleCloudLocation = process.env['GOOGLE_CLOUD_LOCATION'] || undefined;
+  const openaiApiKey = process.env['OPENAI_API_KEY'] || undefined;
+  const azureApiKey = process.env['AZURE_OPENAI_API_KEY'] || undefined;
+  const azureEndpoint = process.env['AZURE_OPENAI_ENDPOINT'] || undefined;
+  const azureDeploymentName = process.env['AZURE_OPENAI_DEPLOYMENT_NAME'] || undefined;
+  const azureApiVersion = process.env['AZURE_OPENAI_API_VERSION'] || '2024-02-15-preview';
 
   // Use runtime model from config if available; otherwise, fall back to parameter or default
   // For OpenAI, use OPENAI_MODEL env var or default to gpt-4 if no model specified
   let effectiveModel = config.getModel() || DEFAULT_GEMINI_MODEL;
   if (authType === AuthType.OPENAI) {
-    effectiveModel = config.getModel() || process.env.OPENAI_MODEL || 'gpt-4o';
+    effectiveModel = config.getModel() || process.env['OPENAI_MODEL'] || 'gpt-4o';
   }
   if (authType === AuthType.AZURE_OPENAI) {
     // For Azure, the "model" field corresponds to the deployment name used in the path
@@ -173,7 +173,7 @@ export async function createContentGenerator(
   gcConfig: Config,
   sessionId?: string,
 ): Promise<ContentGenerator> {
-  const version = process.env.CLI_VERSION || process.version;
+  const version = process.env['CLI_VERSION'] || process.version;
   const httpOptions = {
     headers: {
       'User-Agent': `GeminiCLI/${version} (${process.platform}; ${process.arch})`,

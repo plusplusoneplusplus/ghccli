@@ -65,7 +65,8 @@ describe('handleAtCommand', () => {
 
     const registry = new ToolRegistry(mockConfig);
     registry.registerTool(new ReadManyFilesTool(mockConfig));
-    registry.registerTool(new GlobTool(mockConfig));
+    // Note: GlobTool is not a declarative tool, so it can't be registered directly
+    // registry.registerTool(new GlobTool(mockConfig));
     getToolRegistry.mockReturnValue(registry);
   });
 

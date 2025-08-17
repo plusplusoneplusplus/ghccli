@@ -28,13 +28,13 @@ const LABEL_WIDTH = 14; // visual alignment for labels
 export function AzureOpenAIAuthDialog({ onApply, onCancel, settings }: AzureOpenAIAuthDialogProps): React.JSX.Element {
   const defaults = useMemo(() => ({
     key:
-      settings.merged.azureOpenAIAPIKey || process.env.AZURE_OPENAI_API_KEY || '',
+      settings.merged.azureOpenAIAPIKey || process.env['AZURE_OPENAI_API_KEY'] || '',
     endpoint:
-      settings.merged.azureOpenAIEndpoint || process.env.AZURE_OPENAI_ENDPOINT || '',
+      settings.merged.azureOpenAIEndpoint || process.env['AZURE_OPENAI_ENDPOINT'] || '',
     deployment:
-      settings.merged.azureOpenAIDeploymentName || process.env.AZURE_OPENAI_DEPLOYMENT_NAME || '',
+      settings.merged.azureOpenAIDeploymentName || process.env['AZURE_OPENAI_DEPLOYMENT_NAME'] || '',
     version:
-      settings.merged.azureOpenAIAPIVersion || process.env.AZURE_OPENAI_API_VERSION || '2024-02-15-preview',
+      settings.merged.azureOpenAIAPIVersion || process.env['AZURE_OPENAI_API_VERSION'] || '2024-02-15-preview',
   }), [settings.merged.azureOpenAIAPIKey, settings.merged.azureOpenAIEndpoint, settings.merged.azureOpenAIDeploymentName, settings.merged.azureOpenAIAPIVersion]);
 
   const [endpoint, setEndpoint] = useState(defaults.endpoint);

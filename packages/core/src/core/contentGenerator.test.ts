@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   createContentGenerator,
   AuthType,
@@ -74,7 +74,6 @@ describe('createContentGenerator', () => {
 });
 
 describe('createContentGeneratorConfig', () => {
-  const originalEnv = process.env;
   const mockConfig = {
     getModel: vi.fn().mockReturnValue('gemini-pro'),
     setModel: vi.fn(),
@@ -86,18 +85,15 @@ describe('createContentGeneratorConfig', () => {
   beforeEach(() => {
     // Reset modules to re-evaluate imports and environment variables
     vi.resetModules();
-    // Restore process.env before each test
-    process.env = { ...originalEnv };
     vi.clearAllMocks();
   });
 
-  afterAll(() => {
-    // Restore original process.env after all tests
-    process.env = originalEnv;
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('should configure for Gemini using GEMINI_API_KEY when set', async () => {
-    process.env.GEMINI_API_KEY = 'env-gemini-key';
+    vi.stubEnv('GEMINI_API_KEY', 'env-gemini-key');
     const config = await createContentGeneratorConfig(
       mockConfig,
       AuthType.USE_GEMINI,
@@ -107,7 +103,7 @@ describe('createContentGeneratorConfig', () => {
   });
 
   it('should not configure for Gemini if GEMINI_API_KEY is empty', async () => {
-    process.env.GEMINI_API_KEY = '';
+    vi.stubEnv('GEMINI_API_KEY', '');
     const config = await createContentGeneratorConfig(
       mockConfig,
       AuthType.USE_GEMINI,
@@ -117,7 +113,7 @@ describe('createContentGeneratorConfig', () => {
   });
 
   it('should configure for Vertex AI using GOOGLE_API_KEY when set', async () => {
-    process.env.GOOGLE_API_KEY = 'env-google-key';
+    vi.stubEnv('GOOGLE_API_KEY', 'env-google-key');
     const config = await createContentGeneratorConfig(
       mockConfig,
       AuthType.USE_VERTEX_AI,
@@ -127,8 +123,8 @@ describe('createContentGeneratorConfig', () => {
   });
 
   it('should configure for Vertex AI using GCP project and location when set', async () => {
-    process.env.GOOGLE_CLOUD_PROJECT = 'env-gcp-project';
-    process.env.GOOGLE_CLOUD_LOCATION = 'env-gcp-location';
+    vi.stubEnv('GOOGLE_CLOUD_PROJECT', 'env-gcp-project');
+    vi.stubEnv('GOOGLE_CLOUD_LOCATION', 'env-gcp-location');
     const config = await createContentGeneratorConfig(
       mockConfig,
       AuthType.USE_VERTEX_AI,
@@ -138,9 +134,9 @@ describe('createContentGeneratorConfig', () => {
   });
 
   it('should not configure for Vertex AI if required env vars are empty', async () => {
-    process.env.GOOGLE_API_KEY = '';
-    process.env.GOOGLE_CLOUD_PROJECT = '';
-    process.env.GOOGLE_CLOUD_LOCATION = '';
+    vi.stubEnv('GOOGLE_API_KEY', '');
+    vi.stubEnv('GOOGLE_CLOUD_PROJECT', '');
+    vi.stubEnv('GOOGLE_CLOUD_LOCATION', '');
     const config = await createContentGeneratorConfig(
       mockConfig,
       AuthType.USE_VERTEX_AI,
@@ -150,8 +146,8 @@ describe('createContentGeneratorConfig', () => {
   });
 
   it('should configure for OpenAI using OPENAI_API_KEY when set', async () => {
-    process.env.OPENAI_API_KEY = 'env-openai-key';
-    process.env.OPENAI_MODEL = 'gpt-3.5-turbo';
+    process.env['OPENAI_API_KEY'] = 'env-openai-key';
+    process.env['OPENAI_MODEL'] = 'gpt-3.5-turbo';
     vi.mocked(mockConfig.getModel).mockReturnValue(''); // No model from config
     const config = await createContentGeneratorConfig(
       mockConfig,
@@ -163,7 +159,7 @@ describe('createContentGeneratorConfig', () => {
   });
 
   it('should throw error for OpenAI if OPENAI_API_KEY is not set', async () => {
-    delete process.env.OPENAI_API_KEY;
+    delete process.env['OPENAI_API_KEY'];
     expect(() => createContentGeneratorConfig(
       mockConfig,
       AuthType.OPENAI,
@@ -171,8 +167,8 @@ describe('createContentGeneratorConfig', () => {
   });
 
   it('should use default gpt-4 model for OpenAI if no model specified', async () => {
-    process.env.OPENAI_API_KEY = 'env-openai-key';
-    delete process.env.OPENAI_MODEL;
+    process.env['OPENAI_API_KEY'] = 'env-openai-key';
+    delete process.env['OPENAI_MODEL'];
     vi.mocked(mockConfig.getModel).mockReturnValue('');
     const config = await createContentGeneratorConfig(
       mockConfig,
@@ -182,10 +178,10 @@ describe('createContentGeneratorConfig', () => {
   });
   
   it('should configure for Azure OpenAI using env vars', async () => {
-    process.env.AZURE_OPENAI_API_KEY = 'env-azure-key';
-    process.env.AZURE_OPENAI_ENDPOINT = 'https://example.openai.azure.com';
-    process.env.AZURE_OPENAI_DEPLOYMENT_NAME = 'gpt-4o-deploy';
-    process.env.AZURE_OPENAI_API_VERSION = '2024-02-15-preview';
+    process.env['AZURE_OPENAI_API_KEY'] = 'env-azure-key';
+    process.env['AZURE_OPENAI_ENDPOINT'] = 'https://example.openai.azure.com';
+    process.env['AZURE_OPENAI_DEPLOYMENT_NAME'] = 'gpt-4o-deploy';
+    process.env['AZURE_OPENAI_API_VERSION'] = '2024-02-15-preview';
 
     const cfg = await createContentGeneratorConfig(
       mockConfig,
@@ -199,9 +195,9 @@ describe('createContentGeneratorConfig', () => {
   });
 
   it('should throw if Azure OpenAI env vars are missing', async () => {
-    delete process.env.AZURE_OPENAI_API_KEY;
-    delete process.env.AZURE_OPENAI_ENDPOINT;
-    delete process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
+    delete process.env['AZURE_OPENAI_API_KEY'];
+    delete process.env['AZURE_OPENAI_ENDPOINT'];
+    delete process.env['AZURE_OPENAI_DEPLOYMENT_NAME'];
     expect(() => createContentGeneratorConfig(
       mockConfig,
       AuthType.AZURE_OPENAI,

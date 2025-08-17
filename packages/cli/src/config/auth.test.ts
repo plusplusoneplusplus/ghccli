@@ -38,7 +38,7 @@ describe('validateAuthMethod', () => {
 
   describe('USE_GEMINI', () => {
     it('should return null if GEMINI_API_KEY is set', () => {
-      process.env.GEMINI_API_KEY = 'test-key';
+      process.env['GEMINI_API_KEY'] = 'test-key';
       expect(validateAuthMethod(AuthType.USE_GEMINI)).toBeNull();
     });
 
@@ -51,13 +51,13 @@ describe('validateAuthMethod', () => {
 
   describe('USE_VERTEX_AI', () => {
     it('should return null if GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION are set', () => {
-      process.env.GOOGLE_CLOUD_PROJECT = 'test-project';
-      process.env.GOOGLE_CLOUD_LOCATION = 'test-location';
+      process.env['GOOGLE_CLOUD_PROJECT'] = 'test-project';
+      process.env['GOOGLE_CLOUD_LOCATION'] = 'test-location';
       expect(validateAuthMethod(AuthType.USE_VERTEX_AI)).toBeNull();
     });
 
     it('should return null if GOOGLE_API_KEY is set', () => {
-      process.env.GOOGLE_API_KEY = 'test-api-key';
+      process.env['GOOGLE_API_KEY'] = 'test-api-key';
       expect(validateAuthMethod(AuthType.USE_VERTEX_AI)).toBeNull();
     });
 
