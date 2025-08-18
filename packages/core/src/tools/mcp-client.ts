@@ -440,13 +440,33 @@ export async function discoverTools(
 
       const fullyQualifiedToolName = `${mcpServerName}.${funcDecl.name}`;
 
+      // Handle parameter schema - prefer parametersJsonSchema, fall back to parameters, then empty
+      let parameterSchema = funcDecl.parametersJsonSchema;
+      let schemaSource = 'parametersJsonSchema';
+      
+      if (!parameterSchema && funcDecl.parameters) {
+        // Convert Schema format to JSON Schema format
+        parameterSchema = funcDecl.parameters;
+        schemaSource = 'parameters';
+      }
+      
+      if (!parameterSchema) {
+        parameterSchema = { type: 'object', properties: {} };
+        schemaSource = 'empty_fallback';
+      }
+
+      // Debug logging for parameter schema handling
+      if (schemaSource !== 'parametersJsonSchema') {
+        logger.debug(`[MCP Discovery] Tool '${funcDecl.name}' from server '${mcpServerName}' using ${schemaSource} for parameter schema`);
+      }
+
       discoveredTools.push(
         new DiscoveredMCPTool(
           mcpCallableTool,
           mcpServerName,
           funcDecl.name!,
           funcDecl.description ?? '',
-          funcDecl.parametersJsonSchema ?? { type: 'object', properties: {} },
+          parameterSchema,
           mcpServerConfig.timeout ?? MCP_DEFAULT_TIMEOUT_MSEC,
           mcpServerConfig.trust,
           fullyQualifiedToolName,
