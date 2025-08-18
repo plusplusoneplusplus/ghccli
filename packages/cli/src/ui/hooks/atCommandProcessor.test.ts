@@ -9,7 +9,6 @@ import { handleAtCommand } from './atCommandProcessor.js';
 import {
   Config,
   FileDiscoveryService,
-  GlobTool,
   ReadManyFilesTool,
   ToolRegistry,
 } from '@google/gemini-cli-core';

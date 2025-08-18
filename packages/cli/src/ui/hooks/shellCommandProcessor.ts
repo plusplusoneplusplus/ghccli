@@ -15,7 +15,6 @@ import {
   GeminiClient,
   isBinary,
   ShellExecutionService,
-  ShellExecutionResult,
 } from '@google/gemini-cli-core';
 import { type PartListUnion } from '@google/genai';
 import { UseHistoryManagerReturn } from './useHistoryManager.js';
@@ -36,7 +35,7 @@ interface ShellExecutionResult {
   rawOutput: Buffer;
   output: string;
   exitCode: number | null;
-  signal: number | null;
+  signal: NodeJS.Signals | null;
   error: Error | null;
   aborted: boolean;
 }
