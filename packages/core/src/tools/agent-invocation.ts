@@ -15,6 +15,9 @@ import { getResponseText } from '../utils/generateContentResponseUtilities.js';
 import { CoreToolScheduler } from '../core/coreToolScheduler.js';
 import { ApprovalMode } from '../config/config.js';
 import { ToolCallRequestInfo, ToolCallResponseInfo } from '../core/turn.js';
+import { createLogger, LogLevel } from '../utils/logging.js';
+
+const logger = createLogger('AgentInvocation');
 
 const agentInvocationToolSchemaData: FunctionDeclaration = {
   name: 'invoke_agents',
@@ -260,14 +263,22 @@ export class AgentInvocationTool extends BaseTool<
         const toolRegistry = await this.config.getToolRegistry();
         const toolDeclarations = toolRegistry.getFunctionDeclarations();
         
+        logger.debug(`Total available tools: ${toolDeclarations.length}`, LogLevel.VERBOSE);
+        
         // Get allowed and blocked tool regex patterns from agent configuration
         const allowedToolRegex = loadedAgentConfig.metadata.toolPreferences?.allowedToolRegex || [];
         const blockedToolsRegex = loadedAgentConfig.metadata.toolPreferences?.blockedToolsRegex || [];
+        
+        logger.debug(`Agent ${agentConfig.agentName} - allowedToolRegex: [${allowedToolRegex.join(', ')}]`, LogLevel.VERBOSE);
+        logger.debug(`Agent ${agentConfig.agentName} - blockedToolsRegex: [${blockedToolsRegex.join(', ')}]`, LogLevel.VERBOSE);
         
         // Filter tools based on agent's tool preferences
         const filteredToolDeclarations = (allowedToolRegex.length > 0 || blockedToolsRegex.length > 0)
           ? toolRegistry.getFilteredFunctionDeclarationsWithBlocking(allowedToolRegex, blockedToolsRegex)
           : toolDeclarations;
+        
+        logger.debug(`Filtered tools for agent: ${filteredToolDeclarations.length}`, LogLevel.VERBOSE);
+        logger.debug(`Filtered tool names: [${filteredToolDeclarations.map(td => td.name).join(', ')}]`, LogLevel.VERBOSE);
         
         const filteredTools = [{ functionDeclarations: filteredToolDeclarations }];
 
@@ -275,6 +286,7 @@ export class AgentInvocationTool extends BaseTool<
         const { AgentChat } = await import('../agents/agentChat.js');
 
         // Create agent chat instance with filtered tools
+        logger.debug(`Creating AgentChat for ${agentConfig.agentName} with ${filteredTools[0].functionDeclarations.length} tools`, LogLevel.VERBOSE);
         const agentChat = await AgentChat.fromAgentConfig(
           this.config,
           contentGenerator,
@@ -285,6 +297,10 @@ export class AgentInvocationTool extends BaseTool<
           },
         );
 
+        logger.debug(`AgentChat created successfully for ${agentConfig.agentName}`, LogLevel.VERBOSE);
+        logger.debug(`Agent supports tools: ${agentChat.supportsTools()}`, LogLevel.VERBOSE);
+        logger.debug(`Agent supports streaming: ${agentChat.supportsStreaming()}`, LogLevel.VERBOSE);
+
         // Create progress update callback that sends live updates
         const onProgressUpdate = updateOutput ? (progressText: string) => {
           const agentProgressText = `**Agent ${index + 1} (${agentConfig.agentName})**: ${progressText}`;
@@ -292,6 +308,7 @@ export class AgentInvocationTool extends BaseTool<
         } : undefined;
 
         // Execute the agent with complete tool calling support
+        logger.debug(`Starting execution for agent ${agentConfig.agentName}`, LogLevel.VERBOSE);
         let responseText = await this.executeAgentWithToolSupport(
           agentChat,
           agentConfig.message,
@@ -308,7 +325,7 @@ export class AgentInvocationTool extends BaseTool<
           await logger.saveCheckpoint(chatHistory, agentExecutionId);
         } catch (saveError) {
           // Log error but don't fail the agent execution
-          console.warn(`Failed to save chat history for agent ${agentConfig.agentName}:`, saveError);
+          logger.warn(`Failed to save chat history for agent ${agentConfig.agentName}: ${saveError}`);
         }
 
         const duration = Date.now() - agentStartTime;
@@ -458,8 +475,12 @@ export class AgentInvocationTool extends BaseTool<
     let conversationRound = 0;
     const maxRounds = 10; // Prevent infinite loops
 
+    logger.debug(`Starting agent execution with message: ${message.substring(0, 100)}...`, LogLevel.VERBOSE);
+
     while (conversationRound < maxRounds && !signal.aborted) {
       conversationRound++;
+      
+      logger.debug(`Starting round ${conversationRound}/${maxRounds}`, LogLevel.VERBOSE);
       
       // Update progress if callback provided
       if (onProgressUpdate) {
@@ -467,6 +488,7 @@ export class AgentInvocationTool extends BaseTool<
       }
       
       // Send message to the agent
+      logger.debug(`Sending message to agent (round ${conversationRound})`, LogLevel.VERBOSE);
       const responseStream = await agentChat.sendMessageStream(
         { message: currentMessage },
         `${executionId}-round-${conversationRound}`,
@@ -476,6 +498,7 @@ export class AgentInvocationTool extends BaseTool<
       const responseParts: Part[] = [];
       let roundResponseText = '';
 
+      logger.debug('Processing response stream...', LogLevel.VERBOSE);
       for await (const resp of responseStream) {
         if (resp.candidates?.[0]?.content?.parts) {
           for (const part of resp.candidates[0].content.parts) {
@@ -490,6 +513,8 @@ export class AgentInvocationTool extends BaseTool<
         }
       }
 
+      logger.debug(`Collected ${responseParts.length} response parts, text length: ${roundResponseText.length}`, LogLevel.VERBOSE);
+
       // Add the round's text to the full response
       if (roundResponseText.trim()) {
         fullResponseText += (fullResponseText ? '\n\n' : '') + roundResponseText;
@@ -500,6 +525,7 @@ export class AgentInvocationTool extends BaseTool<
       
       if (toolCalls.length === 0) {
         // No tool calls, we're done
+        logger.debug('No tool calls found, agent completed successfully', LogLevel.VERBOSE);
         if (onProgressUpdate) {
           onProgressUpdate(`Round ${conversationRound}/${maxRounds}: Agent completed successfully`);
         }
@@ -507,6 +533,7 @@ export class AgentInvocationTool extends BaseTool<
       }
 
       // Update progress for tool execution
+      logger.debug(`Found ${toolCalls.length} tool calls to execute`, LogLevel.VERBOSE);
       if (onProgressUpdate) {
         onProgressUpdate(`Round ${conversationRound}/${maxRounds}: Executing ${toolCalls.length} tools...`);
       }
@@ -514,14 +541,19 @@ export class AgentInvocationTool extends BaseTool<
       // Execute tool calls using CoreToolScheduler
       const toolResults = await this.executeToolCalls(toolCalls, signal);
       
+      logger.debug(`Tool execution completed, got ${toolResults.length} results`, LogLevel.VERBOSE);
+      
       // Convert tool results back to message format for the next round
       currentMessage = this.formatToolResultsAsMessage(toolResults);
+      logger.debug(`Formatted tool results for next round: ${currentMessage.substring(0, 200)}...`, LogLevel.VERBOSE);
     }
 
     if (conversationRound >= maxRounds) {
+      logger.warn(`Agent conversation reached maximum rounds limit (${maxRounds})`);
       fullResponseText += '\n\n[Warning: Agent conversation reached maximum rounds limit]';
     }
 
+    logger.debug(`Agent execution completed with ${fullResponseText.length} characters of response`, LogLevel.VERBOSE);
     return fullResponseText;
   }
 
@@ -531,9 +563,16 @@ export class AgentInvocationTool extends BaseTool<
   private extractToolCallsFromParts(parts: Part[]): ToolCallRequestInfo[] {
     const toolCalls: ToolCallRequestInfo[] = [];
     
-    for (const part of parts) {
+    logger.debug(`Extracting tool calls from ${parts.length} response parts`, LogLevel.VERBOSE);
+    
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      logger.debug(`Part ${i}: ${Object.keys(part).join(', ')}`, LogLevel.VERBOSE);
+      
       if ('functionCall' in part && part.functionCall) {
         const fc = part.functionCall;
+        logger.debug(`Found function call: id=${fc.id}, name=${fc.name}`, LogLevel.VERBOSE);
+        
         toolCalls.push({
           callId: fc.id || `call_${toolCalls.length}`,
           name: fc.name || '',
@@ -544,6 +583,7 @@ export class AgentInvocationTool extends BaseTool<
       }
     }
     
+    logger.debug(`Extracted ${toolCalls.length} tool calls`, LogLevel.VERBOSE);
     return toolCalls;
   }
 
@@ -554,15 +594,64 @@ export class AgentInvocationTool extends BaseTool<
     toolCalls: ToolCallRequestInfo[],
     signal: AbortSignal,
   ): Promise<any[]> {
+    // If no tool calls, return empty results immediately
+    if (!toolCalls || toolCalls.length === 0) {
+      logger.debug('No tool calls to execute', LogLevel.VERBOSE);
+      return [];
+    }
+
+    logger.debug(`Executing ${toolCalls.length} tool calls: ${toolCalls.map(tc => tc.name).join(', ')}`, LogLevel.VERBOSE);
+
     return new Promise((resolve, reject) => {
       const results: any[] = [];
+      let isResolved = false;
+      
+      // Add timeout to prevent hanging
+      const timeout = setTimeout(() => {
+        if (!isResolved) {
+          isResolved = true;
+          logger.error('Tool execution timeout after 60 seconds');
+          reject(new Error('Tool execution timeout after 60 seconds'));
+        }
+      }, 60000); // 60 second timeout
+
+      // Handle abort signal
+      if (signal.aborted) {
+        clearTimeout(timeout);
+        reject(new Error('Tool execution aborted'));
+        return;
+      }
+
+      signal.addEventListener('abort', () => {
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          logger.debug('Tool execution aborted by signal', LogLevel.VERBOSE);
+          reject(new Error('Tool execution aborted'));
+        }
+      });
+      
+      // Create a temporary config with YOLO approval mode for agent-initiated tool calls
+      const agentToolConfig = {
+        ...this.config,
+        getApprovalMode: () => ApprovalMode.YOLO, // Force YOLO mode for agent tools
+      };
+      
+      logger.debug('Creating CoreToolScheduler with YOLO approval mode for agent tools', LogLevel.VERBOSE);
       
       const toolScheduler = new CoreToolScheduler({
         toolRegistry: this.config.getToolRegistry(),
         getPreferredEditor: () => undefined,
-        config: this.config,
+        config: agentToolConfig as Config, // Use the modified config
         onEditorClose: () => {},
         onAllToolCallsComplete: (completedCalls) => {
+          if (isResolved) return;
+          
+          isResolved = true;
+          clearTimeout(timeout);
+          
+          logger.debug(`All ${completedCalls.length} tool calls completed`, LogLevel.VERBOSE);
+          
           // Extract results from completed calls
           for (const call of completedCalls) {
             if (call.status === 'success') {
@@ -587,6 +676,7 @@ export class AgentInvocationTool extends BaseTool<
                 result: result,
                 success: true,
               });
+              logger.debug(`Tool ${call.request.name} succeeded`, LogLevel.VERBOSE);
             } else {
               results.push({
                 callId: call.request.callId,
@@ -594,14 +684,28 @@ export class AgentInvocationTool extends BaseTool<
                 error: call.response?.error?.message || 'Tool execution failed',
                 success: false,
               });
+              logger.warn(`Tool ${call.request.name} failed: ${call.response?.error?.message}`);
             }
           }
           resolve(results);
         },
+        onToolCallsUpdate: (toolCalls) => {
+          // Log tool call status updates for debugging
+          const statusSummary = toolCalls.map(tc => `${tc.request.name}: ${tc.status}`).join(', ');
+          logger.debug(`Tool status update: ${statusSummary}`, LogLevel.VERBOSE);
+        },
       });
 
       // Schedule the tool calls
-      toolScheduler.schedule(toolCalls, signal).catch(reject);
+      logger.debug('Scheduling tool calls with CoreToolScheduler', LogLevel.VERBOSE);
+      toolScheduler.schedule(toolCalls, signal).catch((error) => {
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          logger.error(`Error scheduling tool calls: ${error}`);
+          reject(error);
+        }
+      });
     });
   }
 

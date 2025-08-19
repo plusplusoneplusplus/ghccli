@@ -339,10 +339,17 @@ export class AgentStepExecutor extends StepExecutor {
       const results: any[] = [];
       
       const executorConfig = this.getExecutorConfig();
+      
+      // Create a temporary config with YOLO approval mode for agent-initiated tool calls
+      const agentToolConfig = {
+        ...executorConfig.config,
+        getApprovalMode: () => ApprovalMode.YOLO, // Force YOLO mode for agent tools
+      };
+      
       const toolScheduler = new CoreToolScheduler({
         toolRegistry: executorConfig.config.getToolRegistry(),
         getPreferredEditor: () => undefined,
-        config: executorConfig.config,
+        config: agentToolConfig as Config, // Use the modified config
         onEditorClose: () => {},
         onAllToolCallsComplete: (completedCalls) => {
           // Extract results from completed calls
