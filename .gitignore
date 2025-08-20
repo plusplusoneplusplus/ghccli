@@ -42,3 +42,7 @@ packages/vscode-ide-companion/*.vsix
 
 # Workflow state files (temporary test artifacts)
 **/.workflow-state/
+
+# Python bytecode caches
+__pycache__/
+*.py[cod]

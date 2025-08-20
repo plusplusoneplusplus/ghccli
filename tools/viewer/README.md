@@ -7,6 +7,7 @@ A Python Streamlit-based tool for analyzing and exploring GitHub Copilot CLI ses
 - 📊 **Interactive Dashboard**: View session statistics including total interactions, tokens, models used, and session duration
 - 🔍 **Advanced Filtering**: Filter by model, search content, minimum token count
 - 💬 **Incremental Message View**: Show only new messages in each interaction for cleaner analysis
+- 🧩 **Session Correlation (sessionId Grouping)**: Automatically groups multiple log files that share the same `sessionId` (derived from filename suffix or embedded field) so you can view parent + sub-agent activity as a unified timeline
 - 🔧 **Tool Call Visualization**: Special formatting for tool calls and results
 - 📱 **Responsive Design**: Works on desktop and mobile devices
 - 🚀 **Auto-Discovery**: Automatically suggests recent session files
@@ -42,12 +43,25 @@ streamlit run jsonl_viewer.py
    - Use filters to narrow down interactions
    - Expand individual interactions to see details
    - Toggle incremental message view for cleaner analysis
+   - (Directory Mode) Enable "Group by sessionId" to merge per-agent OpenAI logs that belong to the same CLI session
 
 ## Session File Locations
 
 The tool automatically looks for session files in standard locations:
 - **Windows**: `C:\Users\[username]\.ghccli\tmp\sessions\`
 - **macOS/Linux**: `~/.ghccli/tmp/sessions/`
+
+### Session Correlation Logic
+
+Many CLI runs that invoke sub-agents create multiple OpenAI JSONL log files that nonetheless share a common logical `sessionId`.
+
+This viewer detects and groups those files using the following heuristics:
+1. If a log entry contains a `sessionId` field, that value is authoritative.
+2. Otherwise, it parses the filename pattern: `yyyy_MM_dd_hh_mm_ss_<sessionId>.jsonl` and uses the trailing segment as the `sessionId`.
+3. All files with the same resolved `sessionId` are shown under a single group in the sidebar (when grouping is enabled).
+4. Within a group, files are ordered lexicographically (timestamp prefix) and their entries are merged and chronologically sorted by individual entry timestamps.
+
+This provides a lightweight, non-invasive way to correlate parent agent activity with sub-agent executions without modifying existing log generation.
 
 ## Features Comparison with HTML Version
 

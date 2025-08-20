@@ -30,6 +30,7 @@ class JSONLViewer:
         self.previous_messages = {}  # Track previous messages for incremental display
         self.all_files_data = {}  # Store data from all loaded files
         self.agent_relationships = {}  # Track parent-child agent relationships
+    self.session_groups = {}  # sessionId -> list of filenames (simple correlation)
         
     def find_default_directory(self) -> Optional[str]:
         """Try to find the default sessions directory"""
@@ -239,6 +240,37 @@ class JSONLViewer:
         
         st.write(f"🔍 Debug: Relationship analysis complete for {len(relationships)} files")
         return relationships
+
+    # ------------------ Simple sessionId grouping (Option 1 implementation) ------------------
+    def extract_session_id(self, filename: str, data: List[Dict]) -> Optional[str]:
+        """Extract sessionId from log entries, else derive from filename pattern.
+
+        Supported filename pattern: yyyy_MM_dd_hh_mm_ss_<sessionId>.jsonl
+        """
+        for item in data:
+            if isinstance(item, dict):
+                sid = item.get('sessionId')
+                if sid:
+                    return sid
+        m = re.match(r'^\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}_(.+)\.jsonl$', filename)
+        if m:
+            return m.group(1)
+        return None
+
+    def build_session_groups(self, files_data: Dict[str, List[Dict]]) -> Dict[str, List[str]]:
+        groups: Dict[str, List[str]] = {}
+        for filename, data in files_data.items():
+            try:
+                sid = self.extract_session_id(filename, data)
+                if not sid:
+                    continue
+                groups.setdefault(sid, []).append(filename)
+            except Exception as e:
+                st.warning(f"Grouping error for {filename}: {e}")
+        for sid in groups:
+            groups[sid].sort()  # timestamp prefix provides chronological order
+        self.session_groups = groups
+        return groups
     
     def _is_sub_agent_file(self, filename: str, data: List[Dict]) -> bool:
         """Check if this file appears to be from a sub-agent"""
@@ -588,6 +620,42 @@ def main():
                 
                 # files_data is already in correct order (newest first) from load_files_from_directory
                 sorted_files = list(files_data.keys())
+
+                # Build / rebuild session groups if underlying file list changed
+                if st.session_state.get('group_source_files') != sorted_files:
+                    viewer.build_session_groups(files_data)
+                    st.session_state['group_source_files'] = sorted_files
+                    st.session_state['session_groups'] = viewer.session_groups
+
+                # Toggle grouping UI
+                enable_grouping = st.checkbox(
+                    "Group by sessionId (correlate multi-file sessions)",
+                    value=st.session_state.get('enable_grouping', True),
+                    help="Group multiple log files that share the same sessionId (taken from filename suffix or embedded sessionId field)."
+                )
+                st.session_state['enable_grouping'] = enable_grouping
+
+                # Show group list
+                if enable_grouping and viewer.session_groups:
+                    st.subheader("🔗 SessionId Groups")
+                    # Prioritize groups with >1 file (likely parent+children)
+                    group_items = list(viewer.session_groups.items())
+                    group_items.sort(key=lambda kv: (-len(kv[1]), kv[0]))
+                    for sid, files_in_group in group_items:
+                        label = f"{sid[:8]}… ({len(files_in_group)} file{'s' if len(files_in_group)!=1 else ''})"
+                        is_sel = st.session_state.get('selected_session_group') == sid
+                        btn_type = "primary" if is_sel else "secondary"
+                        if st.button(label, key=f"grp_{sid}", type=btn_type, use_container_width=True):
+                            st.session_state['selected_session_group'] = sid
+                            # Clear single session selection to avoid ambiguity
+                            st.session_state.pop('selected_session', None)
+                            st.rerun()
+                        if is_sel:
+                            st.caption("\n".join(files_in_group))
+                    if st.session_state.get('selected_session_group'):
+                        if st.button("Clear Group Selection", key="clear_session_group"):
+                            st.session_state.pop('selected_session_group', None)
+                            st.rerun()
                 
                 # Default to the most recent session if none selected
                 if 'selected_session' not in st.session_state and sorted_files:
@@ -691,50 +759,54 @@ def main():
                 total_interactions = sum(len(data) for data in files_data.values())
                 st.write(f"**Total**: {len(files_data)} sessions, {total_interactions} interactions")
             
-            # Get data for selected session only
-            selected_session = st.session_state.get('selected_session')
-            if selected_session and selected_session in files_data:
-                data = files_data[selected_session]
-                session_rank = list(files_data.keys()).index(selected_session) + 1
-                rank_text = " (Most Recent)" if session_rank == 1 else f" (#{session_rank} of {len(files_data)})"
-                
-                # Get hierarchy info for display
-                hierarchy_info = viewer.get_agent_hierarchy_info(selected_session)
-                type_display = hierarchy_info.get('type_display', '📄 Standard Session')
-                
-                st.success(f"✅ Viewing session: `{selected_session}`{rank_text} ({len(data)} interactions)")
-                st.info(f"📋 Session Type: {type_display}")
-                
-                # Show relationship navigation if available
-                if hierarchy_info.get('children') or hierarchy_info.get('parent'):
-                    st.markdown("### 🔗 Agent Relationships")
-                    
-                    nav_cols = st.columns(3)
-                    with nav_cols[0]:
-                        if hierarchy_info.get('parent'):
-                            parent_file = hierarchy_info['parent']
-                            if st.button(f"⬆️ View Parent: {parent_file}", key="nav_parent"):
-                                st.session_state['selected_session'] = parent_file
-                                st.rerun()
-                    
-                    with nav_cols[1]:
-                        if hierarchy_info.get('children'):
-                            st.markdown(f"**📋 Sub-agents ({len(hierarchy_info['children'])}):**")
-                            for i, child_file in enumerate(hierarchy_info['children']):
-                                if st.button(f"🤖 {child_file}", key=f"nav_child_{i}"):
-                                    st.session_state['selected_session'] = child_file
-                                    st.rerun()
-                    
-                    with nav_cols[2]:
-                        # Show relationship diagram
-                        if hierarchy_info.get('has_agent_invocation') and hierarchy_info.get('children'):
-                            st.markdown("**📊 Hierarchy:**")
-                            st.markdown(f"```\n{selected_session}\n" + 
-                                       "\n".join([f"├── {child}" for child in hierarchy_info['children']]) + 
-                                       "\n```")
+            # Determine data source: grouped session or single file
+            selected_group = (st.session_state.get('selected_session_group')
+                               if st.session_state.get('enable_grouping') else None)
+            if selected_group and selected_group in viewer.session_groups:
+                group_files = viewer.session_groups[selected_group]
+                combined = []
+                for gf in group_files:
+                    combined.extend(files_data.get(gf, []))
+                try:
+                    combined.sort(key=lambda item: item.get('timestamp') or '')
+                except Exception:
+                    pass
+                data = combined
+                st.success(f"✅ Viewing session group (sessionId={selected_group}) spanning {len(group_files)} file(s), {len(data)} interactions")
+                st.info("📎 Grouping heuristic: files share identical sessionId (filename suffix or entry field). Order inferred from timestamp prefix & entry timestamps.")
             else:
-                st.error("No session selected or session not found")
-                return
+                selected_session = st.session_state.get('selected_session')
+                if selected_session and selected_session in files_data:
+                    data = files_data[selected_session]
+                    session_rank = list(files_data.keys()).index(selected_session) + 1
+                    rank_text = " (Most Recent)" if session_rank == 1 else f" (#{session_rank} of {len(files_data)})"
+                    hierarchy_info = viewer.get_agent_hierarchy_info(selected_session)
+                    type_display = hierarchy_info.get('type_display', '📄 Standard Session')
+                    st.success(f"✅ Viewing session: `{selected_session}`{rank_text} ({len(data)} interactions)")
+                    st.info(f"📋 Session Type: {type_display}")
+                    if hierarchy_info.get('children') or hierarchy_info.get('parent'):
+                        st.markdown("### 🔗 Agent Relationships")
+                        nav_cols = st.columns(3)
+                        with nav_cols[0]:
+                            if hierarchy_info.get('parent'):
+                                parent_file = hierarchy_info['parent']
+                                if st.button(f"⬆️ View Parent: {parent_file}", key="nav_parent"):
+                                    st.session_state['selected_session'] = parent_file
+                                    st.rerun()
+                        with nav_cols[1]:
+                            if hierarchy_info.get('children'):
+                                st.markdown(f"**📋 Sub-agents ({len(hierarchy_info['children'])}):**")
+                                for i, child_file in enumerate(hierarchy_info['children']):
+                                    if st.button(f"🤖 {child_file}", key=f"nav_child_{i}"):
+                                        st.session_state['selected_session'] = child_file
+                                        st.rerun()
+                        with nav_cols[2]:
+                            if hierarchy_info.get('has_agent_invocation') and hierarchy_info.get('children'):
+                                st.markdown("**📊 Hierarchy:**")
+                                st.markdown(f"```\n{selected_session}\n" + "\n".join([f"├── {child}" for child in hierarchy_info['children']]) + "\n```")
+                else:
+                    st.error("No session selected or session not found")
+                    return
                 
         else:
             # Single file mode
