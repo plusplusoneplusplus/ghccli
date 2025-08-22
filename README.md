@@ -1,8 +1,8 @@
-# GHCCLI
+# Github Copilot CLI
 
 [![GHCCLI CI](https://github.com/plusplusoneplusplus/ghccli/actions/workflows/ci.yml/badge.svg)](https://github.com/plusplusoneplusplus/ghccli/actions/workflows/ci.yml)
 
-![GHCCLI Screenshot](./docs/assets/gemini-screenshot.png)
+![GHCCLI Screenshot](./docs/assets/ghccli-screenshot.png)
 
 This repository contains GHCCLI, an enhanced command-line AI workflow tool that connects to your
 tools, understands your code and accelerates your workflows. GHCCLI is built on top of the Gemini CLI
