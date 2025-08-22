@@ -62,7 +62,7 @@ const BUILTIN_SEATBELT_PROFILES = [
  * @returns {Promise<boolean>} A promise that resolves to true if the current user's UID/GID should be used, false otherwise.
  */
 async function shouldUseCurrentUserInSandbox(): Promise<boolean> {
-  const envVar = process.env.SANDBOX_SET_UID_GID?.toLowerCase().trim();
+  const envVar = process.env['SANDBOX_SET_UID_GID']?.toLowerCase().trim();
 
   if (envVar === '1' || envVar === 'true') {
     return true;
@@ -107,7 +107,7 @@ function parseImageName(image: string): string {
 }
 
 function ports(): string[] {
-  return (process.env.SANDBOX_PORTS ?? '')
+  return (process.env['SANDBOX_PORTS'] ?? '')
     .split(',')
     .filter((p) => p.trim())
     .map((p) => p.trim());
@@ -120,8 +120,8 @@ function entrypoint(workdir: string): string[] {
   const pathSeparator = isWindows ? ';' : ':';
 
   let pathSuffix = '';
-  if (process.env.PATH) {
-    const paths = process.env.PATH.split(pathSeparator);
+  if (process.env['PATH']) {
+    const paths = process.env['PATH'].split(pathSeparator);
     for (const p of paths) {
       const containerPath = getContainerPath(p);
       if (
@@ -136,8 +136,8 @@ function entrypoint(workdir: string): string[] {
   }
 
   let pythonPathSuffix = '';
-  if (process.env.PYTHONPATH) {
-    const paths = process.env.PYTHONPATH.split(pathSeparator);
+  if (process.env['PYTHONPATH']) {
+    const paths = process.env['PYTHONPATH'].split(pathSeparator);
     for (const p of paths) {
       const containerPath = getContainerPath(p);
       if (
@@ -167,7 +167,7 @@ function entrypoint(workdir: string): string[] {
 
   const cliArgs = process.argv.slice(2).map((arg) => quote([arg]));
   const cliCmd =
-    process.env.NODE_ENV === 'development'
+    process.env['NODE_ENV'] === 'development'
       ? process.env.DEBUG
         ? 'npm run debug --'
         : 'npm rebuild && npm run start --'

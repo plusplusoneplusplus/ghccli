@@ -36,7 +36,6 @@ import { toolsCommand } from '../ui/commands/toolsCommand.js';
 import { vimCommand } from '../ui/commands/vimCommand.js';
 import { setupGithubCommand } from '../ui/commands/setupGithubCommand.js';
 import { isGitHubRepository } from '../utils/gitUtils.js';
-import { workflowCommand } from '../ui/commands/workflowCommand.js';
 
 /**
  * Loads the core, hard-coded slash commands that are an integral part

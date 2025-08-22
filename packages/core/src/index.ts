@@ -81,7 +81,6 @@ export * from './tools/web-search-tavily.js';
 export * from './tools/read-many-files.js';
 export * from './tools/mcp-client.js';
 export * from './tools/mcp-tool.js';
-export * from './tools/workflow-tool.js';
 
 // MCP OAuth
 export { MCPOAuthProvider } from './mcp/oauth-provider.js';

@@ -30,7 +30,6 @@ import {
   GEMINI_CONFIG_DIR as GEMINI_DIR,
 } from '../tools/memoryTool.js';
 import { AgentInvocationTool } from '../tools/agent-invocation.js';
-import { WorkflowTool } from '../tools/workflow-tool.js';
 import { WebSearchTool } from '../tools/web-search.js';
 import { GeminiClient } from '../core/client.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
@@ -153,7 +152,7 @@ export type FlashFallbackHandler = (
 ) => Promise<boolean | string | null>;
 
 export interface ConfigParameters {
-  // === CUSTOM WORKFLOW & AGENT CONFIGURATIONS (GHCCLI Extensions) ===
+  // === CUSTOM AGENT CONFIGURATIONS (GHCCLI Extensions) ===
   // Keep these at the top to minimize merge conflicts with upstream changes
   agent?: string;
   enableOpenAILogging?: boolean;
@@ -209,7 +208,7 @@ export interface ConfigParameters {
 }
 
 export class Config {
-  // === CUSTOM WORKFLOW & AGENT PROPERTIES (GHCCLI Extensions) ===
+  // === CUSTOM AGENT PROPERTIES (GHCCLI Extensions) ===
   // Keep these at the top to minimize merge conflicts with upstream changes
   private agent: string;
   private agentSwitchedDuringSession: boolean = false;
@@ -276,7 +275,7 @@ export class Config {
   private readonly loadMemoryFromIncludeDirectories: boolean = false;
 
   constructor(params: ConfigParameters) {
-    // === CUSTOM WORKFLOW & AGENT INITIALIZATION (GHCCLI Extensions) ===
+    // === CUSTOM AGENT INITIALIZATION (GHCCLI Extensions) ===
     // Initialize custom features first to minimize merge conflicts
     // Ensure agent is always a string, even if somehow a boolean was passed
     this.agent = typeof params.agent === 'string' ? params.agent : 'default';
@@ -810,10 +809,9 @@ export class Config {
       }
     };
 
-    // === CUSTOM WORKFLOW & AGENT TOOLS (GHCCLI Extensions) ===
+    // === CUSTOM AGENT TOOLS (GHCCLI Extensions) ===
     // Register custom tools first to minimize merge conflicts
     registerCoreTool(AgentInvocationTool, this);
-    registerCoreTool(WorkflowTool, this);
     registerCoreTool(WebSearchTool, this);
     
     // === ORIGINAL GEMINI CLI CORE TOOLS ===

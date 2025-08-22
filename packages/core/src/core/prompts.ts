@@ -7,12 +7,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { LSTool } from '../tools/ls.js';
-import { EditTool } from '../tools/edit.js';
-import { GlobTool } from '../tools/glob_v2.js';
-import { GrepTool } from '../tools/grep_v2.js';
 import { ReadFileTool } from '../tools/read-file.js';
-import { ReadManyFilesTool } from '../tools/read-many-files.js';
 import { ShellTool } from '../tools/shell_v2.js';
 import { WriteFileTool } from '../tools/write-file.js';
 import process from 'node:process';
@@ -55,12 +50,6 @@ You are an AI programming assistant that helps with software engineering tasks. 
 - **Verify dependencies:** Check package.json, requirements.txt, etc. before using libraries
 - **Be concise:** Keep responses brief and direct. Use tools for actions, not explanations
 - **Safety first:** Explain potentially destructive commands before running them
-
-# Workflow
-1. **Understand:** Use ${GrepTool.Name}, ${GlobTool.Name}, ${ReadFileTool.Name} to analyze the codebase
-2. **Plan:** Create a clear approach based on existing patterns
-3. **Implement:** Use ${EditTool.Name}, ${WriteFileTool.Name}, ${ShellTool.Name} to make changes
-4. **Verify:** Run tests and linting to ensure quality
 
 # Tool Usage
 - Use ${ShellTool.Name} for commands (explain destructive ones first)
