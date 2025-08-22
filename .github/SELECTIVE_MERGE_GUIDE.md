@@ -135,7 +135,7 @@ npm run build
 npm run lint --workspace=packages/YOUR_PACKAGE
 ```
 
-### 9. Commit and Push
+### 9. Commit Changes
 
 ```bash
 # Stage all changes
@@ -161,9 +161,6 @@ git commit -m "feat: merge v0.2.0-preview.0 changes for YOUR_PACKAGE
 - Builds pass
 - Tests pass
 - No breaking changes"
-
-# Push to your fork
-git push origin main
 ```
 
 ## Example: Merging vscode-ide-companion
@@ -194,10 +191,9 @@ npm run build --workspace=packages/vscode-ide-companion
 npm run test --workspace=packages/vscode-ide-companion
 npm run build
 
-# 7. Commit and push
+# 7. Commit changes
 git add .
 git commit -m "feat: merge v0.2.0-preview.0 changes for vscode-ide-companion"
-git push origin main
 ```
 
 ## Common Issues and Solutions
