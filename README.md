@@ -1,68 +1,82 @@
-# Gemini CLI
+# GHCCLI
 
-[![Gemini CLI CI](https://github.com/google-gemini/gemini-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/google-gemini/gemini-cli/actions/workflows/ci.yml)
+[![GHCCLI CI](https://github.com/plusplusoneplusplus/ghccli/actions/workflows/ci.yml/badge.svg)](https://github.com/plusplusoneplusplus/ghccli/actions/workflows/ci.yml)
 
-![Gemini CLI Screenshot](./docs/assets/gemini-screenshot.png)
+![GHCCLI Screenshot](./docs/assets/gemini-screenshot.png)
 
-This repository contains the Gemini CLI, a command-line AI workflow tool that connects to your
-tools, understands your code and accelerates your workflows.
+This repository contains GHCCLI, an enhanced command-line AI workflow tool that connects to your
+tools, understands your code and accelerates your workflows. GHCCLI is built on top of the Gemini CLI
+with additional customizations and features.
 
-With the Gemini CLI you can:
+With GHCCLI you can:
 
-- Query and edit large codebases in and beyond Gemini's 1M token context window.
-- Generate new apps from PDFs or sketches, using Gemini's multimodal capabilities.
+- Query and edit large codebases.
+- Generate new apps from PDFs or sketches, using multimodal AI capabilities.
 - Automate operational tasks, like querying pull requests or handling complex rebases.
-- Use tools and MCP servers to connect new capabilities, including [media generation with Imagen,
-  Veo or Lyria](https://github.com/GoogleCloudPlatform/vertex-ai-creative-studio/tree/main/experiments/mcp-genmedia)
-- Ground your queries with the [Google Search](https://ai.google.dev/gemini-api/docs/grounding)
-  tool, built into Gemini.
+- Use tools and MCP servers to connect new capabilities, including media generation tools
+- Ground your queries with integrated search capabilities.
+- Access multiple AI providers including Gemini, GitHub Copilot, and OpenAI.
 
 ## Quickstart
 
-You have two options to install Gemini CLI.
+You have multiple options to install GHCCLI.
 
 ### With Node
 
 1. **Prerequisites:** Ensure you have [Node.js version 20](https://nodejs.org/en/download) or higher installed.
-2. **Run the CLI:** Execute the following command in your terminal:
+2. **Install from source:** Clone and build the CLI:
 
    ```bash
-   npx https://github.com/google-gemini/gemini-cli
+   git clone https://github.com/plusplusoneplusplus/ghccli.git
+   cd ghccli
+   npm install
+   npm run build
    ```
 
-   Or install it with:
+   Then, run the CLI from the project directory:
 
    ```bash
-   npm install -g @google/gemini-cli
+   npm start
    ```
 
-   Then, run the CLI from anywhere:
+   Or install it globally:
 
    ```bash
-   gemini
+   npm install -g .
+   ghccli
    ```
 
-### With Homebrew
+### Alternative Installation Methods
+
+#### With Homebrew (if available)
 
 1. **Prerequisites:** Ensure you have [Homebrew](https://brew.sh/) installed.
 2. **Install the CLI:** Execute the following command in your terminal:
 
    ```bash
-   brew install gemini-cli
+   brew install ghccli
    ```
 
    Then, run the CLI from anywhere:
 
    ```bash
-   gemini
+   ghccli
+   ```
+
+#### With NPX (upstream Gemini CLI)
+
+For the original Gemini CLI functionality:
+
+   ```bash
+   npx https://github.com/google-gemini/gemini-cli
    ```
 
 ### Common Configuration steps
 
 3. **Pick a color theme**
-4. **Authenticate:** When prompted, sign in with your personal Google account. This will grant you up to 60 model requests per minute and 1,000 model requests per day using Gemini.
+4. **Authenticate:** When prompted, choose your preferred AI provider and sign in. GHCCLI supports multiple authentication methods including Google accounts, GitHub Copilot, and OpenAI.
 
-You are now ready to use the Gemini CLI!
+You are now ready to use GHCCLI!
 
 ### Use a Gemini API key:
 
@@ -126,22 +140,22 @@ For other authentication methods, including Google Workspace accounts, see the [
 
 ## Examples
 
-Once the CLI is running, you can start interacting with Gemini from your shell.
+Once the CLI is running, you can start interacting with AI from your shell.
 
 You can start a project from a new directory:
 
 ```sh
 cd new-project/
-gemini
-> Write me a Gemini Discord bot that answers questions using a FAQ.md file I will provide
+ghccli
+> Write me a Discord bot that answers questions using a FAQ.md file I will provide
 ```
 
 Or work with an existing project:
 
 ```sh
-git clone https://github.com/google-gemini/gemini-cli
-cd gemini-cli
-gemini
+git clone https://github.com/plusplusoneplusplus/ghccli
+cd ghccli
+ghccli
 > Give me a summary of all of the changes that went in yesterday
 ```
 
@@ -163,7 +177,7 @@ having issues.
 
 ### Explore a new codebase
 
-Start by `cd`ing into an existing or newly-cloned repository and running `gemini`.
+Start by `cd`ing into an existing or newly-cloned repository and running `ghccli`.
 
 ```text
 > Describe the main pieces of this system's architecture.
@@ -239,8 +253,12 @@ Head over to the [Uninstall](docs/Uninstall.md) guide for uninstallation instruc
 
 ## Terms of Service and Privacy Notice
 
-For details on the terms of service and privacy notice applicable to your use of Gemini CLI, see the [Terms of Service and Privacy Notice](./docs/tos-privacy.md).
+For details on the terms of service and privacy notice applicable to your use of GHCCLI, see the [Terms of Service and Privacy Notice](./docs/tos-privacy.md).
 
 ## Security Disclosures
 
-Please see our [security disclosure process](SECURITY.md). All [security advisories](https://github.com/google-gemini/gemini-cli/security/advisories) are managed on Github.
+Please see our [security disclosure process](SECURITY.md). All [security advisories](https://github.com/plusplusoneplusplus/ghccli/security/advisories) are managed on Github.
+
+## Acknowledgments
+
+GHCCLI is built on top of the excellent [Gemini CLI](https://github.com/google-gemini/gemini-cli) project by Google. We extend our gratitude to the original authors and contributors.
