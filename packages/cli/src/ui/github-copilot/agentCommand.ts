@@ -9,9 +9,9 @@ import {
   SlashCommandActionReturn,
   CommandContext,
   CommandKind,
-} from './types.js';
+} from '../commands/types.js';
 import { AgentLoader } from '@google/gemini-cli-core';
-import { switchAgent } from '../utils/agentUtils.js';
+import { switchAgent } from './agentUtils.js';
 import { SettingScope } from '../../config/settings.js';
 
 export const agentCommand: SlashCommand = {

@@ -9,7 +9,7 @@ import {
   type CommandContext,
   type SlashCommand,
   CommandKind,
-} from './types.js';
+} from '../commands/types.js';
 
 export const configCommand: SlashCommand = {
   name: 'config',

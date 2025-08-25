@@ -8,7 +8,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { Config, AgentLoader } from '@google/gemini-cli-core';
 import { type HistoryItem, MessageType } from '../types.js';
 import { LoadedSettings, SettingScope } from '../../config/settings.js';
-import { switchAgent } from '../utils/agentUtils.js';
+import { switchAgent } from './agentUtils.js';
 
 interface UseAgentCommandReturn {
   isAgentDialogOpen: boolean;

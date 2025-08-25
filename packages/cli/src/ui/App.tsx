@@ -23,8 +23,6 @@ import { useLoadingIndicator } from './hooks/useLoadingIndicator.js';
 import { useThemeCommand } from './hooks/useThemeCommand.js';
 import { useAuthCommand } from './hooks/useAuthCommand.js';
 import { useEditorSettings } from './hooks/useEditorSettings.js';
-import { useModelCommand } from './hooks/useModelCommand.js';
-import { useAgentCommand } from './hooks/useAgentCommand.js';
 import { useSlashCommandProcessor } from './hooks/slashCommandProcessor.js';
 import { useAutoAcceptIndicator } from './hooks/useAutoAcceptIndicator.js';
 import { useConsoleMessages } from './hooks/useConsoleMessages.js';
@@ -93,9 +91,8 @@ import { setUpdateHandler } from '../utils/handleAutoUpdate.js';
 import { appEvents, AppEvent } from '../utils/events.js';
 
 // === GHCCLI ===
-import { ModelDialog } from './components/ModelDialog.js';
-import { AgentDialog } from './components/AgentDialog.js';
-import { AVAILABLE_MODELS } from './constants/models.js';
+import { ModelDialog, AgentDialog, AVAILABLE_MODELS } from './github-copilot/index.js';
+import { useModelCommand, useAgentCommand } from './github-copilot/index.js';
 // === END GHCCLI ===
 
 const CTRL_EXIT_PROMPT_DURATION_MS = 1000;

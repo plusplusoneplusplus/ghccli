@@ -9,8 +9,8 @@ import {
   SlashCommandActionReturn,
   CommandContext,
   CommandKind,
-} from './types.js';
-import { AVAILABLE_MODELS } from '../constants/models.js';
+} from '../commands/types.js';
+import { AVAILABLE_MODELS } from './models.js';
 
 export const modelCommand: SlashCommand = {
   name: 'model',
