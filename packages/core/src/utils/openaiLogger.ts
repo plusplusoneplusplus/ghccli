@@ -86,6 +86,26 @@ export class OpenAILogger {
    * Writes an initialization entry to the JSONL log file
    */
   private async logInitialization(): Promise<void> {
+    try {
+      await fs.mkdir(this.logDir, { recursive: true });
+      
+      const initEntry = {
+        timestamp: new Date().toISOString(),
+        sessionId: this.sessionId,
+        interactionId: 'init',
+        model: 'system',
+        request: {
+          type: 'session_initialization',
+          sessionStartTime: this.sessionStartTime
+        }
+      };
+
+      await this.appendLogLine(this.sessionLogFilePath, initEntry);
+      this.initialized = true;
+    } catch (error) {
+      console.error('Failed to log initialization:', error);
+      // Don't throw here to allow the logger to continue working
+    }
   }
 
   /**

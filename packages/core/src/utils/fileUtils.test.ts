@@ -424,7 +424,7 @@ describe('fileUtils', () => {
       expect(result.llmContent).toContain(
         '[File content truncated: showing lines 6-10 of 20 total lines. Use offset/limit parameters to view more.]',
       );
-      expect(result.returnDisplay).toBe('Read lines 6-10 of 20 from test.txt');
+      expect(result.returnDisplay).toBe('(lines 6-10 of 20)');
       expect(result.isTruncated).toBe(true);
       expect(result.originalLineCount).toBe(20);
       expect(result.linesShown).toEqual([6, 10]);
@@ -447,7 +447,7 @@ describe('fileUtils', () => {
       expect(result.llmContent).toContain(
         '[File content truncated: showing lines 11-20 of 20 total lines. Use offset/limit parameters to view more.]',
       );
-      expect(result.returnDisplay).toBe('Read lines 11-20 of 20 from test.txt');
+      expect(result.returnDisplay).toBe('(lines 11-20 of 20)');
       expect(result.isTruncated).toBe(true); // This is the key check for the bug
       expect(result.originalLineCount).toBe(20);
       expect(result.linesShown).toEqual([11, 20]);
@@ -492,9 +492,7 @@ describe('fileUtils', () => {
       expect(result.llmContent).toContain(
         '[File content partially truncated: some lines exceeded maximum length of 2000 characters.]',
       );
-      expect(result.returnDisplay).toBe(
-        'Read all 3 lines from test.txt (some lines were shortened)',
-      );
+      expect(result.returnDisplay).toBe('(lines 1-3 of 3)');
       expect(result.isTruncated).toBe(true);
     });
 
@@ -511,7 +509,7 @@ describe('fileUtils', () => {
       );
 
       expect(result.isTruncated).toBe(true);
-      expect(result.returnDisplay).toBe('Read lines 1-5 of 11 from test.txt');
+      expect(result.returnDisplay).toBe('(lines 1-5 of 11)');
     });
 
     it('should truncate when a line length exceeds the character limit', async () => {
@@ -529,9 +527,7 @@ describe('fileUtils', () => {
       );
 
       expect(result.isTruncated).toBe(true);
-      expect(result.returnDisplay).toBe(
-        'Read all 11 lines from test.txt (some lines were shortened)',
-      );
+      expect(result.returnDisplay).toBe('(lines 1-11 of 11)');
     });
 
     it('should truncate both line count and line length when both exceed limits', async () => {
@@ -553,9 +549,7 @@ describe('fileUtils', () => {
         10,
       );
       expect(result.isTruncated).toBe(true);
-      expect(result.returnDisplay).toBe(
-        'Read lines 1-10 of 20 from test.txt (some lines were shortened)',
-      );
+      expect(result.returnDisplay).toBe('(lines 1-10 of 20)');
     });
 
     it('should return an error if the file size exceeds 20MB', async () => {
