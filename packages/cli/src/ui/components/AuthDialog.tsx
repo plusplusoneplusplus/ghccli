@@ -11,8 +11,7 @@ import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
 import { LoadedSettings, SettingScope } from '../../config/settings.js';
 import { AuthType } from '@google/gemini-cli-core';
 import { validateAuthMethod } from '../../config/auth.js';
-import { GitHubCopilotAuthDialog } from './GitHubCopilotAuthDialog.js';
-import { AzureOpenAIAuthDialog, type AzureOpenAIValues } from './AzureOpenAIAuthDialog.js';
+import { GitHubCopilotAuthDialog, AzureOpenAIAuthDialog, type AzureOpenAIValues } from '../github-copilot/index.js';
 
 interface AuthDialogProps {
   onSelect: (authMethod: AuthType | undefined, scope: SettingScope) => void;
@@ -45,18 +44,18 @@ export function AuthDialog({
     }
 
     const defaultAuthType = parseDefaultAuthType(
-      process.env.GEMINI_DEFAULT_AUTH_TYPE,
+      process.env['GEMINI_DEFAULT_AUTH_TYPE'],
     );
 
-    if (process.env.GEMINI_DEFAULT_AUTH_TYPE && defaultAuthType === null) {
+    if (process.env['GEMINI_DEFAULT_AUTH_TYPE'] && defaultAuthType === null) {
       return (
-        `Invalid value for GEMINI_DEFAULT_AUTH_TYPE: "${process.env.GEMINI_DEFAULT_AUTH_TYPE}". ` +
+        `Invalid value for GEMINI_DEFAULT_AUTH_TYPE: "${process.env['GEMINI_DEFAULT_AUTH_TYPE']}". ` +
         `Valid values are: ${Object.values(AuthType).join(', ')}.`
       );
     }
 
     if (
-      process.env.GEMINI_API_KEY &&
+      process.env['GEMINI_API_KEY'] &&
       (!defaultAuthType || defaultAuthType === AuthType.USE_GEMINI)
     ) {
       return 'Existing API key detected (GEMINI_API_KEY). Select "Gemini API Key" option to use it.';
@@ -79,13 +78,13 @@ export function AuthDialog({
     }
 
     const defaultAuthType = parseDefaultAuthType(
-      process.env.GEMINI_DEFAULT_AUTH_TYPE,
+      process.env['GEMINI_DEFAULT_AUTH_TYPE'],
     );
     if (defaultAuthType) {
       return item.value === defaultAuthType;
     }
 
-    if (process.env.GEMINI_API_KEY) {
+    if (process.env['GEMINI_API_KEY']) {
       return item.value === AuthType.USE_GEMINI;
     }
 
@@ -129,10 +128,10 @@ export function AuthDialog({
     settings.setValue(scope, 'azureOpenAIAPIKey', values.key);
 
     // Also set process.env so validation and core pick them up immediately
-    process.env.AZURE_OPENAI_ENDPOINT = values.endpoint;
-    process.env.AZURE_OPENAI_DEPLOYMENT_NAME = values.deployment;
-    process.env.AZURE_OPENAI_API_VERSION = values.version;
-    process.env.AZURE_OPENAI_API_KEY = values.key;
+    process.env['AZURE_OPENAI_ENDPOINT'] = values.endpoint;
+    process.env['AZURE_OPENAI_DEPLOYMENT_NAME'] = values.deployment;
+    process.env['AZURE_OPENAI_API_VERSION'] = values.version;
+    process.env['AZURE_OPENAI_API_KEY'] = values.key;
 
     setShowAzureDialog(false);
     setErrorMessage(null);
