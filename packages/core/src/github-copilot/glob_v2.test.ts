@@ -153,7 +153,7 @@ describe('GlobTool', () => {
         .trim()
         .split(/\r?\n/)
         .slice(1)
-        .map((line) => line.trim())
+        .map((line: string) => line.trim())
         .filter(Boolean);
 
       expect(filesListed).toHaveLength(2);
@@ -181,7 +181,7 @@ describe('GlobTool', () => {
       expect(result.returnDisplay).toBe('Found 35 file(s) (showing 30)');
 
       // Count actual files shown in output
-      const fileLines = llmContent.split('\n').filter(line => line.includes('test') && line.includes('.limit'));
+      const fileLines = llmContent.split('\n').filter((line: string) => line.includes('test') && line.includes('.limit'));
       expect(fileLines).toHaveLength(30);
     });
 
@@ -201,7 +201,7 @@ describe('GlobTool', () => {
       expect(result.returnDisplay).toBe('Found 10 file(s) (showing 5)');
 
       // Count actual files shown in output
-      const fileLines = llmContent.split('\n').filter(line => line.includes('custom') && line.includes('.test'));
+      const fileLines = llmContent.split('\n').filter((line: string) => line.includes('custom') && line.includes('.test'));
       expect(fileLines).toHaveLength(5);
     });
 

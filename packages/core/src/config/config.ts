@@ -17,8 +17,6 @@ import { PromptRegistry } from '../prompts/prompt-registry.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
 import { LSTool } from '../tools/ls.js';
 import { ReadFileTool } from '../tools/read-file.js';
-import { GrepTool } from '../tools/grep_v2.js';
-import { GlobTool } from '../tools/glob_v2.js';
 import { EditTool } from '../tools/edit.js';
 import { ShellTool } from '../tools/shell_v2.js';
 import { WriteFileTool } from '../tools/write-file.js';
@@ -29,7 +27,6 @@ import {
   setGeminiMdFilename,
   GEMINI_CONFIG_DIR as GEMINI_DIR,
 } from '../tools/memoryTool.js';
-import { AgentInvocationTool } from '../tools/agent-invocation.js';
 import { WebSearchTool } from '../tools/web-search.js';
 import { GeminiClient } from '../core/client.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
@@ -54,6 +51,12 @@ import { createLogger, LogLevel } from '../utils/logging.js';
 import type { Content } from '@google/genai';
 import { logIdeConnection } from '../telemetry/loggers.js';
 import { IdeConnectionEvent, IdeConnectionType } from '../telemetry/types.js';
+
+// === GCHCLI ===
+import { AgentInvocationTool } from '../github-copilot/agent-invocation.js';
+import { GrepTool } from '../github-copilot/grep_v2.js';
+import { GlobTool } from '../github-copilot/glob_v2.js';
+// === END GCHCLI ===
 
 // Re-export OAuth config type
 export type { MCPOAuthConfig };

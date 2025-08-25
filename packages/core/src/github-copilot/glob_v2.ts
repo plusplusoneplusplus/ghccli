@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { glob } from 'glob';
 import { SchemaValidator } from '../utils/schemaValidator.js';
-import { BaseTool, Icon, ToolResult } from './tools.js';
+import { BaseTool, Icon, ToolResult } from '../tools/tools.js';
 import { Type } from '@google/genai';
 import { shortenPath, makeRelative } from '../utils/paths.js';
 import { isWithinRoot } from '../utils/fileUtils.js';

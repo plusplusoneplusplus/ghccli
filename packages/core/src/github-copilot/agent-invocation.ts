@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BaseTool, Icon, ToolResult } from './tools.js';
+import { BaseTool, Icon, ToolResult } from '../tools/tools.js';
 import { FunctionDeclaration, Type, Tool, Part, GenerateContentResponse } from '@google/genai';
 import { AgentLoader } from '../agents/agentLoader.js';
 import { createContentGenerator } from '../core/contentGenerator.js';

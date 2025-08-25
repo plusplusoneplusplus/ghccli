@@ -10,7 +10,7 @@ import path from 'path';
 import { EOL } from 'os';
 import { spawn } from 'child_process';
 import { globStream } from 'glob';
-import { BaseTool, Icon, ToolResult } from './tools.js';
+import { BaseTool, Icon, ToolResult } from '../tools/tools.js';
 import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';

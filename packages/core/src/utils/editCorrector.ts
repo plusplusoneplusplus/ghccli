@@ -15,7 +15,7 @@ import { EditToolParams, EditTool } from '../tools/edit.js';
 import { WriteFileTool } from '../tools/write-file.js';
 import { ReadFileTool } from '../tools/read-file.js';
 import { ReadManyFilesTool } from '../tools/read-many-files.js';
-import { GrepTool } from '../tools/grep_v2.js';
+import { GrepTool } from '../github-copilot/grep_v2.js';
 import { LruCache } from './LruCache.js';
 import { LIGHTWEIGHT_MODEL } from '../config/models.js';
 import {

@@ -69,8 +69,6 @@ export * from './prompts/mcp-prompts.js';
 // Export specific tool logic
 export * from './tools/read-file.js';
 export * from './tools/ls.js';
-export * from './tools/grep_v2.js';
-export * from './tools/glob_v2.js';
 export * from './tools/edit.js';
 export * from './tools/write-file.js';
 export * from './tools/web-fetch.js';
@@ -99,6 +97,8 @@ export { OAuthUtils } from './mcp/oauth-utils.js';
 // Export GitHub Copilot integration
 export * from './github-copilot/github-copilot-auth.js';
 export * from './github-copilot/github-copilot-content-generator.js';
+export * from './github-copilot/grep_v2.js';
+export * from './github-copilot/glob_v2.js';
 
 // Export telemetry functions
 export * from './telemetry/index.js';
