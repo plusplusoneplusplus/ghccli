@@ -14,11 +14,14 @@ const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
 const pkg = require(path.resolve(__dirname, 'package.json'));
 
+// Binary name configuration - can be easily modified for upstream merges
+const binaryName = 'ghccli.js';
+
 esbuild
   .build({
     entryPoints: ['packages/cli/index.ts'],
     bundle: true,
-    outfile: 'bundle/ghccli.js',
+    outfile: `bundle/${binaryName}`,
     platform: 'node',
     format: 'esm',
     external: [],

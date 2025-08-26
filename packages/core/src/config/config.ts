@@ -52,11 +52,11 @@ import type { Content } from '@google/genai';
 import { logIdeConnection } from '../telemetry/loggers.js';
 import { IdeConnectionEvent, IdeConnectionType } from '../telemetry/types.js';
 
-// === GCHCLI ===
+// === GHCCLI ===
 import { AgentInvocationTool } from '../github-copilot/agent-invocation.js';
 import { GrepTool } from '../github-copilot/grep_v2.js';
 import { GlobTool } from '../github-copilot/glob_v2.js';
-// === END GCHCLI ===
+// === END GHCCLI ===
 
 // Re-export OAuth config type
 export type { MCPOAuthConfig };
