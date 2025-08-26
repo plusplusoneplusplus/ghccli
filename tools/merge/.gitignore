@@ -1,0 +1,4 @@
+# Cherry-pick progress tracking files
+.cherry-pick-progress
+cherry-pick.log
+remote-only-commits.txt
