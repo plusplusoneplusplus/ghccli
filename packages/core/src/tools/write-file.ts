@@ -26,6 +26,7 @@ import {
   ensureCorrectFileContent,
 } from '../utils/editCorrector.js';
 import { DEFAULT_DIFF_OPTIONS, getDiffStat } from './diffOptions.js';
+import { Type } from '@google/genai';
 import { ModifiableDeclarativeTool, ModifyContext } from './modifiable-tool.js';
 import { getSpecificMimeType } from '../utils/fileUtils.js';
 import {
@@ -88,15 +89,15 @@ export class WriteFileTool
           file_path: {
             description:
               "The absolute path to the file to write to (e.g., '/home/user/project/file.txt'). Relative paths are not supported.",
-            type: 'string',
+            type: Type.STRING,
           },
           content: {
             description: 'The content to write to the file.',
-            type: 'string',
+            type: Type.STRING,
           },
         },
         required: ['file_path', 'content'],
-        type: 'object',
+        type: Type.OBJECT,
       },
     );
   }

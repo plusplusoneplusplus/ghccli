@@ -12,7 +12,7 @@ import {
   ToolMcpConfirmationDetails,
   Icon,
 } from './tools.js';
-import { CallableTool, Part, FunctionCall } from '@google/genai';
+import { CallableTool, Part, FunctionCall, Schema } from '@google/genai';
 
 type ToolParams = Record<string, unknown>;
 
@@ -58,7 +58,7 @@ export class DiscoveredMCPTool extends BaseTool<ToolParams, ToolResult> {
     readonly serverName: string,
     readonly serverToolName: string,
     description: string,
-    readonly parameterSchema: unknown,
+    readonly parameterSchema: Schema,
     readonly timeout?: number,
     readonly trust?: boolean,
     nameOverride?: string,

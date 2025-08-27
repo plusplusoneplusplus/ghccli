@@ -14,6 +14,7 @@ import {
   ToolLocation,
   ToolResult,
 } from './tools.js';
+import { PartListUnion } from '@google/genai';
 import { ToolErrorType } from './tool-error.js';
 import { Type } from '@google/genai';
 import {
@@ -121,7 +122,7 @@ class ReadFileToolInvocation
       };
     }
 
-    let llmContent: string;
+    let llmContent: PartListUnion;
     if (result.isTruncated) {
       const [start, end] = result.linesShown!;
       const total = result.originalLineCount!;
@@ -178,21 +179,21 @@ export class ReadFileTool extends BaseDeclarativeTool<
           absolute_path: {
             description:
               "The absolute path to the file to read (e.g., '/home/user/project/file.txt'). Relative paths are not supported. You must provide an absolute path.",
-            type: 'string',
+            type: Type.STRING,
           },
           offset: {
             description:
               "Optional: For text files, the 0-based line number to start reading from. Requires 'limit' to be set. Use for paginating through large files.",
-            type: 'number',
+            type: Type.NUMBER,
           },
           limit: {
             description:
               "Optional: For text files, maximum number of lines to read. Use with 'offset' to paginate through large files. If omitted, reads the entire file (if feasible, up to a default limit).",
-            type: 'number',
+            type: Type.NUMBER,
           },
         },
         required: ['absolute_path'],
-        type: 'object',
+        type: Type.OBJECT,
       },
     );
   }

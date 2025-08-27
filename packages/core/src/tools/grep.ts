@@ -12,11 +12,13 @@ import { spawn } from 'child_process';
 import { globStream } from 'glob';
 import {
   BaseDeclarativeTool,
-  BaseToolInvocation,
   Icon,
   ToolInvocation,
   ToolResult,
+  ToolLocation,
+  ToolCallConfirmationDetails,
 } from './tools.js';
+import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import { getErrorMessage, isNodeError } from '../utils/errors.js';
@@ -54,16 +56,11 @@ interface GrepMatch {
   line: string;
 }
 
-class GrepToolInvocation extends BaseToolInvocation<
-  GrepToolParams,
-  ToolResult
-> {
+class GrepToolInvocation implements ToolInvocation<GrepToolParams, ToolResult> {
   constructor(
     private readonly config: Config,
-    params: GrepToolParams,
-  ) {
-    super(params);
-  }
+    public params: GrepToolParams,
+  ) {}
 
   /**
    * Checks if a path is within the root directory and resolves it.
@@ -104,6 +101,14 @@ class GrepToolInvocation extends BaseToolInvocation<
     }
 
     return targetPath;
+  }
+
+  toolLocations(): ToolLocation[] {
+    return [];
+  }
+
+  shouldConfirmExecute(): Promise<ToolCallConfirmationDetails | false> {
+    return Promise.resolve(false);
   }
 
   async execute(signal: AbortSignal): Promise<ToolResult> {
@@ -549,21 +554,21 @@ export class GrepTool extends BaseDeclarativeTool<GrepToolParams, ToolResult> {
           pattern: {
             description:
               "The regular expression (regex) pattern to search for within file contents (e.g., 'function\\s+myFunction', 'import\\s+\\{.*\\}\\s+from\\s+.*').",
-            type: 'string',
+            type: Type.STRING,
           },
           path: {
             description:
               'Optional: The absolute path to the directory to search within. If omitted, searches the current working directory.',
-            type: 'string',
+            type: Type.STRING,
           },
           include: {
             description:
               "Optional: A glob pattern to filter which files are searched (e.g., '*.js', '*.{ts,tsx}', 'src/**'). If omitted, searches all files (respecting potential global ignores).",
-            type: 'string',
+            type: Type.STRING,
           },
         },
         required: ['pattern'],
-        type: 'object',
+        type: Type.OBJECT,
       },
     );
   }

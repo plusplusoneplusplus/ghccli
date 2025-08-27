@@ -281,6 +281,8 @@ describe('ReadFileTool', () => {
           expect(() => tool.build(params)).toThrow(expectedError);
         });
       });
+    });
+  });
 
   describe('workspace boundary validation', () => {
     it('should validate paths are within workspace root', () => {

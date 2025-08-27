@@ -27,7 +27,7 @@ import { AuthProviderType, MCPServerConfig } from '../config/config.js';
 import { GoogleCredentialProvider } from '../mcp/google-auth-provider.js';
 import { DiscoveredMCPTool } from './mcp-tool.js';
 
-import { FunctionDeclaration, mcpToTool } from '@google/genai';
+import { FunctionDeclaration, mcpToTool, Schema } from '@google/genai';
 import { ToolRegistry } from './tool-registry.js';
 import { PromptRegistry } from '../prompts/prompt-registry.js';
 import { MCPOAuthProvider } from '../mcp/oauth-provider.js';
@@ -543,7 +543,7 @@ export async function discoverTools(
             mcpServerName,
             funcDecl.name!,
             funcDecl.description ?? '',
-            parameterSchema,
+            parameterSchema as Schema,
             mcpServerConfig.timeout ?? MCP_DEFAULT_TIMEOUT_MSEC,
             mcpServerConfig.trust,
             fullyQualifiedToolName,

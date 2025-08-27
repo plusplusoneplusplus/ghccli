@@ -7,6 +7,7 @@
 import fs from 'fs';
 import path from 'path';
 import { BaseTool, Icon, ToolResult } from './tools.js';
+import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import { Config, DEFAULT_FILE_FILTERING_OPTIONS } from '../config/config.js';
@@ -81,35 +82,35 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
           path: {
             description:
               'The absolute path to the directory to list (must be absolute, not relative)',
-            type: 'string',
+            type: Type.STRING,
           },
           ignore: {
             description: 'List of glob patterns to ignore',
             items: {
-              type: 'string',
+              type: Type.STRING,
             },
-            type: 'array',
+            type: Type.ARRAY,
           },
           file_filtering_options: {
             description:
               'Optional: Whether to respect ignore patterns from .gitignore or .geminiignore',
-            type: 'object',
+            type: Type.OBJECT,
             properties: {
               respect_git_ignore: {
                 description:
                   'Optional: Whether to respect .gitignore patterns when listing files. Only available in git repositories. Defaults to true.',
-                type: 'boolean',
+                type: Type.BOOLEAN,
               },
               respect_gemini_ignore: {
                 description:
                   'Optional: Whether to respect .geminiignore patterns when listing files. Defaults to true.',
-                type: 'boolean',
+                type: Type.BOOLEAN,
               },
             },
           },
         },
         required: ['path'],
-        type: 'object',
+        type: Type.OBJECT,
       },
     );
   }

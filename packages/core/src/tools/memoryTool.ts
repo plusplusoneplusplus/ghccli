@@ -11,7 +11,7 @@ import {
   ToolConfirmationOutcome,
   Icon,
 } from './tools.js';
-import { FunctionDeclaration } from '@google/genai';
+import { FunctionDeclaration, Type, Schema } from '@google/genai';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { homedir } from 'os';
@@ -20,21 +20,16 @@ import { DEFAULT_DIFF_OPTIONS } from './diffOptions.js';
 import { tildeifyPath } from '../utils/paths.js';
 import { ModifiableDeclarativeTool, ModifyContext } from './modifiable-tool.js';
 
-const memoryToolSchemaData: FunctionDeclaration = {
-  name: 'save_memory',
-  description:
-    'Saves a specific piece of information or fact to your long-term memory. Use this when the user explicitly asks you to remember something, or when they state a clear, concise fact that seems important to retain for future interactions.',
-  parametersJsonSchema: {
-    type: 'object',
-    properties: {
-      fact: {
-        type: 'string',
-        description:
-          'The specific fact or piece of information to remember. Should be a clear, self-contained statement.',
-      },
+const memoryToolSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    fact: {
+      type: Type.STRING,
+      description:
+        'The specific fact or piece of information to remember. Should be a clear, self-contained statement.',
     },
-    required: ['fact'],
   },
+  required: ['fact'],
 };
 
 const memoryToolDescription = `
@@ -117,14 +112,14 @@ export class MemoryTool
 {
   private static readonly allowlist: Set<string> = new Set();
 
-  static readonly Name: string = memoryToolSchemaData.name!;
+  static readonly Name: string = 'save_memory';
   constructor() {
     super(
       MemoryTool.Name,
       'Save Memory',
       memoryToolDescription,
       Icon.LightBulb,
-      memoryToolSchemaData.parametersJsonSchema as Record<string, unknown>,
+      memoryToolSchema,
     );
   }
 

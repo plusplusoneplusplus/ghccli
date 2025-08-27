@@ -10,11 +10,13 @@ import { glob } from 'glob';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import {
   BaseDeclarativeTool,
-  BaseToolInvocation,
   Icon,
   ToolInvocation,
   ToolResult,
+  ToolLocation,
+  ToolCallConfirmationDetails,
 } from './tools.js';
+import { Type } from '@google/genai';
 import { shortenPath, makeRelative } from '../utils/paths.js';
 import { Config } from '../config/config.js';
 
@@ -79,16 +81,11 @@ export interface GlobToolParams {
   respect_git_ignore?: boolean;
 }
 
-class GlobToolInvocation extends BaseToolInvocation<
-  GlobToolParams,
-  ToolResult
-> {
+class GlobToolInvocation implements ToolInvocation<GlobToolParams, ToolResult> {
   constructor(
     private config: Config,
-    params: GlobToolParams,
-  ) {
-    super(params);
-  }
+    public params: GlobToolParams,
+  ) {}
 
   getDescription(): string {
     let description = `'${this.params.pattern}'`;
@@ -101,6 +98,14 @@ class GlobToolInvocation extends BaseToolInvocation<
       description += ` within ${shortenPath(relativePath)}`;
     }
     return description;
+  }
+
+  toolLocations(): ToolLocation[] {
+    return [];
+  }
+
+  shouldConfirmExecute(): Promise<ToolCallConfirmationDetails | false> {
+    return Promise.resolve(false);
   }
 
   async execute(signal: AbortSignal): Promise<ToolResult> {
@@ -254,26 +259,26 @@ export class GlobTool extends BaseDeclarativeTool<GlobToolParams, ToolResult> {
           pattern: {
             description:
               "The glob pattern to match against (e.g., '**/*.py', 'docs/*.md').",
-            type: 'string',
+            type: Type.STRING,
           },
           path: {
             description:
               'Optional: The absolute path to the directory to search within. If omitted, searches the root directory.',
-            type: 'string',
+            type: Type.STRING,
           },
           case_sensitive: {
             description:
               'Optional: Whether the search should be case-sensitive. Defaults to false.',
-            type: 'boolean',
+            type: Type.BOOLEAN,
           },
           respect_git_ignore: {
             description:
               'Optional: Whether to respect .gitignore patterns when finding files. Only available in git repositories. Defaults to true.',
-            type: 'boolean',
+            type: Type.BOOLEAN,
           },
         },
         required: ['pattern'],
-        type: 'object',
+        type: Type.OBJECT,
       },
     );
   }
