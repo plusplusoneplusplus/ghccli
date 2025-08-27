@@ -10,7 +10,7 @@ import path from 'path';
 import { EOL } from 'os';
 import { spawn } from 'child_process';
 import { globStream } from 'glob';
-import { BaseTool, Icon, ToolResult } from '../tools/tools.js';
+import { BaseTool, Kind, ToolResult } from '../tools/tools.js';
 import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
@@ -67,7 +67,7 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
       GrepTool.Name,
       'SearchText',
       'Searches for a regular expression pattern within the content of files in a specified directory or within a single file. Can filter files by a glob pattern when searching directories. Returns the lines containing matches, along with their file paths and line numbers.',
-      Icon.Regex,
+      Kind.Search,
       {
         properties: {
           pattern: {

@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Config } from '../config/config.js';
 import { ContentGenerator } from '../core/contentGenerator.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
-import { BaseTool, Icon, ToolResult } from '../tools/tools.js';
+import { BaseTool, Kind, ToolResult } from '../tools/tools.js';
 import { Type } from '@google/genai';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -30,7 +30,7 @@ class MockReadTool extends BaseTool<Record<string, unknown>, ToolResult> {
       'read_file',
       'Read File',
       'Reads content from a file',
-      Icon.FileSearch,
+      Kind.Read,
       {
         type: Type.OBJECT,
         properties: {
@@ -52,7 +52,7 @@ class MockWriteTool extends BaseTool<Record<string, unknown>, ToolResult> {
       'write_file',
       'Write File',
       'Writes content to a file',
-      Icon.Pencil,
+      Kind.Edit,
       {
         type: Type.OBJECT,
         properties: {
@@ -75,7 +75,7 @@ class MockShellTool extends BaseTool<Record<string, unknown>, ToolResult> {
       'run_shell_command',
       'Run Shell Command',
       'Executes a shell command',
-      Icon.Terminal,
+      Kind.Execute,
       {
         type: Type.OBJECT,
         properties: {
@@ -97,7 +97,7 @@ class MockWebTool extends BaseTool<Record<string, unknown>, ToolResult> {
       'web_search',
       'Web Search',
       'Searches the web',
-      Icon.Globe,
+      Kind.Fetch,
       {
         type: Type.OBJECT,
         properties: {

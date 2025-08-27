@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BaseTool, Icon, ToolResult } from '../tools/tools.js';
+import { BaseTool, Kind, ToolResult } from '../tools/tools.js';
 import { FunctionDeclaration, Type, Tool, Part, GenerateContentResponse } from '@google/genai';
 import { AgentLoader } from '../agents/agentLoader.js';
 import { createContentGenerator } from '../core/contentGenerator.js';
@@ -165,7 +165,7 @@ export class AgentInvocationTool extends BaseTool<
       AgentInvocationTool.Name,
       'Invoke Agents',
       agentInvocationToolDescription,
-      Icon.Hammer,
+      Kind.Execute,
       agentInvocationToolSchemaData.parameters as Record<string, unknown>,
       true, // isOutputMarkdown
       true, // canUpdateOutput - enable live progress updates

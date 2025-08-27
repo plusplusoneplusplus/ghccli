@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BaseTool, Icon, ToolResult } from './tools.js';
+import { BaseTool, Kind, ToolResult } from './tools.js';
 import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { getErrorMessage } from '../utils/errors.js';
@@ -98,7 +98,7 @@ export class TavilyWebSearchTool extends BaseTool<
       TavilyWebSearchTool.Name,
       'TavilySearch',
       'Performs a web search using Tavily Search API and returns the results. This tool is useful for finding information on the internet based on a query.',
-      Icon.Globe,
+      Kind.Fetch,
       {
         type: Type.OBJECT,
         properties: {

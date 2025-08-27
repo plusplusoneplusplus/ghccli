@@ -96,7 +96,7 @@ export const configCommand: SlashCommand = {
     message += `  debugMode: \u001b[32m${config.getDebugMode()}\u001b[0m\n`;
     message += `  checkpointing: \u001b[32m${config.getCheckpointingEnabled()}\u001b[0m\n`;
     message += `  ideMode: \u001b[32m${config.getIdeMode()}\u001b[0m\n`;
-    message += `  experimentalAcp: \u001b[32m${config.getExperimentalAcp()}\u001b[0m\n`;
+    message += `  experimentalZedIntegration: \u001b[32m${config.getExperimentalZedIntegration()}\u001b[0m\n`;
 
     // Telemetry and Logging
     message += `  telemetry.enabled: \u001b[32m${config.getTelemetryEnabled()}\u001b[0m\n`;
