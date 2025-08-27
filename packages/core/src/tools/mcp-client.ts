@@ -39,7 +39,7 @@ import { pathToFileURL } from 'node:url';
 import { WorkspaceContext } from '../utils/workspaceContext.js';
 
 // === GHCCLI ===
-import { createLogger, LogLevel } from '../utils/logging.js';
+import { createLogger } from '../utils/logging.js';
 const logger = createLogger('MCPClient');
 // === END GHCCLI ===
 

@@ -27,7 +27,7 @@ import {
     ChatCompletionChunk,
   } from 'openai/resources/chat/index.js';
   import { logApiResponse } from '../telemetry/loggers.js';
-  import { createLogger, LogLevel } from '../utils/logging.js';
+  import { createLogger } from '../utils/logging.js';
   import { ApiResponseEvent } from '../telemetry/types.js';
   import { Config } from '../config/config.js';
   import { createSessionLogger } from '../utils/openaiLogger.js';
@@ -1193,7 +1193,7 @@ import {
       // Handle tool calls
       if (choice.message.tool_calls) {
         for (const toolCall of choice.message.tool_calls) {
-          if (toolCall.function) {
+          if ('function' in toolCall && toolCall.function) {
             let args: Record<string, unknown> = {};
             if (toolCall.function.arguments) {
               try {

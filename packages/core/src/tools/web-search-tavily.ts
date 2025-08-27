@@ -93,7 +93,7 @@ export class TavilyWebSearchTool extends BaseTool<
     return getTavilyToken();
   }
 
-  constructor(private readonly config: Config) {
+  constructor(_config: Config) {
     super(
       TavilyWebSearchTool.Name,
       'TavilySearch',
@@ -148,7 +148,7 @@ export class TavilyWebSearchTool extends BaseTool<
     return null;
   }
 
-  getDescription(params: TavilyWebSearchToolParams): string {
+  override getDescription(params: TavilyWebSearchToolParams): string {
     return `Searching the web for: "${params.query}"`;
   }
 

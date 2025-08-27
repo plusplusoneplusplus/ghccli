@@ -144,7 +144,7 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
    * @param params Parameters to validate
    * @returns An error message string if invalid, null otherwise
    */
-  validateToolParams(params: GrepToolParams): string | null {
+  override validateToolParams(params: GrepToolParams): string | null {
     const errors = SchemaValidator.validate(this.schema.parameters, params);
     if (errors) {
       return errors;
@@ -208,23 +208,6 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
         const noMatchMsg = `No matches found for pattern "${params.pattern}" in path "${searchDirDisplay}"${params.include ? ` (filter: "${params.include}")` : ''}.`;
         return { llmContent: noMatchMsg, returnDisplay: `No matches found` };
       }
-
-      const matchesByFile = matches.reduce(
-        (acc, match) => {
-          const relativeFilePath =
-            path.relative(
-              searchDirAbs,
-              path.resolve(searchDirAbs, match.filePath),
-            ) || path.basename(match.filePath);
-          if (!acc[relativeFilePath]) {
-            acc[relativeFilePath] = [];
-          }
-          acc[relativeFilePath].push(match);
-          acc[relativeFilePath].sort((a, b) => a.lineNumber - b.lineNumber);
-          return acc;
-        },
-        {} as Record<string, GrepMatch[]>,
-      );
 
       // Apply limit (default to 30)
       const limit = params.limit ?? 30;
@@ -367,7 +350,7 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
    * @param params Parameters for the grep operation
    * @returns A string describing the grep
    */
-  getDescription(params: GrepToolParams): string {
+  override getDescription(params: GrepToolParams): string {
     let description = `'${params.pattern}'`;
     if (params.include) {
       description += ` in ${params.include}`;

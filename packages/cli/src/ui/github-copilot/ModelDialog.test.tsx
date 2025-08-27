@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
 import { render } from 'ink-testing-library';
 import { ModelDialog } from './ModelDialog.js';
 import { vi } from 'vitest';

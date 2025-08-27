@@ -97,7 +97,7 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     );
   }
 
-  getDescription(params: ShellToolParams): string {
+  override getDescription(params: ShellToolParams): string {
     let description: string;
     
     if (typeof params.commands === 'string') {
@@ -271,7 +271,7 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     return null;
   }
 
-  validateToolParams(params: ShellToolParams): string | null {
+  override validateToolParams(params: ShellToolParams): string | null {
     const errors = SchemaValidator.validate(this.schema.parameters, params);
     if (errors) {
       return errors;
@@ -339,7 +339,7 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     return null;
   }
 
-  async shouldConfirmExecute(
+  override async shouldConfirmExecute(
     params: ShellToolParams,
     _abortSignal: AbortSignal,
   ): Promise<ToolCallConfirmationDetails | false> {
@@ -399,7 +399,7 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     return confirmationDetails;
   }
 
-  async execute(
+  override async execute(
     params: ShellToolParams,
     signal: AbortSignal,
     updateOutput?: (output: string) => void,

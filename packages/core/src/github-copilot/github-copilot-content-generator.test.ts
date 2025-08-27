@@ -4,11 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { GitHubCopilotGeminiServer, createGitHubCopilotContentGenerator } from './github-copilot-content-generator.js';
-import { GitHubCopilotTokenManager } from './github-copilot-auth.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { GitHubCopilotGeminiServer } from './github-copilot-content-generator.js';
 import { Config } from '../config/config.js';
-import { GenerateContentParameters, GenerateContentResponse, FinishReason } from '@google/genai';
 
 // Mock fetch globally
 global.fetch = vi.fn();
@@ -31,25 +29,6 @@ const mockConfig = {
   getOutputLoggerFile: vi.fn().mockReturnValue(undefined),
 } as unknown as Config;
 
-// Helper to create a ReadableStream from chunks
-function createMockStreamResponse(chunks: string[]): Response {
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    start(controller) {
-      chunks.forEach(chunk => {
-        controller.enqueue(encoder.encode(chunk));
-      });
-      controller.close();
-    }
-  });
-
-  return {
-    ok: true,
-    body: stream,
-    status: 200,
-    statusText: 'OK',
-  } as Response;
-}
 
 describe('GitHubCopilotGeminiServer - Integration Tests', () => {
   let server: GitHubCopilotGeminiServer;

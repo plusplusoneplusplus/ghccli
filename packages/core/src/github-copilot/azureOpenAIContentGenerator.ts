@@ -36,14 +36,14 @@ export class AzureOpenAIContentGenerator extends OpenAIContentGenerator {
     this.apiVersion = options.apiVersion;
   }
 
-  protected async getAdditionalHeaders(): Promise<Record<string, string> | undefined> {
+  protected override async getAdditionalHeaders(): Promise<Record<string, string> | undefined> {
     return {
       'api-key': 'REDACTED', // Placeholder; actual key provided in request options
     };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  protected async getAdditionalRequestOptions(): Promise<Record<string, any> | undefined> {
+  protected override async getAdditionalRequestOptions(): Promise<Record<string, any> | undefined> {
     // Provide api-version as query and api-key header per Azure requirements
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const clientAny = (this as any).client as { apiKey?: string };

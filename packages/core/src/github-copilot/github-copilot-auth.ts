@@ -14,7 +14,7 @@ import { createLogger, LogLevel } from '../utils/logging.js';
 
 const logger = createLogger('GitHubCopilotAuth');
 
-const execAsync = promisify(exec);
+promisify(exec);
 
 export interface GitHubConfig {
   token: string;

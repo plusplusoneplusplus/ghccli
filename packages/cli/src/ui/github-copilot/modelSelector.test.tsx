@@ -1,5 +1,4 @@
 
-import React from 'react';
 import { render } from 'ink-testing-library';
 import { ModelSelector } from './modelSelector.js';
 import { vi } from 'vitest';
@@ -50,7 +49,7 @@ describe('ModelSelector', () => {
   it('handles keyboard navigation', () => {
     const models = ['gemini-2.5-pro', 'gpt-4o', 'claude-3'];
     const onSelect = vi.fn();
-    const { stdin, lastFrame } = render(
+    const { stdin } = render(
       <ModelSelector
         models={models}
         currentModel="gemini-2.5-pro"

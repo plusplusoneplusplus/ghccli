@@ -200,7 +200,7 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
   /**
    * Validates the parameters for the tool.
    */
-  validateToolParams(params: GlobToolParams): string | null {
+  override validateToolParams(params: GlobToolParams): string | null {
     const errors = SchemaValidator.validate(this.schema.parameters, params);
     if (errors) {
       return errors;
@@ -249,7 +249,7 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
   /**
    * Gets a description of the glob operation.
    */
-  getDescription(params: GlobToolParams): string {
+  override getDescription(params: GlobToolParams): string {
     let description = `'${params.pattern}'`;
     if (params.path) {
       const searchDir = path.resolve(

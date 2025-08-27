@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { configCommand } from './configCommand.js';
-import { type CommandContext } from './types.js';
+import { type CommandContext } from '../commands/types.js';
 import { createMockCommandContext } from '../../test-utils/mockCommandContext.js';
 import { MessageType } from '../types.js';
 import { TelemetryTarget } from '@google/gemini-cli-core';

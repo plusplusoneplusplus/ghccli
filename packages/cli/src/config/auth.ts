@@ -43,7 +43,7 @@ export const validateAuthMethod = (authMethod: string): string | null => {
     // 1. GITHUB_TOKEN or GITHUB_COPILOT_TOKEN environment variable
     // 2. Stored token file in ~/.gemini/.github_token
     // 3. Interactive OAuth device flow (no validation needed)
-    const hasGithubToken = !!(process.env.GITHUB_TOKEN || process.env.GITHUB_COPILOT_TOKEN);
+    !!(process.env.GITHUB_TOKEN || process.env.GITHUB_COPILOT_TOKEN);
     
     // For now, we don't require environment variables since the auth module
     // can handle device flow authentication interactively

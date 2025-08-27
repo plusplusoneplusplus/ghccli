@@ -11,7 +11,7 @@ import * as path from 'node:path';
 describe('AgentLoader Integration', () => {
   it('should parse the actual research-lead-agent.yaml file', async () => {
     const configsDir = path.join(process.cwd(), 'src', 'agents', 'configs');
-    const loader = new AgentLoader(configsDir);
+    new AgentLoader(configsDir);
     
     try {
       // Test parsing the actual YAML file structure

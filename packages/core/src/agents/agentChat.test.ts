@@ -9,7 +9,6 @@ import { AgentChat } from './agentChat.js';
 import { AgentLoader } from './agentLoader.js';
 import { Config } from '../config/config.js';
 import { ContentGenerator } from '../core/contentGenerator.js';
-import * as path from 'node:path';
 
 // Mock the Config and ContentGenerator
 vi.mock('../config/config.js');
@@ -26,7 +25,6 @@ vi.mock('./agentLoader.js');
 describe('AgentChat', () => {
   let mockConfig: Config;
   let mockContentGenerator: ContentGenerator;
-  let configsDir: string;
   let mockAgentLoader: AgentLoader;
 
   beforeEach(() => {
@@ -34,7 +32,6 @@ describe('AgentChat', () => {
       getUserMemory: vi.fn(() => null),
     } as any;
     mockContentGenerator = {} as ContentGenerator;
-    configsDir = path.join(__dirname, 'configs');
     
     // Create mock AgentLoader with proper methods
     mockAgentLoader = {

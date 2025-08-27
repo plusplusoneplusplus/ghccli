@@ -7,26 +7,18 @@
 import {
   OAuth2Client,
   Credentials,
-  Compute,
-  CodeChallengeMethod,
 } from 'google-auth-library';
-import * as http from 'http';
-import url from 'url';
-import crypto from 'crypto';
 import * as net from 'net';
-import open from 'open';
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import * as os from 'os';
 import { Config } from '../config/config.js';
-import { getErrorMessage } from '../utils/errors.js';
 import {
   cacheGoogleAccount,
   getCachedGoogleAccount,
   clearCachedGoogleAccount,
 } from '../utils/user_account.js';
 import { AuthType } from '../core/contentGenerator.js';
-import readline from 'node:readline';
 
 //  OAuth Client ID used to initiate OAuth2Client class.
 const OAUTH_CLIENT_ID =
@@ -40,18 +32,6 @@ const OAUTH_CLIENT_ID =
 // the client secret is obviously not treated as a secret.)"
 const OAUTH_CLIENT_SECRET = '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';
 
-// OAuth Scopes for Cloud Code authorization.
-const OAUTH_SCOPE = [
-  'https://www.googleapis.com/auth/cloud-platform',
-  'https://www.googleapis.com/auth/userinfo.email',
-  'https://www.googleapis.com/auth/userinfo.profile',
-];
-
-const HTTP_REDIRECT = 301;
-const SIGN_IN_SUCCESS_URL =
-  'https://developers.google.com/gemini-code-assist/auth_success_gemini';
-const SIGN_IN_FAILURE_URL =
-  'https://developers.google.com/gemini-code-assist/auth_failure_gemini';
 
 const GEMINI_DIR = '.gemini';
 const CREDENTIAL_FILENAME = 'oauth_creds.json';
@@ -121,125 +101,6 @@ export async function getOauthClient(
   throw new Error('Unsupported authentication type reached in getOauthClient');
 }
 
-async function authWithUserCode(client: OAuth2Client): Promise<boolean> {
-  const redirectUri = 'https://non-existing-domain.com/authcode';
-  const codeVerifier = await client.generateCodeVerifierAsync();
-  const state = crypto.randomBytes(32).toString('hex');
-  const authUrl: string = client.generateAuthUrl({
-    redirect_uri: redirectUri,
-    access_type: 'offline',
-    scope: OAUTH_SCOPE,
-    code_challenge_method: CodeChallengeMethod.S256,
-    code_challenge: codeVerifier.codeChallenge,
-    state,
-  });
-  console.log('Please visit the following URL to authorize the application:');
-  console.log('');
-  console.log(authUrl);
-  console.log('');
-
-  const code = await new Promise<string>((resolve) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-    rl.question('Enter the authorization code: ', (code) => {
-      rl.close();
-      resolve(code.trim());
-    });
-  });
-
-  if (!code) {
-    console.error('Authorization code is required.');
-    return false;
-  }
-
-  try {
-    const { tokens } = await client.getToken({
-      code,
-      codeVerifier: codeVerifier.codeVerifier,
-      redirect_uri: redirectUri,
-    });
-    client.setCredentials(tokens);
-  } catch (_error) {
-    return false;
-  }
-  return true;
-}
-
-async function authWithWeb(client: OAuth2Client): Promise<OauthWebLogin> {
-  const port = await getAvailablePort();
-  // The hostname used for the HTTP server binding (e.g., '0.0.0.0' in Docker).
-  const host = process.env.OAUTH_CALLBACK_HOST || 'localhost';
-  // The `redirectUri` sent to Google's authorization server MUST use a loopback IP literal
-  // (i.e., 'localhost' or '127.0.0.1'). This is a strict security policy for credentials of
-  // type 'Desktop app' or 'Web application' (when using loopback flow) to mitigate
-  // authorization code interception attacks.
-  const redirectUri = `http://localhost:${port}/oauth2callback`;
-  const state = crypto.randomBytes(32).toString('hex');
-  const authUrl = client.generateAuthUrl({
-    redirect_uri: redirectUri,
-    access_type: 'offline',
-    scope: OAUTH_SCOPE,
-    state,
-  });
-
-  const loginCompletePromise = new Promise<void>((resolve, reject) => {
-    const server = http.createServer(async (req, res) => {
-      try {
-        if (req.url!.indexOf('/oauth2callback') === -1) {
-          res.writeHead(HTTP_REDIRECT, { Location: SIGN_IN_FAILURE_URL });
-          res.end();
-          reject(new Error('Unexpected request: ' + req.url));
-        }
-        // acquire the code from the querystring, and close the web server.
-        const qs = new url.URL(req.url!, 'http://localhost:3000').searchParams;
-        if (qs.get('error')) {
-          res.writeHead(HTTP_REDIRECT, { Location: SIGN_IN_FAILURE_URL });
-          res.end();
-
-          reject(new Error(`Error during authentication: ${qs.get('error')}`));
-        } else if (qs.get('state') !== state) {
-          res.end('State mismatch. Possible CSRF attack');
-
-          reject(new Error('State mismatch. Possible CSRF attack'));
-        } else if (qs.get('code')) {
-          const { tokens } = await client.getToken({
-            code: qs.get('code')!,
-            redirect_uri: redirectUri,
-          });
-          client.setCredentials(tokens);
-          // Retrieve and cache Google Account ID during authentication
-          try {
-            await fetchAndCacheUserInfo(client);
-          } catch (error) {
-            console.error(
-              'Failed to retrieve Google Account ID during authentication:',
-              error,
-            );
-            // Don't fail the auth flow if Google Account ID retrieval fails
-          }
-
-          res.writeHead(HTTP_REDIRECT, { Location: SIGN_IN_SUCCESS_URL });
-          res.end();
-          resolve();
-        } else {
-          reject(new Error('No code found in request'));
-        }
-      } catch (e) {
-        reject(e);
-      } finally {
-        server.close();
-      }
-    });
-    server.listen(port, host);
-  });
-
-  return {
-    authUrl,
-    loginCompletePromise,
-  };
-}
 
 export function getAvailablePort(): Promise<number> {
   return new Promise((resolve, reject) => {

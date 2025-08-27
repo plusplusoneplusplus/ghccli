@@ -24,7 +24,6 @@ import { ContentGenerator, AuthType } from './contentGenerator.js';
 import { Config } from '../config/config.js';
 import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
 import { hasCycleInSchema } from '../tools/tools.js';
-import { StructuredError } from './turn.js';
 
 // === GHCCLI ===
 import { getCoreSystemPrompt } from './prompts.js';

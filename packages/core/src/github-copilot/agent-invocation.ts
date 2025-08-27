@@ -5,16 +5,15 @@
  */
 
 import { BaseTool, Kind, ToolResult } from '../tools/tools.js';
-import { FunctionDeclaration, Type, Tool, Part, GenerateContentResponse } from '@google/genai';
+import { FunctionDeclaration, Type, Part } from '@google/genai';
 import { AgentLoader } from '../agents/agentLoader.js';
 import { createContentGenerator } from '../core/contentGenerator.js';
 import { Config } from '../config/config.js';
 import { Logger } from '../core/logger.js';
-import * as path from 'node:path';
 import { getResponseText } from '../utils/generateContentResponseUtilities.js';
 import { CoreToolScheduler } from '../core/coreToolScheduler.js';
 import { ApprovalMode } from '../config/config.js';
-import { ToolCallRequestInfo, ToolCallResponseInfo } from '../core/turn.js';
+import { ToolCallRequestInfo } from '../core/turn.js';
 import { createLogger, LogLevel } from '../utils/logging.js';
 
 const logger = createLogger('AgentInvocation');
@@ -173,7 +172,7 @@ export class AgentInvocationTool extends BaseTool<
     this.config = config;
   }
 
-  validateToolParams(params: IMultiAgentInvocationParameters): string | null {
+  override validateToolParams(params: IMultiAgentInvocationParameters): string | null {
     if (!params.agents || !Array.isArray(params.agents) || params.agents.length === 0) {
       return 'Agents array parameter is required and must not be empty';
     }
@@ -193,7 +192,7 @@ export class AgentInvocationTool extends BaseTool<
     return null;
   }
 
-  getDescription(params: IMultiAgentInvocationParameters): string {
+  override getDescription(params: IMultiAgentInvocationParameters): string {
     const agentList = params.agents
       .map(agent => {
         const truncatedMessage = agent.message.length > 60 

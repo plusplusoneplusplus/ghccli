@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { vi, describe, it, expect, beforeEach, afterEach, Mock } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { AgentInvocationTool, IMultiAgentInvocationParameters } from './agent-invocation.js';
 import { Config } from '../config/config.js';
 import { AgentLoader } from '../agents/agentLoader.js';

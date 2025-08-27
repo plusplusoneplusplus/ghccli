@@ -7,7 +7,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { JsonOutputHandler } from './JsonOutputHandler.js';
 import {
-  JsonOutput,
   JsonOutputError,
   JsonOutputMetadata,
   ToolCallResult,

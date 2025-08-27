@@ -11,7 +11,6 @@ import {
   Content,
   Tool,
   GenerateContentResponse,
-  Part,
 } from '@google/genai';
 import {
   getDirectoryContextString,

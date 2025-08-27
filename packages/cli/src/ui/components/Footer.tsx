@@ -36,13 +36,6 @@ interface FooterProps {
   isTrustedFolder?: boolean;
 }
 
-const truncateText = (text: string, maxWords: number = 8): string => {
-  const words = text.split(' ');
-  if (words.length <= maxWords) {
-    return text;
-  }
-  return words.slice(0, maxWords).join(' ') + '..';
-};
 
 export const Footer: React.FC<FooterProps> = ({
   model,

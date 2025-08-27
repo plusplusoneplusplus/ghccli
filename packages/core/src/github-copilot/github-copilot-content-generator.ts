@@ -6,14 +6,9 @@
 
 import { GitHubCopilotTokenManager } from './github-copilot-auth.js';
 import { 
-  CountTokensParameters,
-  CountTokensResponse,
   EmbedContentParameters,
   EmbedContentResponse,
-  GenerateContentParameters,
-  GenerateContentResponse,
-  Content,
-  Part
+  GenerateContentParameters
 } from '@google/genai';
 import { ContentGenerator } from '../core/contentGenerator.js';
 import { Config } from '../config/config.js';
@@ -48,7 +43,7 @@ export class GitHubCopilotGeminiServer extends OpenAIContentGenerator {
    * Only the very last message gets cache control for efficient prefix caching,
    * regardless of its role (user, assistant, tool, system).
    */
-  protected applyProviderSpecificTransforms(
+  protected override applyProviderSpecificTransforms(
     messages: OpenAI.Chat.ChatCompletionMessageParam[],
   ): Array<OpenAI.Chat.ChatCompletionMessageParam & { copilot_cache_control?: { type: 'ephemeral' } }> {
     if (messages.length === 0) return messages as any;
@@ -73,7 +68,7 @@ export class GitHubCopilotGeminiServer extends OpenAIContentGenerator {
   /**
    * Override to include getCoreSystemPrompt when converting to OpenAI format
    */
-  protected convertToOpenAIFormat(
+  protected override convertToOpenAIFormat(
     request: GenerateContentParameters,
   ): OpenAI.Chat.ChatCompletionMessageParam[] {
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
@@ -99,7 +94,7 @@ export class GitHubCopilotGeminiServer extends OpenAIContentGenerator {
   /**
    * Override to provide GitHub Copilot Bearer token and required headers
    */
-  protected async getAdditionalHeaders(): Promise<Record<string, string> | undefined> {
+  protected override async getAdditionalHeaders(): Promise<Record<string, string> | undefined> {
     const tokenInfo = await this.tokenManager.getCachedOrFreshToken();
     if (!tokenInfo) {
       throw new Error('Failed to get GitHub Copilot bearer token');
@@ -112,7 +107,7 @@ export class GitHubCopilotGeminiServer extends OpenAIContentGenerator {
     };
   }
 
-  async embedContent(_request: EmbedContentParameters): Promise<EmbedContentResponse> {
+  override async embedContent(_request: EmbedContentParameters): Promise<EmbedContentResponse> {
     // GitHub Copilot authentication may not support embedding endpoints
     throw new Error('Content embedding is not supported with GitHub Copilot authentication');
   }

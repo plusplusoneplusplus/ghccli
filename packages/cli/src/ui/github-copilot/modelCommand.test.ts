@@ -40,9 +40,13 @@ describe('modelCommand', () => {
         pendingItem: null,
         setPendingItem: vi.fn(),
         loadHistory: vi.fn(),
+        toggleVimEnabled: vi.fn(),
+        setGeminiMdFileCount: vi.fn(),
+        reloadCommands: vi.fn(),
       },
       session: {
         stats: {} as any,
+        sessionShellAllowlist: new Set<string>(),
       },
     };
   });

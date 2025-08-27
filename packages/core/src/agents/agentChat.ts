@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ContentUnion, Content, GenerateContentConfig, SendMessageParameters, GenerateContentResponse } from '@google/genai';
+import { ContentUnion, Content, GenerateContentConfig } from '@google/genai';
 import { GeminiChat } from '../core/geminiChat.js';
 import { ContentGenerator } from '../core/contentGenerator.js';
 import { Config } from '../config/config.js';
@@ -41,7 +41,7 @@ export class AgentChat extends GeminiChat {
   /**
    * Generates the system prompt using the agent's configuration
    */
-  protected async generateSystemPrompt(): Promise<ContentUnion | null> {
+  protected override async generateSystemPrompt(): Promise<ContentUnion | null> {
     // Check if agentConfig is available (might not be during construction)
     if (this.agentConfig && this.agentConfig.systemPrompt.type === 'content') {
       let promptContent = this.agentConfig.systemPrompt.value;
@@ -319,7 +319,7 @@ export class AgentChat extends GeminiChat {
   /**
    * Override getCurrentModel to use the agent's preferred model if available
    */
-  protected getCurrentModel(): string {
+  protected override getCurrentModel(): string {
     const preferredModel = this.agentConfig.metadata.languageModel.preferred;
     
     // Check if the preferred model is available
