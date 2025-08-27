@@ -644,7 +644,7 @@ export class AgentInvocationTool extends BaseTool<
         getPreferredEditor: () => undefined,
         config: agentToolConfig as Config, // Use the modified config
         onEditorClose: () => {},
-        onAllToolCallsComplete: (completedCalls) => {
+        onAllToolCallsComplete: async (completedCalls) => {
           if (isResolved) return;
           
           isResolved = true;
