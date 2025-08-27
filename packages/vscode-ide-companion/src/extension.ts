@@ -5,7 +5,6 @@
  */
 
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { IDEServer } from './ide-server.js';
 import { DiffContentProvider, DiffManager } from './diff-manager.js';
 import { createLogger } from './utils/logger.js';
