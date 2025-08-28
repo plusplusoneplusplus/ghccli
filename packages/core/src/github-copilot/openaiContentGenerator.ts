@@ -795,7 +795,7 @@ import {
   
         if (actualTool.functionDeclarations) {
           for (const func of actualTool.functionDeclarations) {
-            if (func.name && func.description) {
+            if (func && func.name && func.description) {
               openAITools.push({
                 type: 'function',
                 function: {
@@ -1297,10 +1297,10 @@ import {
             if (toolCall.id) {
               accumulatedCall.id = toolCall.id;
             }
-            if (toolCall.function?.name) {
+            if (toolCall.function && toolCall.function.name) {
               accumulatedCall.name = toolCall.function.name;
             }
-            if (toolCall.function?.arguments) {
+            if (toolCall.function && toolCall.function.arguments) {
               accumulatedCall.arguments += toolCall.function.arguments;
             }
           }
