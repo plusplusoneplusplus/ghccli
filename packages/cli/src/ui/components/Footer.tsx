@@ -19,6 +19,14 @@ import { DebugProfiler } from './DebugProfiler.js';
 import { useTerminalSize } from '../hooks/useTerminalSize.js';
 import { isNarrowWidth } from '../utils/isNarrowWidth.js';
 
+const truncateText = (text: string, maxWords: number = 8): string => {
+  const words = text.split(' ');
+  if (words.length <= maxWords) {
+    return text;
+  }
+  return words.slice(0, maxWords).join(' ') + '..';
+};
+
 interface FooterProps {
   model: string;
   agent: string;
@@ -125,11 +133,11 @@ export const Footer: React.FC<FooterProps> = ({
         )}
       </Box>
 
-      {/* Right Section: Gemini Label and Console Summary */}
+      {/* Right Section: Agent, Model and Console Summary */}
       <Box alignItems="center" paddingTop={isNarrow ? 1 : 0}>
         <Text color={theme.text.accent}>
           {isNarrow ? '' : ' '}
-          {model}{' '}
+          {truncateText(agent)} | {model}{' '}
           <ContextUsageDisplay
             promptTokenCount={promptTokenCount}
             model={model}
