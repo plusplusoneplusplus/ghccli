@@ -31,6 +31,7 @@ import {
   import { ApiResponseEvent } from '../telemetry/types.js';
   import { Config } from '../config/config.js';
   import { createSessionLogger } from '../utils/openaiLogger.js';
+  import { safeJsonParse } from '../utils/safeJsonParse.js';
   import { Agent as UndiciAgent } from 'undici';
 
   const logger = createLogger('OpenAIContentGenerator');
@@ -776,6 +777,16 @@ import {
       return convertTypes(converted) as Record<string, unknown> | undefined;
     }
   
+    /**
+     * Converts Gemini tools to OpenAI format for API compatibility.
+     * Handles both Gemini tools (using 'parameters' field) and MCP tools (using 'parametersJsonSchema' field).
+     *
+     * Gemini tools use a custom parameter format that needs conversion to OpenAI JSON Schema format.
+     * MCP tools already use JSON Schema format in the parametersJsonSchema field and can be used directly.
+     *
+     * @param geminiTools - Array of Gemini tools to convert
+     * @returns Promise resolving to array of OpenAI-compatible tools
+     */
     private async convertGeminiToolsToOpenAI(
       geminiTools: ToolListUnion,
     ): Promise<OpenAI.Chat.ChatCompletionTool[]> {
@@ -796,14 +807,31 @@ import {
         if (actualTool.functionDeclarations) {
           for (const func of actualTool.functionDeclarations) {
             if (func && func.name && func.description) {
+              let parameters: Record<string, unknown> | undefined;
+
+              // Handle both Gemini tools (parameters) and MCP tools (parametersJsonSchema)
+              if ((func as any).parametersJsonSchema) {
+                // MCP tool format - use parametersJsonSchema directly
+                if ((func as any).parametersJsonSchema) {
+                  // Create a shallow copy to avoid mutating the original object
+                  const paramsCopy = {
+                    ...((func as any).parametersJsonSchema as Record<string, unknown>),
+                  };
+                  parameters = paramsCopy;
+                }
+              } else if (func.parameters) {
+                // Gemini tool format - convert parameters to OpenAI format
+                parameters = this.convertGeminiParametersToOpenAI(
+                  func.parameters as Record<string, unknown>,
+                );
+              }
+
               openAITools.push({
                 type: 'function',
                 function: {
                   name: func.name,
                   description: func.description,
-                  parameters: this.convertGeminiParametersToOpenAI(
-                    (func.parameters || {}) as Record<string, unknown>,
-                  ),
+                  parameters,
                 },
               });
             }
@@ -1196,12 +1224,7 @@ import {
           if ('function' in toolCall && toolCall.function) {
             let args: Record<string, unknown> = {};
             if (toolCall.function.arguments) {
-              try {
-                args = JSON.parse(toolCall.function.arguments);
-              } catch (error) {
-                logger.error(`Failed to parse function arguments: ${error}`);
-                args = {};
-              }
+              args = safeJsonParse(toolCall.function.arguments, {});
             }
   
             parts.push({
@@ -1314,13 +1337,7 @@ import {
             if (accumulatedCall.name) {
               let args: Record<string, unknown> = {};
               if (accumulatedCall.arguments) {
-                try {
-                  args = JSON.parse(accumulatedCall.arguments);
-                } catch (error) {
-                  logger.error(
-                    `Failed to parse final tool call arguments: ${error}`,
-                  );
-                }
+                args = safeJsonParse(accumulatedCall.arguments, {});
               }
   
               parts.push({
