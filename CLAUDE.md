@@ -1,84 +1,141 @@
-# Claude Instructions for GitHub Issue Workflow
+# CLAUDE.md
 
-## ⚠️ Fork/Merge Conflict Minimization Guidance
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-This repository is a fork of an upstream/original repository. All changes should be made with the goal of minimizing merge conflicts when merging with the upstream repository. Please:
-- Make changes incrementally and in small, focused commits
-- Avoid unnecessary divergence from upstream (e.g., do not reformat code, rename files, or restructure unless required)
-- Regularly pull changes from upstream and resolve conflicts early
-- When planning or implementing changes, always consider how they will affect future merges
+## Project Overview
 
-This file contains instructions for Claude to efficiently work on GitHub issues by reading, planning, implementing, and closing them.
+GHCCLI is a command-line AI workflow tool built on top of the Gemini CLI. It connects to various AI providers (Gemini, GitHub Copilot, OpenAI), understands code, and accelerates development workflows through tools, MCP servers, and multimodal capabilities.
 
-## GitHub Issue Workflow (with Fork Awareness)
+## ⚠️ Fork/Merge Conflict Minimization
 
-When asked to work on a GitHub issue, follow these steps:
+This is a fork of the upstream Gemini CLI repository. All changes must minimize merge conflicts:
+- Make incremental, focused commits
+- Avoid unnecessary divergence (reformatting, renaming, restructuring)
+- Regularly pull upstream changes and resolve conflicts early
+- Consider merge impact when planning changes
 
-### 1. Read and Analyze the Issue
-- Use `gh issue view <issue_number>` to read the full issue details
-- Extract key requirements, acceptance criteria, and any linked resources
-- Identify the issue type (bug fix, feature request, enhancement, etc.)
+## Architecture
 
+### Workspace Structure
+- `packages/cli/` - Main CLI application with React-based TUI
+- `packages/core/` - Core functionality including AI clients, tools, and services
+- `packages/test-utils/` - Shared testing utilities
+- `packages/vscode-ide-companion/` - VSCode extension companion
+- `bundle/` - Built distribution files
+- `scripts/` - Build and development scripts
 
-### 2. Plan the Work
-- Use the TodoWrite tool to create a structured plan with specific tasks
-- Break down complex requirements into smaller, manageable steps
-- Include tasks for testing, linting, and verification
-- **When planning, consider how your changes will impact future merges with upstream. Favor approaches that minimize merge conflicts.**
+### Key Components
+- **UI Layer** (`packages/cli/src/ui/`): React-based terminal interface with contexts, hooks, and components
+- **Core Services** (`packages/core/src/`): 
+  - AI providers (Gemini, GitHub Copilot, OpenAI, Azure OpenAI)
+  - Tools system (file operations, shell, web search, MCP integration)
+  - Agent system for multi-step workflows
+- **Configuration** (`packages/cli/src/config/`): Settings, authentication, extensions
+- **Tools** (`packages/core/src/tools/`): File operations, shell execution, web search, MCP clients
 
-### 3. Investigate the Codebase
-- Search for relevant files and code patterns using Grep and Glob tools
-- Understand existing implementations and conventions
-- Identify files that need modification or creation
+## Development Commands
 
+### Essential Commands
+```bash
+# Start development
+npm start
+npm run debug                    # Start with debugger
 
-### 4. Implement the Changes
-- Follow existing code conventions and patterns
-- Make targeted, focused changes that address the issue requirements
-- Ensure code quality and maintainability
-- **Avoid unnecessary refactoring or formatting changes that could increase merge conflicts with upstream.**
+# Build and bundle
+npm run build                   # Build all packages
+npm run bundle                  # Create distribution bundle
+npm run build:all              # Build everything including sandbox and vscode
 
-### 5. Verify the Implementation
-- Run tests using `npm test` if available
-- Run type checking with `npm run typecheck`
-- Test the changes manually if applicable
+# Testing
+npm test                        # Run all tests
+npm run test:ci                 # CI test suite with coverage
+npm run test:e2e               # End-to-end tests
+npm run typecheck              # TypeScript checking
 
+# Code Quality
+npm run lint                    # Lint code
+npm run lint:fix               # Fix linting issues
+npm run format                 # Format code with Prettier
 
-### 6. Commit and Push Changes
-- Stage relevant files with `git add`
-- Create a descriptive commit message that references the issue
-- Push changes to the current branch or create a new branch if needed
-- **Before pushing, consider rebasing or merging upstream changes to resolve conflicts early.**
+# Complete verification
+npm run preflight              # Full build, test, and quality checks
+```
 
-### 7. Close the Issue
-- Use `gh issue close <issue_number>` with an appropriate comment
-- Ensure the closing comment summarizes what was implemented
+### Package-Specific Commands
+```bash
+# Run commands in specific workspaces
+npm run build --workspaces     # Build all packages
+npm run test --workspaces --if-present  # Test all packages
+npm run typecheck --workspaces --if-present  # Type check all packages
+```
 
-## Project-Specific Commands
+## Development Workflow
 
-For this project, always run these verification commands after making changes:
-- `npm run typecheck` - TypeScript type checking
-- `npm test` - Run test suite
+### Required Verification Steps
+After making changes, always run:
+1. `npm run typecheck` - Verify TypeScript
+2. `npm test` - Run test suite  
+3. `npm run lint` - Check code style
+4. `npm run build` - Ensure build succeeds
 
-## Branch Strategy
-- Work on feature branches when appropriate
-- Use descriptive branch names like `fix/issue-123` or `feature/workflow-command`
-- Push to origin before closing issues
+### Testing Strategy
+- Unit tests: Vitest for individual components/functions
+- Integration tests: Full workflow testing in `integration-tests/`
+- E2E tests: `npm run test:e2e` for end-to-end scenarios
+- Test debugging: When tests fail, prioritize fixing test logic over production code
 
-## Commit Message Format
-Use conventional commit format:
-- `fix: description` for bug fixes
-- `feat: description` for new features
-- `docs: description` for documentation
-- `refactor: description` for refactoring
-- `test: description` for tests
+### Code Standards
+- Strict TypeScript with comprehensive type checking
+- ESLint with custom rules and import organization
+- Prettier for consistent formatting
+- React patterns for UI components
+- ES modules (`"type": "module"`)
 
-Always include the issue number in commit messages: `fixes #123`
+## Key Technologies
 
-## Error Handling
-- If tests fail, fix them before closing the issue
-- If unable to complete the issue, leave detailed comments about blockers
+- **Runtime**: Node.js 20+ with ES modules
+- **UI**: React with custom terminal interface (Ink-style)
+- **Build**: esbuild for bundling, npm workspaces for monorepo
+- **Testing**: Vitest with coverage, MSW for API mocking
+- **AI Integration**: Multiple providers with unified interface
+- **Tools**: MCP (Model Context Protocol) for extensibility
 
-## Document Guidance
-- Include at most one example in documentation; omit examples for trivial cases.
-- Do not generate examples or documentation when making code changes unless explicitly requested.
+## Special Considerations
+
+### Authentication
+Multiple auth methods supported:
+- OAuth (Google accounts)
+- Gemini API keys
+- GitHub Copilot integration
+- OpenAI API keys
+- Azure OpenAI
+
+### Sandbox Execution
+- Configurable sandbox modes: none, docker, podman
+- Platform-specific sandbox profiles in `packages/cli/src/utils/`
+
+### Extension System
+- MCP server integration for tools and capabilities
+- Command system with slash commands and completions
+- Plugin architecture for custom functionality
+
+## File Patterns to Know
+
+- `*.test.ts` - Unit tests
+- `*.integration.test.ts` - Integration tests  
+- `*Command.ts` - UI commands
+- `*Tool.ts` - Core tool implementations
+- `*Service.ts` - Service layer components
+- `*Context.tsx` - React contexts
+- `use*.ts` - React hooks
+
+## Troubleshooting
+
+### Common Issues
+- Build failures: Check TypeScript errors first
+- Test failures: Usually test logic issues, not production code
+- Import errors: Verify ES module syntax and package.json exports
+- Auth issues: Check provider-specific setup in docs/
+
+### Debug Mode
+Use `npm run debug` to start with Node.js inspector for debugging complex issues.
