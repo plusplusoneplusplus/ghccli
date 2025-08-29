@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ToolResult } from '../tools/tools.js';
+import { ToolResult, BaseDeclarativeTool, BaseToolInvocation, Kind, ToolInvocation } from '../tools/tools.js';
 import { FunctionDeclaration, Type, Part } from '@google/genai';
 import { AgentLoader } from '../agents/agentLoader.js';
 import { createContentGenerator } from '../core/contentGenerator.js';
@@ -97,7 +97,7 @@ export interface IndividualAgentResult {
   childExecutionId?: string;
 }
 
-export interface MultiAgentInvocationResponse {
+export interface MultiAgentInvocationResponse extends ToolResult {
   totalAgents: number;
   successful: number;
   failed: number;
@@ -109,42 +109,19 @@ export interface MultiAgentInvocationResponse {
   };
 }
 
-export class AgentInvocationTool {
-  static readonly Name: string = agentInvocationToolSchemaData.name!;
-  
-  name = AgentInvocationTool.Name;
-  displayName = 'Invoke Agents';
-  description = 'Invokes multiple agents in parallel to handle complex, multi-step tasks autonomously.';
-  schema = agentInvocationToolSchemaData;
-
-  private config: Config;
-
-  constructor(config: Config) {
-    this.config = config;
+class AgentInvocationToolInvocation extends BaseToolInvocation<
+  IMultiAgentInvocationParameters,
+  MultiAgentInvocationResponse
+> {
+  constructor(
+    private readonly config: Config,
+    params: IMultiAgentInvocationParameters,
+  ) {
+    super(params);
   }
 
-  validateToolParams(params: IMultiAgentInvocationParameters): string | null {
-    if (!params.agents || !Array.isArray(params.agents) || params.agents.length === 0) {
-      return 'Agents array parameter is required and must not be empty';
-    }
-
-    for (let i = 0; i < params.agents.length; i++) {
-      const agentConfig = params.agents[i];
-
-      if (!agentConfig.agentName) {
-        return `Agent name is required for agent at index ${i}`;
-      }
-
-      if (!agentConfig.message || agentConfig.message.trim() === '') {
-        return `Message is required and cannot be empty for agent '${agentConfig.agentName}' at index ${i}`;
-      }
-    }
-
-    return null;
-  }
-
-  getDescription(params: IMultiAgentInvocationParameters): string {
-    const agentList = params.agents
+  override getDescription(): string {
+    const agentList = this.params.agents
       .map(agent => {
         const truncatedMessage = agent.message.length > 60 
           ? agent.message.substring(0, 60) + '...' 
@@ -153,34 +130,24 @@ export class AgentInvocationTool {
       })
       .join('\n');
 
-    return `**Invoke ${params.agents.length} Agents in Parallel**:\n\n${agentList}\n\nThis will send messages to ${params.agents.length} agents in parallel and return aggregated results.`;
+    return `**Invoke ${this.params.agents.length} Agents in Parallel**:\n\n${agentList}\n\nThis will send messages to ${this.params.agents.length} agents in parallel and return aggregated results.`;
   }
 
   async execute(
-    params: IMultiAgentInvocationParameters,
     signal: AbortSignal,
     updateOutput?: (output: string) => void,
-  ): Promise<ToolResult> {
+  ): Promise<MultiAgentInvocationResponse> {
     const startTime = Date.now();
 
-    // Validate parameters
-    const validationError = this.validateToolParams(params);
-    if (validationError) {
-      return {
-        llmContent: JSON.stringify({ success: false, error: validationError }),
-        returnDisplay: `Error: ${validationError}`,
-      };
-    }
-
-    const batchExecutionId = params.executionId || this.generateExecutionId();
+    const batchExecutionId = this.params.executionId || this.generateExecutionId();
 
     // Send initial progress update
     if (updateOutput) {
-      updateOutput(`Starting execution of ${params.agents.length} agents in parallel...`);
+      updateOutput(`Starting execution of ${this.params.agents.length} agents in parallel...`);
     }
 
     // Create execution promises for all agents
-    const agentPromises = params.agents.map(async (agentConfig, index) => {
+    const agentPromises = this.params.agents.map(async (agentConfig, index) => {
       const agentStartTime = Date.now();
       const agentExecutionId = `${batchExecutionId}-agent-${index}`;
 
@@ -329,7 +296,7 @@ export class AgentInvocationTool {
         } else {
           // This should rarely happen since we handle errors within each agent promise
           failed++;
-          const agentConfig = params.agents[index];
+          const agentConfig = this.params.agents[index];
           individualResults.push({
             agent: agentConfig.agentName,
             method: agentConfig.method,
@@ -342,28 +309,28 @@ export class AgentInvocationTool {
       });
 
       // Create aggregated response
+      const summary = `Invoked ${this.params.agents.length} agents: ${successful} successful, ${failed} failed`;
       const response: MultiAgentInvocationResponse = {
-        totalAgents: params.agents.length,
+        totalAgents: this.params.agents.length,
         successful,
         failed,
         duration: `${totalDuration}ms`,
         results: individualResults,
         executionSummary: {
           totalDuration: `${totalDuration}ms`,
-          parentExecutionId: params.currentExecutionId,
+          parentExecutionId: this.params.currentExecutionId,
         },
-      };
-
-      const summary = `Invoked ${params.agents.length} agents: ${successful} successful, ${failed} failed`;
-
-      // Send final progress update
-      if (updateOutput) {
-        updateOutput(`✅ Completed execution of ${params.agents.length} agents: ${successful} successful, ${failed} failed`);
-      }
-
-      return {
-        summary,
-        llmContent: JSON.stringify(response, null, 2),
+        llmContent: JSON.stringify({
+          totalAgents: this.params.agents.length,
+          successful,
+          failed,
+          duration: `${totalDuration}ms`,
+          results: individualResults,
+          executionSummary: {
+            totalDuration: `${totalDuration}ms`,
+            parentExecutionId: this.params.currentExecutionId,
+          },
+        }, null, 2),
         returnDisplay: `## Agent Invocation Results\n\n${summary}\n\n**Execution ID:** \`${batchExecutionId}\`\n**Total Duration:** ${totalDuration}ms\n\n### Individual Results:\n\n${individualResults
           .map(
             (result) =>
@@ -373,17 +340,24 @@ export class AgentInvocationTool {
           )
           .join('\n')}`,
       };
+
+      // Send final progress update
+      if (updateOutput) {
+        updateOutput(`✅ Completed execution of ${this.params.agents.length} agents: ${successful} successful, ${failed} failed`);
+      }
+
+      return response;
     } catch (error) {
       const totalDuration = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
       // Return error response
       const errorResponse: MultiAgentInvocationResponse = {
-        totalAgents: params.agents.length,
+        totalAgents: this.params.agents.length,
         successful: 0,
-        failed: params.agents.length,
+        failed: this.params.agents.length,
         duration: `${totalDuration}ms`,
-        results: params.agents.map((agentConfig, index) => ({
+        results: this.params.agents.map((agentConfig, index) => ({
           agent: agentConfig.agentName,
           method: agentConfig.method,
           success: false,
@@ -393,17 +367,32 @@ export class AgentInvocationTool {
         })),
         executionSummary: {
           totalDuration: `${totalDuration}ms`,
-          parentExecutionId: params.currentExecutionId,
+          parentExecutionId: this.params.currentExecutionId,
         },
-      };
-
-      return {
-        llmContent: JSON.stringify(errorResponse, null, 2),
+        llmContent: JSON.stringify({
+          totalAgents: this.params.agents.length,
+          successful: 0,
+          failed: this.params.agents.length,
+          duration: `${totalDuration}ms`,
+          results: this.params.agents.map((agentConfig, index) => ({
+            agent: agentConfig.agentName,
+            method: agentConfig.method,
+            success: false,
+            duration: '0ms',
+            error: { message: errorMessage },
+            childExecutionId: `${batchExecutionId}-agent-${index}`,
+          })),
+          executionSummary: {
+            totalDuration: `${totalDuration}ms`,
+            parentExecutionId: this.params.currentExecutionId,
+          },
+        }, null, 2),
         returnDisplay: `## Agent Invocation Error\n\n**Execution ID:** \`${batchExecutionId}\`\n**Error:** ${errorMessage}`,
       };
+
+      return errorResponse;
     }
   }
-
 
   private generateExecutionId(): string {
     return `gemini-agent-exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -675,5 +664,99 @@ export class AgentInvocationTool {
       .join('\n');
     
     return `Tool execution results:\n${resultSummary}\n\nPlease continue with your response based on these results.`;
+  }
+}
+
+export class AgentInvocationTool extends BaseDeclarativeTool<
+  IMultiAgentInvocationParameters,
+  MultiAgentInvocationResponse
+> {
+  static readonly Name: string = agentInvocationToolSchemaData.name!;
+
+  constructor(private readonly config: Config) {
+    super(
+      AgentInvocationTool.Name,
+      'Invoke Agents',
+      'Invokes multiple agents in parallel to handle complex, multi-step tasks autonomously.',
+      Kind.Other,
+      {
+        type: 'object',
+        properties: {
+          agents: {
+            type: 'array',
+            description: 'Array of agent configurations to invoke',
+            items: {
+              type: 'object',
+              properties: {
+                agentName: {
+                  type: 'string',
+                  description: 'Name of the agent to invoke',
+                },
+                method: {
+                  type: 'string',
+                  description: 'Optional method to call on the agent',
+                },
+                message: {
+                  type: 'string',
+                  description: 'Message to send to the agent',
+                },
+                taskDescription: {
+                  type: 'string',
+                  description: 'Optional description of the task for the agent',
+                },
+                additionalParams: {
+                  type: 'object',
+                  description: 'Optional additional parameters for the agent',
+                },
+                metadata: {
+                  type: 'object',
+                  description: 'Optional metadata for the agent execution',
+                },
+              },
+              required: ['agentName', 'message'],
+            },
+          },
+          executionId: {
+            type: 'string',
+            description: 'Optional execution ID for tracking',
+          },
+          currentExecutionId: {
+            type: 'string',
+            description: 'Optional current execution ID for context',
+          },
+        },
+        required: ['agents'],
+      },
+      true, // isOutputMarkdown
+      true, // canUpdateOutput
+    );
+  }
+
+  protected override validateToolParams(
+    params: IMultiAgentInvocationParameters,
+  ): string | null {
+    if (!params.agents || !Array.isArray(params.agents) || params.agents.length === 0) {
+      return 'Agents array parameter is required and must not be empty';
+    }
+
+    for (let i = 0; i < params.agents.length; i++) {
+      const agentConfig = params.agents[i];
+
+      if (!agentConfig.agentName) {
+        return `Agent name is required for agent at index ${i}`;
+      }
+
+      if (!agentConfig.message || agentConfig.message.trim() === '') {
+        return `Message is required and cannot be empty for agent '${agentConfig.agentName}' at index ${i}`;
+      }
+    }
+
+    return null;
+  }
+
+  protected createInvocation(
+    params: IMultiAgentInvocationParameters,
+  ): ToolInvocation<IMultiAgentInvocationParameters, MultiAgentInvocationResponse> {
+    return new AgentInvocationToolInvocation(this.config, params);
   }
 }

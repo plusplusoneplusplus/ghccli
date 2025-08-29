@@ -118,8 +118,8 @@ describe('AgentInvocationTool', () => {
     vi.restoreAllMocks();
   });
 
-  describe('validateToolParams', () => {
-    it('should return null for valid parameters', () => {
+  describe('build', () => {
+    it('should build successfully for valid parameters', () => {
       const params: IMultiAgentInvocationParameters = {
         agents: [
           {
@@ -129,27 +129,24 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      const result = tool.validateToolParams(params);
-      expect(result).toBeNull();
+      expect(() => tool.build(params)).not.toThrow();
     });
 
-    it('should return error for missing agents array', () => {
+    it('should throw error for missing agents array', () => {
       const params = {} as IMultiAgentInvocationParameters;
 
-      const result = tool.validateToolParams(params);
-      expect(result).toBe('Agents array parameter is required and must not be empty');
+      expect(() => tool.build(params)).toThrow('Agents array parameter is required and must not be empty');
     });
 
-    it('should return error for empty agents array', () => {
+    it('should throw error for empty agents array', () => {
       const params: IMultiAgentInvocationParameters = {
         agents: [],
       };
 
-      const result = tool.validateToolParams(params);
-      expect(result).toBe('Agents array parameter is required and must not be empty');
+      expect(() => tool.build(params)).toThrow('Agents array parameter is required and must not be empty');
     });
 
-    it('should return error for agent without name', () => {
+    it('should throw error for agent without name', () => {
       const params: IMultiAgentInvocationParameters = {
         agents: [
           {
@@ -159,11 +156,10 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      const result = tool.validateToolParams(params);
-      expect(result).toBe('Agent name is required for agent at index 0');
+      expect(() => tool.build(params)).toThrow('Agent name is required for agent at index 0');
     });
 
-    it('should return error for agent without message', () => {
+    it('should throw error for agent without message', () => {
       const params: IMultiAgentInvocationParameters = {
         agents: [
           {
@@ -173,11 +169,10 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      const result = tool.validateToolParams(params);
-      expect(result).toBe('Message is required and cannot be empty for agent \'test-agent\' at index 0');
+      expect(() => tool.build(params)).toThrow('Message is required and cannot be empty for agent \'test-agent\' at index 0');
     });
 
-    it('should return error for agent with whitespace-only message', () => {
+    it('should throw error for agent with whitespace-only message', () => {
       const params: IMultiAgentInvocationParameters = {
         agents: [
           {
@@ -187,8 +182,7 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      const result = tool.validateToolParams(params);
-      expect(result).toBe('Message is required and cannot be empty for agent \'test-agent\' at index 0');
+      expect(() => tool.build(params)).toThrow('Message is required and cannot be empty for agent \'test-agent\' at index 0');
     });
   });
 
@@ -203,7 +197,8 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      const result = tool.getDescription(params);
+      const invocation = tool.build(params);
+      const result = invocation.getDescription();
       expect(result).toBe(
         '**Invoke 1 Agents in Parallel**:\n\n- test-agent: "Test message"\n\nThis will send messages to 1 agents in parallel and return aggregated results.'
       );
@@ -225,7 +220,8 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      const result = tool.getDescription(params);
+      const invocation = tool.build(params);
+      const result = invocation.getDescription();
       expect(result).toBe(
         '**Invoke 2 Agents in Parallel**:\n\n- research-agent (research): "Research AI developments"\n- analysis-agent (analyze): "Analyze the data"\n\nThis will send messages to 2 agents in parallel and return aggregated results.'
       );
@@ -294,7 +290,8 @@ describe('AgentInvocationTool', () => {
         executionId: 'custom-exec-id',
       };
 
-      const result = await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      const result = await invocation.execute(mockAbortSignal);
 
       // Verify logger was created with session ID from config
       expect(mockLogger).toHaveBeenCalledWith(mockConfig.getSessionId());
@@ -321,7 +318,8 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      await invocation.execute(mockAbortSignal);
 
       // Verify saveCheckpoint was called with a generated execution ID
       expect(mockLoggerInstance.saveCheckpoint).toHaveBeenCalledTimes(1);
@@ -345,7 +343,8 @@ describe('AgentInvocationTool', () => {
         executionId: 'batch-exec-id',
       };
 
-      await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      await invocation.execute(mockAbortSignal);
 
       // Verify saveCheckpoint was called twice, once for each agent
       expect(mockLoggerInstance.saveCheckpoint).toHaveBeenCalledTimes(2);
@@ -370,7 +369,8 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      const result = await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      const result = await invocation.execute(mockAbortSignal);
 
       // Agent should still succeed despite save failure
       expect(result.summary).toBe('Invoked 1 agents: 1 successful, 0 failed');
@@ -392,7 +392,8 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      const result = await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      const result = await invocation.execute(mockAbortSignal);
 
       // Agent should still succeed despite initialization failure
       expect(result.summary).toBe('Invoked 1 agents: 1 successful, 0 failed');
@@ -412,7 +413,8 @@ describe('AgentInvocationTool', () => {
         executionId: 'display-test-id',
       };
 
-      const result = await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      const result = await invocation.execute(mockAbortSignal);
 
       // Verify execution ID is displayed in the UI
       expect(result.returnDisplay).toContain('**Execution ID:** `display-test-id`');
@@ -432,7 +434,8 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      const result = await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      const result = await invocation.execute(mockAbortSignal);
 
       expect(result.summary).toBe('Invoked 1 agents: 1 successful, 0 failed');
       expect(result.llmContent).toContain('"totalAgents": 1');
@@ -456,7 +459,8 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      const result = await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      const result = await invocation.execute(mockAbortSignal);
 
       expect(result.summary).toBe('Invoked 2 agents: 2 successful, 0 failed');
       expect(result.llmContent).toContain('"totalAgents": 2');
@@ -478,7 +482,8 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      const result = await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      const result = await invocation.execute(mockAbortSignal);
 
       expect(result.summary).toBe('Invoked 1 agents: 0 successful, 1 failed');
       expect(result.llmContent).toContain('"successful": 0');
@@ -497,7 +502,8 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      const result = await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      const result = await invocation.execute(mockAbortSignal);
 
       expect(result.summary).toBe('Invoked 1 agents: 0 successful, 1 failed');
       expect(result.llmContent).toContain('"failed": 1');
@@ -517,7 +523,8 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      const result = await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      const result = await invocation.execute(mockAbortSignal);
 
       expect(result.summary).toBe('Invoked 1 agents: 0 successful, 1 failed');
       expect(result.llmContent).toContain('"failed": 1');
@@ -543,7 +550,8 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      const result = await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      const result = await invocation.execute(mockAbortSignal);
 
       expect(result.summary).toBe('Invoked 2 agents: 1 successful, 1 failed');
       expect(result.llmContent).toContain('"successful": 1');
@@ -566,7 +574,8 @@ describe('AgentInvocationTool', () => {
         currentExecutionId: 'parent-execution-id',
       };
 
-      const result = await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      const result = await invocation.execute(mockAbortSignal);
 
       const parsedResult = JSON.parse(result.llmContent as string);
       expect(parsedResult.executionSummary.parentExecutionId).toBe('parent-execution-id');
@@ -583,7 +592,8 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      const result = await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      const result = await invocation.execute(mockAbortSignal);
 
       const parsedResult = JSON.parse(result.llmContent as string);
       expect(parsedResult.results[0].childExecutionId).toMatch(/gemini-agent-exec-\d+-[a-z0-9]+/);
@@ -592,7 +602,8 @@ describe('AgentInvocationTool', () => {
     it('should return validation error for invalid params', async () => {
       const params = {} as IMultiAgentInvocationParameters;
 
-      const result = await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      const result = await invocation.execute(mockAbortSignal);
 
       expect(result.llmContent).toContain('"success":false');
       expect(result.llmContent).toContain('Agents array parameter is required and must not be empty');
@@ -625,7 +636,8 @@ describe('AgentInvocationTool', () => {
         ],
       };
 
-      const result = await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      const result = await invocation.execute(mockAbortSignal);
       expect(result.summary).toBe('Invoked 1 agents: 1 successful, 0 failed');
     });
 
@@ -637,7 +649,8 @@ describe('AgentInvocationTool', () => {
 
       const params: IMultiAgentInvocationParameters = { agents };
 
-      const result = await tool.execute(params, mockAbortSignal);
+      const invocation = tool.build(params);
+      const result = await invocation.execute(mockAbortSignal);
       expect(result.summary).toBe('Invoked 5 agents: 5 successful, 0 failed');
     });
   });
