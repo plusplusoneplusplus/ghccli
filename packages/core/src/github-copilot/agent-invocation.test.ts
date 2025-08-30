@@ -305,7 +305,7 @@ describe('AgentInvocationTool', () => {
         'custom-exec-id-agent-0'
       );
       
-      expect(result.summary).toBe('Invoked 1 agents: 1 successful, 0 failed');
+      expect(result.returnDisplay).toContain('Invoked 1 agents: 1 successful, 0 failed');
     });
 
     it('should save chat history with generated execution ID when not provided', async () => {
@@ -373,7 +373,7 @@ describe('AgentInvocationTool', () => {
       const result = await invocation.execute(mockAbortSignal);
 
       // Agent should still succeed despite save failure
-      expect(result.summary).toBe('Invoked 1 agents: 1 successful, 0 failed');
+      expect(result.returnDisplay).toContain('Invoked 1 agents: 1 successful, 0 failed');
       
       // The warning is logged via the logger utility, not console.warn
       // Main test is that the agent execution succeeds despite the save error
@@ -396,7 +396,7 @@ describe('AgentInvocationTool', () => {
       const result = await invocation.execute(mockAbortSignal);
 
       // Agent should still succeed despite initialization failure
-      expect(result.summary).toBe('Invoked 1 agents: 1 successful, 0 failed');
+      expect(result.returnDisplay).toContain('Invoked 1 agents: 1 successful, 0 failed');
       
       // The warning is logged via the logger utility, not console.warn
       // Main test is that the agent execution succeeds despite the initialization error
@@ -437,7 +437,7 @@ describe('AgentInvocationTool', () => {
       const invocation = tool.build(params);
       const result = await invocation.execute(mockAbortSignal);
 
-      expect(result.summary).toBe('Invoked 1 agents: 1 successful, 0 failed');
+      expect(result.returnDisplay).toContain('Invoked 1 agents: 1 successful, 0 failed');
       expect(result.llmContent).toContain('"totalAgents": 1');
       expect(result.llmContent).toContain('"successful": 1');
       expect(result.llmContent).toContain('"failed": 0');
@@ -462,7 +462,7 @@ describe('AgentInvocationTool', () => {
       const invocation = tool.build(params);
       const result = await invocation.execute(mockAbortSignal);
 
-      expect(result.summary).toBe('Invoked 2 agents: 2 successful, 0 failed');
+      expect(result.returnDisplay).toContain('Invoked 2 agents: 2 successful, 0 failed');
       expect(result.llmContent).toContain('"totalAgents": 2');
       expect(result.llmContent).toContain('"successful": 2');
       expect(result.llmContent).toContain('"failed": 0');
@@ -485,7 +485,7 @@ describe('AgentInvocationTool', () => {
       const invocation = tool.build(params);
       const result = await invocation.execute(mockAbortSignal);
 
-      expect(result.summary).toBe('Invoked 1 agents: 0 successful, 1 failed');
+      expect(result.returnDisplay).toContain('Invoked 1 agents: 0 successful, 1 failed');
       expect(result.llmContent).toContain('"successful": 0');
       expect(result.llmContent).toContain('"failed": 1');
       expect(result.returnDisplay).toContain('❌ Failed');
@@ -505,7 +505,7 @@ describe('AgentInvocationTool', () => {
       const invocation = tool.build(params);
       const result = await invocation.execute(mockAbortSignal);
 
-      expect(result.summary).toBe('Invoked 1 agents: 0 successful, 1 failed');
+      expect(result.returnDisplay).toContain('Invoked 1 agents: 0 successful, 1 failed');
       expect(result.llmContent).toContain('"failed": 1');
       expect(result.returnDisplay).toContain('❌ Failed');
       expect(result.returnDisplay).toContain('invalid-method');
@@ -526,7 +526,7 @@ describe('AgentInvocationTool', () => {
       const invocation = tool.build(params);
       const result = await invocation.execute(mockAbortSignal);
 
-      expect(result.summary).toBe('Invoked 1 agents: 0 successful, 1 failed');
+      expect(result.returnDisplay).toContain('Invoked 1 agents: 0 successful, 1 failed');
       expect(result.llmContent).toContain('"failed": 1');
       expect(result.returnDisplay).toContain('❌ Failed');
       expect(result.returnDisplay).toContain('Agent execution failed');
@@ -553,7 +553,7 @@ describe('AgentInvocationTool', () => {
       const invocation = tool.build(params);
       const result = await invocation.execute(mockAbortSignal);
 
-      expect(result.summary).toBe('Invoked 2 agents: 1 successful, 1 failed');
+      expect(result.returnDisplay).toContain('Invoked 2 agents: 1 successful, 1 failed');
       expect(result.llmContent).toContain('"successful": 1');
       expect(result.llmContent).toContain('"failed": 1');
       expect(result.returnDisplay).toContain('✅ Success');
@@ -599,15 +599,10 @@ describe('AgentInvocationTool', () => {
       expect(parsedResult.results[0].childExecutionId).toMatch(/gemini-agent-exec-\d+-[a-z0-9]+/);
     });
 
-    it('should return validation error for invalid params', async () => {
+    it('should throw validation error for invalid params', async () => {
       const params = {} as IMultiAgentInvocationParameters;
 
-      const invocation = tool.build(params);
-      const result = await invocation.execute(mockAbortSignal);
-
-      expect(result.llmContent).toContain('"success":false');
-      expect(result.llmContent).toContain('Agents array parameter is required and must not be empty');
-      expect(result.returnDisplay).toContain('Error: Agents array parameter is required and must not be empty');
+      expect(() => tool.build(params)).toThrow('Agents array parameter is required and must not be empty');
     });
 
     it('should handle timeout scenarios gracefully', async () => {
@@ -638,7 +633,7 @@ describe('AgentInvocationTool', () => {
 
       const invocation = tool.build(params);
       const result = await invocation.execute(mockAbortSignal);
-      expect(result.summary).toBe('Invoked 1 agents: 1 successful, 0 failed');
+      expect(result.returnDisplay).toContain('Invoked 1 agents: 1 successful, 0 failed');
     });
 
     it('should handle large number of agents', async () => {
@@ -651,7 +646,7 @@ describe('AgentInvocationTool', () => {
 
       const invocation = tool.build(params);
       const result = await invocation.execute(mockAbortSignal);
-      expect(result.summary).toBe('Invoked 5 agents: 5 successful, 0 failed');
+      expect(result.returnDisplay).toContain('Invoked 5 agents: 5 successful, 0 failed');
     });
   });
 
@@ -672,7 +667,7 @@ describe('AgentInvocationTool', () => {
     it('should have proper schema', () => {
       expect(tool.schema.name).toBe('invoke_agents');
       expect(tool.schema.description).toContain('Invokes multiple agents in parallel');
-      expect(tool.schema.parameters).toBeDefined();
+      expect(tool.schema.parametersJsonSchema).toBeDefined();
     });
   });
 });

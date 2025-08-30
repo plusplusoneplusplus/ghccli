@@ -97,7 +97,7 @@ export interface IndividualAgentResult {
   childExecutionId?: string;
 }
 
-export interface MultiAgentInvocationResponse extends ToolResult {
+export interface MultiAgentInvocationData {
   totalAgents: number;
   successful: number;
   failed: number;
@@ -111,7 +111,7 @@ export interface MultiAgentInvocationResponse extends ToolResult {
 
 class AgentInvocationToolInvocation extends BaseToolInvocation<
   IMultiAgentInvocationParameters,
-  MultiAgentInvocationResponse
+  ToolResult
 > {
   constructor(
     private readonly config: Config,
@@ -136,7 +136,7 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
   async execute(
     signal: AbortSignal,
     updateOutput?: (output: string) => void,
-  ): Promise<MultiAgentInvocationResponse> {
+  ): Promise<ToolResult> {
     const startTime = Date.now();
 
     const batchExecutionId = this.params.executionId || this.generateExecutionId();
@@ -162,7 +162,7 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
         }
 
         // Validate method if provided
-        let methodToUse = agentConfig.method;
+        const methodToUse = agentConfig.method;
         if (methodToUse && !loadedAgentConfig.methods.includes(methodToUse)) {
           throw new Error(
             `Method '${methodToUse}' not supported by agent '${agentConfig.agentName}'. Supported methods: ${loadedAgentConfig.methods.join(', ')}`
@@ -226,7 +226,7 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
 
         // Execute the agent with complete tool calling support
         logger.debug(`Starting execution for agent ${agentConfig.agentName}`, LogLevel.VERBOSE);
-        let responseText = await this.executeAgentWithToolSupport(
+        const responseText = await this.executeAgentWithToolSupport(
           agentChat,
           agentConfig.message,
           agentExecutionId,
@@ -310,7 +310,7 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
 
       // Create aggregated response
       const summary = `Invoked ${this.params.agents.length} agents: ${successful} successful, ${failed} failed`;
-      const response: MultiAgentInvocationResponse = {
+      const invocationData: MultiAgentInvocationData = {
         totalAgents: this.params.agents.length,
         successful,
         failed,
@@ -320,17 +320,10 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
           totalDuration: `${totalDuration}ms`,
           parentExecutionId: this.params.currentExecutionId,
         },
-        llmContent: JSON.stringify({
-          totalAgents: this.params.agents.length,
-          successful,
-          failed,
-          duration: `${totalDuration}ms`,
-          results: individualResults,
-          executionSummary: {
-            totalDuration: `${totalDuration}ms`,
-            parentExecutionId: this.params.currentExecutionId,
-          },
-        }, null, 2),
+      };
+      
+      const response: ToolResult = {
+        llmContent: JSON.stringify(invocationData, null, 2),
         returnDisplay: `## Agent Invocation Results\n\n${summary}\n\n**Execution ID:** \`${batchExecutionId}\`\n**Total Duration:** ${totalDuration}ms\n\n### Individual Results:\n\n${individualResults
           .map(
             (result) =>
@@ -352,7 +345,7 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
       // Return error response
-      const errorResponse: MultiAgentInvocationResponse = {
+      const errorData: MultiAgentInvocationData = {
         totalAgents: this.params.agents.length,
         successful: 0,
         failed: this.params.agents.length,
@@ -369,28 +362,12 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
           totalDuration: `${totalDuration}ms`,
           parentExecutionId: this.params.currentExecutionId,
         },
-        llmContent: JSON.stringify({
-          totalAgents: this.params.agents.length,
-          successful: 0,
-          failed: this.params.agents.length,
-          duration: `${totalDuration}ms`,
-          results: this.params.agents.map((agentConfig, index) => ({
-            agent: agentConfig.agentName,
-            method: agentConfig.method,
-            success: false,
-            duration: '0ms',
-            error: { message: errorMessage },
-            childExecutionId: `${batchExecutionId}-agent-${index}`,
-          })),
-          executionSummary: {
-            totalDuration: `${totalDuration}ms`,
-            parentExecutionId: this.params.currentExecutionId,
-          },
-        }, null, 2),
-        returnDisplay: `## Agent Invocation Error\n\n**Execution ID:** \`${batchExecutionId}\`\n**Error:** ${errorMessage}`,
       };
 
-      return errorResponse;
+      return {
+        llmContent: JSON.stringify(errorData, null, 2),
+        returnDisplay: `## Agent Invocation Error\n\n**Execution ID:** \`${batchExecutionId}\`\n**Error:** ${errorMessage}`,
+      };
     }
   }
 
@@ -613,7 +590,7 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
               results.push({
                 callId: call.request.callId,
                 name: call.request.name,
-                result: result,
+                result,
                 success: true,
               });
               logger.debug(`Tool ${call.request.name} succeeded`, LogLevel.VERBOSE);
@@ -669,7 +646,7 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
 
 export class AgentInvocationTool extends BaseDeclarativeTool<
   IMultiAgentInvocationParameters,
-  MultiAgentInvocationResponse
+  ToolResult
 > {
   static readonly Name: string = agentInvocationToolSchemaData.name!;
 
@@ -756,7 +733,7 @@ export class AgentInvocationTool extends BaseDeclarativeTool<
 
   protected createInvocation(
     params: IMultiAgentInvocationParameters,
-  ): ToolInvocation<IMultiAgentInvocationParameters, MultiAgentInvocationResponse> {
+  ): ToolInvocation<IMultiAgentInvocationParameters, ToolResult> {
     return new AgentInvocationToolInvocation(this.config, params);
   }
 }
