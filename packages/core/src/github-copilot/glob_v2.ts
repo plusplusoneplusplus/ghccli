@@ -7,7 +7,13 @@
 import fs from 'fs';
 import path from 'path';
 import { glob } from 'glob';
-import { ToolResult } from '../tools/tools.js';
+import {
+  BaseDeclarativeTool,
+  BaseToolInvocation,
+  Kind,
+  ToolInvocation,
+  ToolResult,
+} from '../tools/tools.js';
 import { shortenPath, makeRelative } from '../utils/paths.js';
 import { isWithinRoot } from '../utils/fileUtils.js';
 import { Config } from '../config/config.js';
@@ -78,14 +84,15 @@ export interface GlobToolParams {
   limit?: number;
 }
 
-/**
- * Implementation of the Glob tool logic
- */
-export class GlobTool {
-  static readonly Name = 'glob';
-
-  constructor(private config: Config) {
-    // Initialize glob tool
+export class GlobToolInvocation extends BaseToolInvocation<
+  GlobToolParams,
+  ToolResult
+> {
+  constructor(
+    params: GlobToolParams,
+    private config: Config,
+  ) {
+    super(params);
   }
 
   /**
@@ -134,7 +141,7 @@ export class GlobTool {
   } {
     const { totalFileCount, displayFileCount, isLimited } = limitInfo;
 
-    let resultMessage = `Found ${totalFileCount} file(s) matching "${params.pattern}" within ${searchDir}`;
+    let resultMessage = `Found ${totalFileCount} file(s) matching "${this.params.pattern}" within ${searchDir}`;
     if (gitIgnoredCount > 0) {
       resultMessage += ` (${gitIgnoredCount} additional files were git-ignored)`;
     }
@@ -163,15 +170,9 @@ export class GlobTool {
    * Validates the parameters for the tool.
    */
   validateToolParams(params: GlobToolParams): string | null {
-    // Validation logic would go here
-    const errors = null;
-    if (errors) {
-      return errors;
-    }
-
     const searchDirAbsolute = path.resolve(
       this.config.getTargetDir(),
-      params.path || '.',
+      this.params.path || '.',
     );
 
     if (!isWithinRoot(searchDirAbsolute, this.config.getTargetDir())) {
@@ -191,18 +192,18 @@ export class GlobTool {
     }
 
     if (
-      !params.pattern ||
-      typeof params.pattern !== 'string' ||
-      params.pattern.trim() === ''
+      !this.params.pattern ||
+      typeof this.params.pattern !== 'string' ||
+      this.params.pattern.trim() === ''
     ) {
       return "The 'pattern' parameter cannot be empty.";
     }
 
-    if (params.limit !== undefined && params.limit <= 0) {
+    if (this.params.limit !== undefined && this.params.limit <= 0) {
       return 'Limit must be a positive number.';
     }
 
-    if (params.limit !== undefined && params.limit > 500) {
+    if (this.params.limit !== undefined && this.params.limit > 500) {
       return 'Limit cannot exceed 500 files to prevent overwhelming output.';
     }
 
@@ -212,12 +213,12 @@ export class GlobTool {
   /**
    * Gets a description of the glob operation.
    */
-  getDescription(params: GlobToolParams): string {
-    let description = `'${params.pattern}'`;
-    if (params.path) {
+  getDescription(): string {
+    let description = `'${this.params.pattern}'`;
+    if (this.params.path) {
       const searchDir = path.resolve(
         this.config.getTargetDir(),
-        params.path || '.',
+        this.params.path || '.',
       );
       const relativePath = makeRelative(searchDir, this.config.getTargetDir());
       description += ` within ${shortenPath(relativePath)}`;
@@ -225,14 +226,11 @@ export class GlobTool {
     return description;
   }
 
-  /**
-   * Executes the glob search with the given parameters
-   */
   async execute(
-    params: GlobToolParams,
     signal: AbortSignal,
+    updateOutput?: (output: string) => void,
   ): Promise<ToolResult> {
-    const validationError = this.validateToolParams(params);
+    const validationError = this.validateToolParams(this.params);
     if (validationError) {
       return {
         llmContent: `Error: Invalid parameters provided. Reason: ${validationError}`,
@@ -243,28 +241,26 @@ export class GlobTool {
     try {
       const searchDirAbsolute = path.resolve(
         this.config.getTargetDir(),
-        params.path || '.',
+        this.params.path || '.',
       );
 
-      // Get centralized file discovery service
       const respectGitIgnore =
-        params.respect_git_ignore ??
+        this.params.respect_git_ignore ??
         this.config.getFileFilteringRespectGitIgnore();
       const fileDiscovery = this.config.getFileService();
 
-      const entries = (await glob(params.pattern, {
+      const entries = (await glob(this.params.pattern, {
         cwd: searchDirAbsolute,
         withFileTypes: true,
         nodir: true,
         stat: true,
-        nocase: !params.case_sensitive,
+        nocase: !this.params.case_sensitive,
         dot: true,
         ignore: ['**/node_modules/**', '**/.git/**'],
         follow: false,
         signal,
       })) as GlobPath[];
 
-      // Apply git-aware filtering if enabled and in git repository
       let filteredEntries = entries;
       let gitIgnoredCount = 0;
 
@@ -288,7 +284,7 @@ export class GlobTool {
       }
 
       if (!filteredEntries || filteredEntries.length === 0) {
-        let message = `No files found matching pattern "${params.pattern}" within ${searchDirAbsolute}.`;
+        let message = `No files found matching pattern "${this.params.pattern}" within ${searchDirAbsolute}.`;
         if (gitIgnoredCount > 0) {
           message += ` (${gitIgnoredCount} files were git-ignored)`;
         }
@@ -298,11 +294,9 @@ export class GlobTool {
         };
       }
 
-      // Set filtering such that we first show the most recent files
       const oneDayInMs = 24 * 60 * 60 * 1000;
       const nowTimestamp = new Date().getTime();
 
-      // Sort the filtered entries using the new helper function
       const sortedEntries = sortFileEntries(
         filteredEntries,
         nowTimestamp,
@@ -313,29 +307,27 @@ export class GlobTool {
         entry.fullpath(),
       );
 
-      const limitInfo = this.applyLimit(sortedAbsolutePaths, params.limit);
+      const limitInfo = this.applyLimit(sortedAbsolutePaths, this.params.limit);
       const needsLimit = limitInfo.isLimited;
 
       if (needsLimit) {
-        // Use new methods for limited results
         const { displayPaths, totalFileCount, displayFileCount, isLimited } = limitInfo;
         
         const fileListDescription = displayPaths.join('\n');
 
         return this.generateResultMessages(
-          params,
+          this.params,
           searchDirAbsolute,
           fileListDescription,
           { totalFileCount, displayFileCount, isLimited },
           gitIgnoredCount,
         );
       } else {
-        // Original code piece for non-limited results
         const fileListDescription = sortedAbsolutePaths.join('\n');
         const { totalFileCount } = limitInfo;
         const displayFileCount = sortedAbsolutePaths.length;
 
-        let resultMessage = `Found ${totalFileCount} file(s) matching "${params.pattern}" within ${searchDirAbsolute}`;
+        let resultMessage = `Found ${totalFileCount} file(s) matching "${this.params.pattern}" within ${searchDirAbsolute}`;
         if (gitIgnoredCount > 0) {
           resultMessage += ` (${gitIgnoredCount} additional files were git-ignored)`;
         }
@@ -356,5 +348,56 @@ export class GlobTool {
         returnDisplay: `Error: ${errorMessage}`,
       };
     }
+  }
+}
+
+/**
+ * Implementation of the Glob tool logic
+ */
+export class GlobTool extends BaseDeclarativeTool<GlobToolParams, ToolResult> {
+  static readonly Name = 'glob_v2';
+
+  constructor(private config: Config) {
+    super(
+      GlobTool.Name,
+      'FindFiles',
+      'Fast file pattern matching tool that works with any codebase size. Supports glob patterns like "**/*.js" or "src/**/*.ts". Returns matching file paths sorted by modification time. Use this tool when you need to find files by name patterns.',
+      Kind.Search,
+      {
+        properties: {
+          pattern: {
+            description:
+              "The glob pattern to match against (e.g., '**/*.py', 'docs/*.md').",
+            type: 'string',
+          },
+          path: {
+            description:
+              'Optional: The absolute path to the directory to search within. If omitted, searches the root directory.',
+            type: 'string',
+          },
+          case_sensitive: {
+            description:
+              'Optional: Whether the search should be case-sensitive. Defaults to false.',
+            type: 'boolean',
+          },
+          respect_git_ignore: {
+            description:
+              'Optional: Whether to respect .gitignore patterns when finding files. Only available in git repositories. Defaults to true.',
+            type: 'boolean',
+          },
+          limit: {
+            description:
+              'Optional: Maximum number of files to return. Defaults to 30, maximum 500.',
+            type: 'number',
+          },
+        },
+        required: ['pattern'],
+        type: 'object',
+      },
+    );
+  }
+
+  createInvocation(params: GlobToolParams): ToolInvocation<GlobToolParams, ToolResult> {
+    return new GlobToolInvocation(params, this.config);
   }
 }
