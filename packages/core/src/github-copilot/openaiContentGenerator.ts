@@ -826,10 +826,12 @@ import {
                 );
               }
 
+              let normalizedFunctionName = func.name.replace('.', '_');
+
               openAITools.push({
                 type: 'function',
                 function: {
-                  name: func.name,
+                  name: normalizedFunctionName,
                   description: func.description,
                   parameters,
                 },
