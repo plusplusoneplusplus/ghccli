@@ -10,6 +10,10 @@ import os from 'os';
 import crypto from 'crypto';
 import { Config } from '../config/config.js';
 import {
+  BaseDeclarativeTool,
+  BaseToolInvocation,
+  Kind,
+  ToolInvocation,
   ToolResult,
   ToolCallConfirmationDetails,
   ToolExecuteConfirmationDetails,
@@ -23,6 +27,11 @@ import {
   stripShellWrapper,
 } from '../utils/shell-utils.js';
 import { parseCommandWithQuotes } from '../utils/command-parser.js';
+import { spawn } from 'child_process';
+import { execa } from 'execa';
+import { summarizeToolOutput } from '../utils/summarizer.js';
+
+const OUTPUT_UPDATE_INTERVAL_MS = 1000;
 
 export interface CommandBatch {
   command: string;
@@ -36,32 +45,31 @@ export interface ShellToolParams {
   directory?: string;
   stopOnError?: boolean;
 }
-import { spawn } from 'child_process';
-import { execa } from 'execa';
-import { summarizeToolOutput } from '../utils/summarizer.js';
 
-const OUTPUT_UPDATE_INTERVAL_MS = 1000;
-
-export class ShellTool {
-  static Name: string = 'run_shell_command';
-  name = ShellTool.Name;
+export class ShellToolInvocation extends BaseToolInvocation<
+  ShellToolParams,
+  ToolResult
+> {
   private allowlist: Set<string> = new Set();
 
-  constructor(private readonly config: Config) {
-    // Initialize allowlist and other setup
+  constructor(
+    params: ShellToolParams,
+    private config: Config,
+  ) {
+    super(params);
   }
 
-  getDescription(params: ShellToolParams): string {
+  getDescription(): string {
     let description: string;
     
-    if (typeof params.commands === 'string') {
-      description = params.commands;
+    if (typeof this.params.commands === 'string') {
+      description = this.params.commands;
     } else {
       // For batch commands, show count and first command
-      const count = params.commands.length;
-      const firstCommand = typeof params.commands[0] === 'string' 
-        ? params.commands[0] as string
-        : (params.commands[0] as CommandBatch)?.command || '';
+      const count = this.params.commands.length;
+      const firstCommand = typeof this.params.commands[0] === 'string' 
+        ? this.params.commands[0] as string
+        : (this.params.commands[0] as CommandBatch)?.command || '';
       if (count === 1) {
         description = firstCommand;
       } else {
@@ -71,12 +79,12 @@ export class ShellTool {
     
     // append optional [in directory]
     // note description is needed even if validation fails due to absolute path
-    if (params.directory) {
-      description += ` [in ${params.directory}]`;
+    if (this.params.directory) {
+      description += ` [in ${this.params.directory}]`;
     }
     // append optional (description), replacing any line breaks with spaces
-    if (params.description) {
-      description += ` (${params.description.replace(/\n/g, ' ')})`;
+    if (this.params.description) {
+      description += ` (${this.params.description.replace(/\n/g, ' ')})`;
     }
     return description;
   }
@@ -218,7 +226,7 @@ export class ShellTool {
     }
 
     // Check for system file operations
-    if (/\b(del|rmdir|rd|erase|Remove-Item)\s+.*\*\.*(exe|dll|sys|ini|bat|cmd|ps1)\b/i.test(command)) {
+    if (/\b(del|rmdir|rd|erase|Remove-Item)\s+.*\*.*(exe|dll|sys|ini|bat|cmd|ps1)\b/i.test(command)) {
       return 'Mass operations on system file types are not allowed';
     }
 
@@ -233,13 +241,13 @@ export class ShellTool {
     }
 
     // Normalize commands to array format for consistent validation
-    const commandsArray = typeof params.commands === 'string' 
-      ? [{ command: params.commands }] 
-      : Array.isArray(params.commands) && typeof params.commands[0] === 'string'
-        ? (params.commands as string[]).map(cmd => ({ command: cmd }))
-        : params.commands as CommandBatch[];
+    const commandsArray = typeof this.params.commands === 'string' 
+      ? [{ command: this.params.commands }] 
+      : Array.isArray(this.params.commands) && typeof this.params.commands[0] === 'string'
+        ? (this.params.commands as string[]).map(cmd => ({ command: cmd }))
+        : this.params.commands as CommandBatch[];
     
-    const isSingleStringMode = typeof params.commands === 'string';
+    const isSingleStringMode = typeof this.params.commands === 'string';
 
     if (commandsArray.length === 0) {
       return 'At least one command is required.';
@@ -279,13 +287,13 @@ export class ShellTool {
       }
     }
 
-    if (params.directory) {
-      if (path.isAbsolute(params.directory)) {
+    if (this.params.directory) {
+      if (path.isAbsolute(this.params.directory)) {
         return 'Directory cannot be absolute. Must be relative to the project root directory.';
       }
       const directory = path.resolve(
         this.config.getTargetDir(),
-        params.directory,
+        this.params.directory,
       );
       if (!fs.existsSync(directory)) {
         return 'Directory must exist.';
@@ -294,35 +302,34 @@ export class ShellTool {
     return null;
   }
 
-  async shouldConfirmExecute(
-    params: ShellToolParams,
+  override async shouldConfirmExecute(
     _abortSignal: AbortSignal,
   ): Promise<ToolCallConfirmationDetails | false> {
-    if (this.validateToolParams(params)) {
+    if (this.validateToolParams(this.params)) {
       return false; // skip confirmation, execute call will fail immediately
     }
 
     // Normalize commands to array format
-    const commandsArray = typeof params.commands === 'string' 
-      ? [{ command: params.commands }] 
-      : Array.isArray(params.commands) && typeof params.commands[0] === 'string'
-        ? (params.commands as string[]).map(cmd => ({ command: cmd }))
-        : params.commands as CommandBatch[];
+    const commandsArray = typeof this.params.commands === 'string' 
+      ? [{ command: this.params.commands }] 
+      : Array.isArray(this.params.commands) && typeof this.params.commands[0] === 'string'
+        ? (this.params.commands as string[]).map(cmd => ({ command: cmd }))
+        : this.params.commands as CommandBatch[];
 
     // Get all root commands from all commands
     const allRootCommands = new Set<string>();
     let displayCommand = '';
 
-    if (typeof params.commands === 'string') {
-      const command = stripShellWrapper(params.commands);
-      displayCommand = params.commands;
+    if (typeof this.params.commands === 'string') {
+      const command = stripShellWrapper(this.params.commands);
+      displayCommand = this.params.commands;
       getCommandRoots(command).forEach(cmd => allRootCommands.add(cmd));
     } else {
       // For batch commands, show summary and collect all root commands
-      const count = params.commands.length;
-      const firstCommand = typeof params.commands[0] === 'string' 
-        ? params.commands[0] as string
-        : (params.commands[0] as CommandBatch)?.command || '';
+      const count = this.params.commands.length;
+      const firstCommand = typeof this.params.commands[0] === 'string' 
+        ? this.params.commands[0] as string
+        : (this.params.commands[0] as CommandBatch)?.command || '';
       displayCommand = count === 1 ? firstCommand : `${count} commands: ${firstCommand}${count > 1 ? ' ...' : ''}`;
       
       commandsArray.forEach(cmdInfo => {
@@ -355,11 +362,10 @@ export class ShellTool {
   }
 
   async execute(
-    params: ShellToolParams,
     signal: AbortSignal,
     updateOutput?: (output: string) => void,
   ): Promise<ToolResult> {
-    const validationError = this.validateToolParams(params);
+    const validationError = this.validateToolParams(this.params);
     if (validationError) {
       return {
         llmContent: validationError,
@@ -375,28 +381,27 @@ export class ShellTool {
     }
 
     // Normalize commands to array format
-    const commandsArray = typeof params.commands === 'string' 
-      ? [{ command: params.commands }] 
-      : Array.isArray(params.commands) && typeof params.commands[0] === 'string'
-        ? (params.commands as string[]).map(cmd => ({ command: cmd }))
-        : params.commands as CommandBatch[];
+    const commandsArray = typeof this.params.commands === 'string' 
+      ? [{ command: this.params.commands }] 
+      : Array.isArray(this.params.commands) && typeof this.params.commands[0] === 'string'
+        ? (this.params.commands as string[]).map(cmd => ({ command: cmd }))
+        : this.params.commands as CommandBatch[];
 
-    const isBatchMode = typeof params.commands !== 'string';
-    const stopOnError = params.stopOnError !== false; // Default to true
+    const isBatchMode = typeof this.params.commands !== 'string';
+    const stopOnError = this.params.stopOnError !== false; // Default to true
 
     // Execute commands
     if (!isBatchMode) {
       // Single command mode - use existing single command format
-      return this.executeSingleCommand(commandsArray[0].command, params, signal, updateOutput);
+      return this.executeSingleCommand(commandsArray[0].command, signal, updateOutput);
     } else {
       // Batch command mode - execute sequentially
-      return this.executeBatchCommands(commandsArray, params, signal, updateOutput, stopOnError);
+      return this.executeBatchCommands(commandsArray, signal, updateOutput, stopOnError);
     }
   }
 
   private async executeSingleCommand(
     command: string,
-    params: ShellToolParams,
     signal: AbortSignal,
     updateOutput?: (output: string) => void,
   ): Promise<ToolResult> {
@@ -419,7 +424,7 @@ export class ShellTool {
         })();
 
     // spawn command in specified directory (or project root if not specified)
-    const cwd = path.resolve(this.config.getTargetDir(), params.directory || '');
+    const cwd = path.resolve(this.config.getTargetDir(), this.params.directory || '');
     const env = {
       ...process.env,
       GEMINI_CLI: '1',
@@ -509,7 +514,7 @@ export class ShellTool {
       }
 
       const backgroundPIDs: number[] = [];
-      return await this.formatSingleCommandResult(command, params, stdout, stderr, error, code, processSignal, backgroundPIDs, null, signal, output);
+      return await this.formatSingleCommandResult(command, stdout, stderr, error, code, processSignal, backgroundPIDs, null, signal, output);
     }
 
     // Non-Windows implementation
@@ -595,12 +600,11 @@ export class ShellTool {
       }
     }
 
-    return await this.formatSingleCommandResult(command, params, stdout, stderr, error, code, processSignal, backgroundPIDs, shell.pid, signal, output);
+    return await this.formatSingleCommandResult(command, stdout, stderr, error, code, processSignal, backgroundPIDs, shell.pid, signal, output);
   }
 
   private async executeBatchCommands(
     commands: CommandBatch[],
-    params: ShellToolParams,
     signal: AbortSignal,
     updateOutput?: (output: string) => void,
     stopOnError: boolean = true,
@@ -636,7 +640,7 @@ export class ShellTool {
       };
 
       try {
-        const result = await this.executeSingleCommand(cmdInfo.command, params, signal, cmdUpdateOutput);
+        const result = await this.executeSingleCommand(cmdInfo.command, signal, cmdUpdateOutput);
         
         const cmdDuration = Date.now() - cmdStartTime;
         
@@ -696,12 +700,11 @@ export class ShellTool {
     }
 
     const totalDuration = Date.now() - startTime;
-    return this.formatBatchResult(commands, results, params, totalDuration, signal, executedCount);
+    return this.formatBatchResult(commands, results, totalDuration, signal, executedCount);
   }
 
   private async formatSingleCommandResult(
     command: string,
-    params: ShellToolParams,
     stdout: string,
     stderr: string,
     error: Error | null,
@@ -723,7 +726,7 @@ export class ShellTool {
     } else {
       llmContent = [
         `Command: ${command}`,
-        `Directory: ${params.directory || '(root)'}`,
+        `Directory: ${this.params.directory || '(root)'}`,
         `Stdout: ${stdout || '(empty)'}`,
         `Stderr: ${stderr || '(empty)'}`,
         `Error: ${error ?? '(none)'}`,
@@ -783,7 +786,6 @@ export class ShellTool {
       signal: NodeJS.Signals | null;
       duration: number;
     }>,
-    params: ShellToolParams,
     totalDuration: number,
     signal: AbortSignal,
     executedCount: number,
@@ -805,7 +807,7 @@ export class ShellTool {
         llmContent += [
           `Command ${index + 1}: ${result.command}`,
           result.description ? `  Description: ${result.description}` : '',
-          `  Directory: ${params.directory || '(root)'}`,
+          `  Directory: ${this.params.directory || '(root)'}`,
           `  Duration: ${durationSec}s`,
           `  Stdout: ${result.stdout || '(empty)'}`,
           `  Stderr: ${result.stderr || '(empty)'}`,
@@ -867,5 +869,76 @@ export class ShellTool {
     }
     
     return output;
+  }
+}
+
+export class ShellTool extends BaseDeclarativeTool<ShellToolParams, ToolResult> {
+  static readonly Name = 'run_shell_command';
+
+  constructor(private config: Config) {
+    super(
+      ShellTool.Name,
+      'RunShellCommand',
+      'Execute shell commands with support for sequential batch execution, Windows quote escaping, dangerous command filtering, and output streaming. For single commands, displays stdout directly; for batch commands, shows execution summary with timing and status.',
+      Kind.Execute,
+      {
+        properties: {
+          commands: {
+            description:
+              'Command(s) to execute. Can be a single string, array of strings, or array of CommandBatch objects with descriptions and error handling options.',
+            oneOf: [
+              { type: 'string', description: 'Single command string' },
+              {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Array of command strings',
+              },
+              {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    command: {
+                      type: 'string',
+                      description: 'The shell command to execute',
+                    },
+                    description: {
+                      type: 'string',
+                      description: 'Optional description of what this command does',
+                    },
+                    continueOnError: {
+                      type: 'boolean',
+                      description: 'Whether to continue execution if this command fails',
+                    },
+                  },
+                  required: ['command'],
+                },
+                description: 'Array of CommandBatch objects with metadata',
+              },
+            ],
+          },
+          description: {
+            type: 'string',
+            description: 'Optional description of what the command(s) do',
+          },
+          directory: {
+            type: 'string',
+            description:
+              'Optional relative directory path from project root where commands should be executed',
+          },
+          stopOnError: {
+            type: 'boolean',
+            description:
+              'Whether to stop batch execution on first error (default: true). Individual commands can override with continueOnError.',
+          },
+        },
+        required: ['commands'],
+        type: 'object',
+      },
+    );
+  }
+
+  createInvocation(params: ShellToolParams): ToolInvocation<ShellToolParams, ToolResult> {
+    return new ShellToolInvocation(params, this.config);
   }
 }
