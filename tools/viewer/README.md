@@ -1,49 +1,44 @@
-# GitHub Copilot CLI Session Viewer (Streamlit)
+# GitHub Copilot CLI Session Viewer
 
-A Python Streamlit-based tool for analyzing and exploring GitHub Copilot CLI session logs with an intuitive web interface.
+A pure HTML-based tool for analyzing and exploring GitHub Copilot CLI session logs with an intuitive web interface that runs entirely in your browser.
 
 ## Features
 
 - 📊 **Interactive Dashboard**: View session statistics including total interactions, tokens, models used, and session duration
-- 🔍 **Advanced Filtering**: Filter by model, search content, minimum token count
-- 💬 **Incremental Message View**: Show only new messages in each interaction for cleaner analysis
-- 🧩 **Session Correlation (sessionId Grouping)**: Automatically groups multiple log files that share the same `sessionId` (derived from filename suffix or embedded field) so you can view parent + sub-agent activity as a unified timeline
-- 🔧 **Tool Call Visualization**: Special formatting for tool calls and results
+- 🗂️ **Drag & Drop Support**: Drop JSONL files anywhere on the page to load them instantly
+- 📁 **Directory Picker**: One-click access to your sessions folder (Chrome/Edge)
+- 🧩 **Session Grouping**: Automatically groups related files by session ID for unified viewing
+- 💬 **Full Content Display**: View complete messages with smart expand/collapse for long content
+- 🔧 **Tool Call Visualization**: Special formatting for tool calls and function names
 - 📱 **Responsive Design**: Works on desktop and mobile devices
-- 🚀 **Auto-Discovery**: Automatically suggests recent session files
+- ⚡ **No Dependencies**: Pure HTML/CSS/JavaScript - no installation required
 
 ## Quick Start
 
-### Option 1: Run Scripts
-```bash
-# Windows Command Prompt
-run_viewer.bat
-
-# Windows PowerShell
-.\run_viewer.ps1
-```
-
-### Option 2: Manual Setup
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the application
-streamlit run jsonl_viewer.py
-```
+1. **Open the viewer**: Simply open `jsonl_viewer.html` in any modern web browser
+2. **Load sessions**: Choose one of three methods:
+   - **📁 Click "Open Sessions Folder"** - Navigate to `~/.ghccli/tmp/sessions/` (recommended)
+   - **🗂️ Drag & drop** - Drop JSONL files directly onto the page
+   - **📄 File picker** - Use "Choose Files" to select individual files
 
 ## Usage
 
-1. **Launch the application** using one of the methods above
-2. **Load a session file**:
-   - Upload a JSONL file using the sidebar file uploader, OR
-   - Use the auto-suggested default file if available
-3. **Explore your data**:
-   - View session statistics in the metrics row
-   - Use filters to narrow down interactions
-   - Expand individual interactions to see details
-   - Toggle incremental message view for cleaner analysis
-   - (Directory Mode) Enable "Group by sessionId" to merge per-agent OpenAI logs that belong to the same CLI session
+### Loading Sessions
+- **Directory Picker** (recommended): Click "📁 Open Sessions Folder" and navigate to your sessions directory
+- **Drag & Drop**: Drag JSONL files from your file manager directly onto the viewer
+- **File Selection**: Use "Choose Files" to manually select specific JSONL files
+
+### Navigation
+- **Session Groups**: Files are automatically grouped by session ID in the left sidebar
+- **File Selection**: Click any file to view its conversation details in the main panel  
+- **Expand/Collapse**: Use arrow buttons to expand session groups and interaction details
+- **Long Content**: Messages over 1000 characters show an "Expand" button for full viewing
+
+### macOS Directory Access
+To access `~/.ghccli/tmp/sessions/` on macOS:
+1. In the directory picker, press `Cmd + Shift + G`
+2. Type: `~/.ghccli/tmp/sessions`
+3. Press Enter
 
 ## Session File Locations
 
@@ -63,64 +58,69 @@ This viewer detects and groups those files using the following heuristics:
 
 This provides a lightweight, non-invasive way to correlate parent agent activity with sub-agent executions without modifying existing log generation.
 
-## Features Comparison with HTML Version
+## Browser Compatibility
 
-| Feature | HTML Version | Streamlit Version |
-|---------|--------------|-------------------|
-| File Loading | ✅ | ✅ (Enhanced with auto-discovery) |
-| Statistics Dashboard | ✅ | ✅ (Interactive metrics) |
-| Filtering | ✅ | ✅ (Real-time updates) |
-| Incremental Messages | ✅ | ✅ (Improved rendering) |
-| Tool Call Visualization | ✅ | ✅ (Enhanced formatting) |
-| Responsive Design | ✅ | ✅ (Native Streamlit responsive) |
-| Search Functionality | ✅ | ✅ |
-| Token Analysis | ✅ | ✅ |
-| Cross-platform | Browser only | Native Python app |
+| Feature | Chrome/Edge | Firefox | Safari |
+|---------|-------------|---------|--------|
+| Basic Functionality | ✅ | ✅ | ✅ |
+| Drag & Drop | ✅ | ✅ | ✅ |
+| Directory Picker | ✅ | ❌ | ❌ |
+| File Selection | ✅ | ✅ | ✅ |
+
+**Note**: Directory picker requires the File System Access API (Chrome/Edge only). Other browsers can use drag & drop or file selection.
 
 ## Requirements
 
-- Python 3.7+
-- Streamlit 1.28.0+
-- Pandas 1.5.0+
+- Any modern web browser
+- No installation or dependencies required
 
 ## File Structure
 
 ```
-tools/eval/
-├── jsonl_viewer.py      # Main Streamlit application
-├── jsonl_viewer.html    # Original HTML version (preserved)
-├── requirements.txt     # Python dependencies
-├── run_viewer.bat       # Windows batch launcher
-├── run_viewer.ps1       # PowerShell launcher
+tools/viewer/
+├── jsonl_viewer.html    # Main HTML application
+├── styles.css           # Styling and themes
+├── script.js           # JavaScript functionality
 └── README.md           # This file
 ```
 
 ## Development
 
-The Streamlit version offers several advantages over the HTML version:
+This HTML-based viewer offers several advantages:
 
-1. **Better Data Handling**: Uses pandas for efficient data processing
-2. **Interactive Widgets**: Real-time filtering and searching
-3. **Extensibility**: Easy to add new features and visualizations
-4. **Python Ecosystem**: Can leverage any Python library for analysis
-5. **State Management**: Better handling of user interactions and data state
+1. **Zero Dependencies**: No installation required - works in any browser
+2. **Portable**: Single HTML file can be shared or embedded anywhere
+3. **Fast Loading**: Instant startup with no server setup
+4. **Cross-Platform**: Works on any device with a modern browser
+5. **Customizable**: Easy to modify CSS and JavaScript for custom themes
 
 ## Troubleshooting
 
-### Port Already in Use
-If you get a port conflict, Streamlit will automatically suggest an alternative port.
+### Directory Picker Not Working
+- **Chrome/Edge**: Should work natively
+- **Firefox/Safari**: Use drag & drop or file selection instead
 
-### File Not Found
-Ensure your JSONL files are in the expected locations or use the file uploader.
+### Files Not Loading
+- Ensure files have `.jsonl` extension
+- Check that files contain valid JSON lines
+- Try drag & drop if file picker isn't working
 
-### Performance Issues
-For very large session files (>10MB), consider using the filtering options to reduce the data displayed.
+### Performance with Large Files
+- Files over 10MB may load slowly
+- Use the expand/collapse feature to manage long conversations
+- Consider splitting very large session files
 
 ## Contributing
 
 Feel free to enhance the tool with additional features such as:
-- Data export functionality
-- Advanced visualizations
-- Token usage graphs
-- Session comparison tools
-- Custom themes
+- **Export functionality**: Download conversations as text/JSON
+- **Search and filtering**: Find specific interactions or content  
+- **Token usage graphs**: Visual analytics for usage patterns
+- **Session comparison**: Side-by-side session analysis
+- **Custom themes**: Additional color schemes and layouts
+- **Keyboard shortcuts**: Power user navigation features
+
+To contribute:
+1. Edit the HTML, CSS, or JavaScript files
+2. Test in multiple browsers
+3. Submit improvements via pull request

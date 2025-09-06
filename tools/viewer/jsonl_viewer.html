@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 GitHub Copilot CLI Session Viewer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>📋 Recent Sessions</h2>
+            
+            <div class="input-group">
+                <h3>🔄 Load Sessions</h3>
+                <button class="button primary" onclick="loadDefaultSessions()">📁 Open Sessions Folder</button>
+                <div class="divider" style="margin: 12px 0;"></div>
+                <label for="fileInput">Or select individual files:</label>
+                <input type="file" id="fileInput" accept=".jsonl" multiple>
+                <button class="button" onclick="loadFiles()">Load Selected</button>
+                <button class="button secondary" onclick="clearSessions()">Clear</button>
+            </div>
+
+            <div class="input-group">
+                <h3>⚙️ Display Options</h3>
+                <label>
+                    <input type="checkbox" id="incrementalToggle" checked onchange="toggleIncrementalView()">
+                    Show only incremental messages
+                </label>
+                <small style="color: #8b949e; display: block; margin-top: 4px;">
+                    Hides repeated system prompts and shows only new content
+                </small>
+            </div>
+
+            <div class="divider"></div>
+
+            <div id="sessionGroups"></div>
+            <div id="sessionSummary" class="summary"></div>
+        </div>
+
+        <div class="main-content">
+            <h1>🤖 GitHub Copilot CLI Session Viewer</h1>
+            <p style="margin-bottom: 20px;">Analyze and explore your Copilot CLI session logs with ease</p>
+            
+            <div id="mainContent">
+                <div class="no-data">
+                    <h3>👆 Load session files to get started</h3>
+                    <div style="margin-top: 20px;">
+                        <h4>Expected File Format</h4>
+                        <p>The tool expects JSONL files from GitHub Copilot CLI sessions, typically found at:</p>
+                        <ul style="margin-top: 12px; text-align: left; display: inline-block;">
+                            <li><strong>Windows:</strong> C:\Users\[username]\.ghccli\tmp\sessions\</li>
+                            <li><strong>macOS/Linux:</strong> ~/.ghccli/tmp/sessions/</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
