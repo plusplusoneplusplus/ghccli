@@ -30,6 +30,12 @@ export async function checkForUpdates(): Promise<UpdateObject | null> {
     }
 
     const { name, version: currentVersion } = packageJson;
+    
+    // Skip update check for ghccli (fork)
+    if (name === 'ghccli') {
+      return null;
+    }
+    
     const isNightly = currentVersion.includes('nightly');
     const createNotifier = (distTag: 'latest' | 'nightly') =>
       updateNotifier({
