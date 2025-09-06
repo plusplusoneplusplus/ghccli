@@ -15,6 +15,7 @@ import { CoreToolScheduler } from '../core/coreToolScheduler.js';
 import { ApprovalMode } from '../config/config.js';
 import { ToolCallRequestInfo } from '../core/turn.js';
 import { createLogger, LogLevel } from '../utils/logging.js';
+import type { AgentChat } from '../agents/agentChat.js';
 
 const logger = createLogger('AgentInvocation');
 
@@ -190,9 +191,9 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
         logger.debug(`Agent ${agentConfig.agentName} - blockedToolsRegex: [${blockedToolsRegex.join(', ')}]`, LogLevel.VERBOSE);
         
         // Filter tools based on agent's tool preferences
-        const filteredToolDeclarations = (allowedToolRegex.length > 0 || blockedToolsRegex.length > 0)
+        const filteredToolDeclarations = ((allowedToolRegex.length > 0 || blockedToolsRegex.length > 0)
           ? toolRegistry.getFilteredFunctionDeclarationsWithBlocking(allowedToolRegex, blockedToolsRegex)
-          : toolDeclarations;
+          : toolDeclarations).filter(td => td !== undefined);
         
         logger.debug(`Filtered tools for agent: ${filteredToolDeclarations.length}`, LogLevel.VERBOSE);
         logger.debug(`Filtered tool names: [${filteredToolDeclarations.map(td => td.name).join(', ')}]`, LogLevel.VERBOSE);
@@ -380,7 +381,7 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
    * until the agent provides a final response without tool calls.
    */
   private async executeAgentWithToolSupport(
-    agentChat: any, // AgentChat type
+    agentChat: AgentChat,
     message: string,
     executionId: string,
     signal: AbortSignal,
