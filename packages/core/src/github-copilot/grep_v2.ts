@@ -10,7 +10,13 @@ import path from 'path';
 import { EOL } from 'os';
 import { spawn } from 'child_process';
 import { globStream } from 'glob';
-import { ToolResult } from '../tools/tools.js';
+import {
+  BaseDeclarativeTool,
+  BaseToolInvocation,
+  Kind,
+  ToolInvocation,
+  ToolResult,
+} from '../tools/tools.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import { getErrorMessage, isNodeError } from '../utils/errors.js';
 import { isGitRepository } from '../utils/gitUtils.js';
@@ -52,16 +58,15 @@ interface GrepMatch {
   line: string;
 }
 
-// --- GrepLogic Class ---
-
-/**
- * Implementation of the Grep tool logic (moved from CLI)
- */
-export class GrepTool {
-  static readonly Name = 'search_file_content'; // Keep static name
-
-  constructor(private readonly config: Config) {
-    // Initialize grep tool
+export class GrepToolInvocation extends BaseToolInvocation<
+  GrepToolParams,
+  ToolResult
+> {
+  constructor(
+    params: GrepToolParams,
+    private readonly config: Config,
+  ) {
+    super(params);
   }
 
   // --- Validation Methods ---
@@ -112,29 +117,23 @@ export class GrepTool {
    * @returns An error message string if invalid, null otherwise
    */
   validateToolParams(params: GrepToolParams): string | null {
-    // Validation logic would go here
-    const errors = null;
-    if (errors) {
-      return errors;
-    }
-
     try {
-      new RegExp(params.pattern);
+      new RegExp(this.params.pattern);
     } catch (error) {
-      return `Invalid regular expression pattern provided: ${params.pattern}. Error: ${getErrorMessage(error)}`;
+      return `Invalid regular expression pattern provided: ${this.params.pattern}. Error: ${getErrorMessage(error)}`;
     }
 
     try {
-      this.resolveAndValidatePath(params.path);
+      this.resolveAndValidatePath(this.params.path);
     } catch (error) {
       return getErrorMessage(error);
     }
 
-    if (params.limit !== undefined && params.limit <= 0) {
+    if (this.params.limit !== undefined && this.params.limit <= 0) {
       return 'Limit must be a positive number.';
     }
 
-    if (params.limit !== undefined && params.limit > 100) {
+    if (this.params.limit !== undefined && this.params.limit > 100) {
       return 'Limit cannot exceed 100 matches to prevent overwhelming output.';
     }
 
@@ -144,15 +143,39 @@ export class GrepTool {
   // --- Core Execution ---
 
   /**
+   * Gets a description of the grep operation
+   */
+  getDescription(): string {
+    let description = `'${this.params.pattern}'`;
+    if (this.params.include) {
+      description += ` in ${this.params.include}`;
+    }
+    if (this.params.path) {
+      const resolvedPath = path.resolve(
+        this.config.getTargetDir(),
+        this.params.path,
+      );
+      if (resolvedPath === this.config.getTargetDir() || this.params.path === '.') {
+        description += ` within ./`;
+      } else {
+        const relativePath = makeRelative(
+          resolvedPath,
+          this.config.getTargetDir(),
+        );
+        description += ` within ${shortenPath(relativePath)}`;
+      }
+    }
+    return description;
+  }
+
+  /**
    * Executes the grep search with the given parameters
-   * @param params Parameters for the grep search
-   * @returns Result of the grep search
    */
   async execute(
-    params: GrepToolParams,
     signal: AbortSignal,
+    updateOutput?: (output: string) => void,
   ): Promise<ToolResult> {
-    const validationError = this.validateToolParams(params);
+    const validationError = this.validateToolParams(this.params);
     if (validationError) {
       return {
         llmContent: `Error: Invalid parameters provided. Reason: ${validationError}`,
@@ -162,23 +185,23 @@ export class GrepTool {
 
     let searchDirAbs: string;
     try {
-      searchDirAbs = this.resolveAndValidatePath(params.path);
-      const searchDirDisplay = params.path || '.';
+      searchDirAbs = this.resolveAndValidatePath(this.params.path);
+      const searchDirDisplay = this.params.path || '.';
 
       const matches: GrepMatch[] = await this.performGrepSearch({
-        pattern: params.pattern,
+        pattern: this.params.pattern,
         path: searchDirAbs,
-        include: params.include,
+        include: this.params.include,
         signal,
       });
 
       if (matches.length === 0) {
-        const noMatchMsg = `No matches found for pattern "${params.pattern}" in path "${searchDirDisplay}"${params.include ? ` (filter: "${params.include}")` : ''}.`;
+        const noMatchMsg = `No matches found for pattern "${this.params.pattern}" in path "${searchDirDisplay}"${this.params.include ? ` (filter: "${this.params.include}")` : ''}.`;
         return { llmContent: noMatchMsg, returnDisplay: `No matches found` };
       }
 
       // Apply limit (default to 30)
-      const limit = params.limit ?? 30;
+      const limit = this.params.limit ?? 30;
       const totalMatchCount = matches.length;
       const isLimited = totalMatchCount > limit;
       const limitedMatches = isLimited ? matches.slice(0, limit) : matches;
@@ -204,7 +227,7 @@ export class GrepTool {
       const displayMatchCount = limitedMatches.length;
       const matchTerm = totalMatchCount === 1 ? 'match' : 'matches';
 
-      let llmContent = `Found ${totalMatchCount} ${matchTerm} for pattern "${params.pattern}" in path "${searchDirDisplay}"${params.include ? ` (filter: "${params.include}")` : ''}`;
+      let llmContent = `Found ${totalMatchCount} ${matchTerm} for pattern "${this.params.pattern}" in path "${searchDirDisplay}"${this.params.include ? ` (filter: "${this.params.include}")` : ''}`;
       
       if (isLimited) {
         llmContent += `, showing first ${displayMatchCount} matches`;
@@ -313,33 +336,6 @@ export class GrepTool {
     return results;
   }
 
-  /**
-   * Gets a description of the grep operation
-   * @param params Parameters for the grep operation
-   * @returns A string describing the grep
-   */
-  getDescription(params: GrepToolParams): string {
-    let description = `'${params.pattern}'`;
-    if (params.include) {
-      description += ` in ${params.include}`;
-    }
-    if (params.path) {
-      const resolvedPath = path.resolve(
-        this.config.getTargetDir(),
-        params.path,
-      );
-      if (resolvedPath === this.config.getTargetDir() || params.path === '.') {
-        description += ` within ./`;
-      } else {
-        const relativePath = makeRelative(
-          resolvedPath,
-          this.config.getTargetDir(),
-        );
-        description += ` within ${shortenPath(relativePath)}`;
-      }
-    }
-    return description;
-  }
 
   /**
    * Performs the actual search using the prioritized strategies.
@@ -577,5 +573,51 @@ export class GrepTool {
       );
       throw error;
     }
+  }
+}
+
+/**
+ * Implementation of the Grep tool using BaseDeclarativeTool pattern
+ */
+export class GrepTool extends BaseDeclarativeTool<GrepToolParams, ToolResult> {
+  static readonly Name = 'grep_v2';
+
+  constructor(private readonly config: Config) {
+    super(
+      GrepTool.Name,
+      'SearchFileContent',
+      'A powerful search tool built on ripgrep. Supports full regex syntax and filters files with glob parameter. Use this for searching file contents with patterns.',
+      Kind.Search,
+      {
+        properties: {
+          pattern: {
+            description:
+              'The regular expression pattern to search for in file contents',
+            type: 'string',
+          },
+          path: {
+            description:
+              'Optional: The directory to search in (defaults to current directory relative to root)',
+            type: 'string',
+          },
+          include: {
+            description:
+              'Optional: File pattern to include in the search (e.g. "*.js", "*.{ts,tsx}")',
+            type: 'string',
+          },
+          limit: {
+            description:
+              'Optional: Maximum number of matches to return (defaults to 30, maximum 100)',
+            type: 'number',
+          },
+        },
+        required: ['pattern'],
+        type: 'object',
+      },
+    );
+  }
+
+  createInvocation(params: GrepToolParams): ToolInvocation<GrepToolParams, ToolResult> {
+    return new GrepToolInvocation(params, this.config);
   }
 }
