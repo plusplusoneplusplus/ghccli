@@ -108,6 +108,23 @@
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug CLI in Working Directory",
+      "program": "${workspaceFolder}/packages/cli/dist/index.js",
+      "args": ["${input:cliArgs}"],
+      "skipFiles": ["<node_internals>/**"],
+      "cwd": "${input:workingDirectory}",
+      "console": "integratedTerminal",
+      "env": {
+        "GEMINI_SANDBOX": "false",
+        "CLI_VERSION": "0.1.22",
+        "DEV": "true",
+        "GEMINI_CLI_NO_RELAUNCH": "true"
+      },
+      "preLaunchTask": "npm: build"
     }
   ],
   "inputs": [
@@ -116,6 +133,18 @@
       "type": "promptString",
       "description": "Enter the path to the test file (e.g., ${workspaceFolder}/packages/cli/src/ui/components/LoadingIndicator.test.tsx)",
       "default": "${workspaceFolder}/packages/cli/src/ui/components/LoadingIndicator.test.tsx"
+    },
+    {
+      "id": "workingDirectory",
+      "type": "promptString",
+      "description": "Enter the working directory where you want to run ghccli",
+      "default": "${workspaceFolder}"
+    },
+    {
+      "id": "cliArgs",
+      "type": "promptString",
+      "description": "Enter CLI arguments (optional)",
+      "default": ""
     }
   ]
 }
