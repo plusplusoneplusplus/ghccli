@@ -612,7 +612,7 @@ export class ShellToolInvocation extends BaseToolInvocation<
     logger.debug(`Exit code: ${code ?? '(none)'}`, LogLevel.VERBOSE);
     logger.debug(`Signal: ${processSignal ?? '(none)'}`, LogLevel.VERBOSE);
     if (error) {
-      logger.debug(`Error: ${error.message}`, LogLevel.NORMAL);
+      logger.debug(`Error: ${getErrorMessage(error)}`, LogLevel.NORMAL);
     }
     if (backgroundPIDs.length > 0) {
       logger.debug(`Background PIDs: ${backgroundPIDs.join(', ')}`, LogLevel.VERBOSE);
@@ -702,7 +702,7 @@ export class ShellToolInvocation extends BaseToolInvocation<
         const cmdDurationSec = (cmdDuration / 1000).toFixed(1);
         logger.debug(`Batch command ${i + 1} completed in ${cmdDurationSec}s, exit code: ${exitCode ?? '(none)'}`, LogLevel.NORMAL);
         if (error) {
-          logger.debug(`Batch command ${i + 1} error: ${error.message}`, LogLevel.NORMAL);
+          logger.debug(`Batch command ${i + 1} error: ${getErrorMessage(error)}`, LogLevel.NORMAL);
         }
 
         // Check if we should stop on error
