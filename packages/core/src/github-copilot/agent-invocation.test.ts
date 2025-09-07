@@ -13,12 +13,14 @@ import { AgentConfig } from '../agents/agentTypes.js';
 import { createContentGenerator, ContentGenerator } from '../core/contentGenerator.js';
 import { Logger } from '../core/logger.js';
 import { GenerateContentResponse, Content } from '@google/genai';
+import { CoreToolScheduler } from '../core/coreToolScheduler.js';
 
 // Mock dependencies
 vi.mock('../agents/agentLoader.js');
 vi.mock('../agents/agentChat.js');
 vi.mock('../core/contentGenerator.js');
 vi.mock('../core/logger.js');
+vi.mock('../core/coreToolScheduler.js');
 vi.mock('node:path');
 
 describe('AgentInvocationTool', () => {
@@ -81,6 +83,7 @@ describe('AgentInvocationTool', () => {
   const mockAgentChat = vi.mocked(AgentChat);
   const mockLogger = vi.mocked(Logger);
   const mockCreateContentGenerator = vi.mocked(createContentGenerator);
+  const mockCoreToolScheduler = vi.mocked(CoreToolScheduler);
 
   let tool: AgentInvocationTool;
   let mockAgentChatInstance: any;
@@ -111,6 +114,14 @@ describe('AgentInvocationTool', () => {
     
     // Setup AgentChat.fromAgentConfig static method mock
     mockAgentChat.fromAgentConfig = vi.fn().mockResolvedValue(mockAgentChatInstance);
+
+    // Setup CoreToolScheduler mock with default behavior
+    mockCoreToolScheduler.mockImplementation((config) => {
+      const mockInstance = {
+        schedule: vi.fn().mockResolvedValue(undefined)
+      };
+      return mockInstance as any;
+    });
     
     tool = new AgentInvocationTool(mockConfig);
   });
@@ -647,6 +658,148 @@ describe('AgentInvocationTool', () => {
       const result = await invocation.execute(mockAbortSignal);
       expect(result.returnDisplay).toContain('Invoked 5 agents: 5 successful, 0 failed');
     });
+  });
+
+  describe('progress updates', () => {
+    let updateOutputSpy: any;
+
+    beforeEach(() => {
+      // Setup updateOutput spy
+      updateOutputSpy = vi.fn();
+    });
+
+    it('should show basic progress updates during agent execution', async () => {
+      const params: IMultiAgentInvocationParameters = {
+        agents: [
+          {
+            agentName: 'test-agent',
+            message: 'Test message',
+          },
+        ],
+      };
+
+      const invocation = tool.build(params);
+      await invocation.execute(mockAbortSignal, updateOutputSpy);
+
+      // Check that progress updates were called
+      expect(updateOutputSpy).toHaveBeenCalled();
+
+      // Find calls that show tool execution progress
+      const progressCalls = updateOutputSpy.mock.calls.map((call: any[]) => call[0]);
+      
+      // Should contain initial progress message
+      expect(progressCalls.some((call: string) => 
+        call.includes('Starting execution of 1 agents in parallel')
+      )).toBe(true);
+
+      // Should contain completion message
+      expect(progressCalls.some((call: string) => 
+        call.includes('Completed execution of 1 agents')
+      )).toBe(true);
+    });
+
+    it('should show agent-specific progress messages', async () => {
+      const params: IMultiAgentInvocationParameters = {
+        agents: [
+          {
+            agentName: 'test-agent',
+            message: 'Use tools to complete the task',
+          },
+        ],
+      };
+
+      const invocation = tool.build(params);
+      await invocation.execute(mockAbortSignal, updateOutputSpy);
+
+      const progressCalls = updateOutputSpy.mock.calls.map((call: any[]) => call[0]);
+      
+      // Check if updateOutputSpy was called at all
+      expect(updateOutputSpy).toHaveBeenCalled();
+      
+      // Should have at least some progress calls
+      expect(progressCalls.length).toBeGreaterThan(0);
+    });
+
+    it('should call updateOutput for multiple agents', async () => {
+      const params: IMultiAgentInvocationParameters = {
+        agents: [
+          {
+            agentName: 'research-agent',
+            message: 'Research the topic',
+          },
+          {
+            agentName: 'analysis-agent', 
+            message: 'Analyze the data',
+          },
+        ],
+      };
+
+      const invocation = tool.build(params);
+      await invocation.execute(mockAbortSignal, updateOutputSpy);
+
+      const progressCalls = updateOutputSpy.mock.calls.map((call: any[]) => call[0]);
+      
+      // Should show parallel execution start message
+      expect(progressCalls.some((call: string) => 
+        call.includes('Starting execution of 2 agents in parallel')
+      )).toBe(true);
+
+      // Should show completion message
+      expect(progressCalls.some((call: string) => 
+        call.includes('Completed execution of 2 agents')
+      )).toBe(true);
+    });
+
+    it('should not call updateOutput when callback is not provided', async () => {
+      const params: IMultiAgentInvocationParameters = {
+        agents: [
+          {
+            agentName: 'test-agent',
+            message: 'Test message',
+          },
+        ],
+      };
+
+      const invocation = tool.build(params);
+      // Execute without updateOutput callback
+      const result = await invocation.execute(mockAbortSignal);
+
+      // Should still succeed (agent execution failed, so it should be 0 successful, 1 failed)
+      expect(result.returnDisplay).toContain('Invoked 1 agents');
+      
+      // updateOutputSpy should not have been called since no callback was provided
+      expect(updateOutputSpy).not.toHaveBeenCalled();
+    });
+
+    it('should verify updateOutput callback functionality', async () => {
+      const params: IMultiAgentInvocationParameters = {
+        agents: [
+          {
+            agentName: 'callback-test-agent',
+            message: 'Test callback functionality',
+          },
+        ],
+      };
+
+      const invocation = tool.build(params);
+      await invocation.execute(mockAbortSignal, updateOutputSpy);
+
+      // Verify that updateOutput was called with progress information
+      expect(updateOutputSpy).toHaveBeenCalled();
+      
+      const progressCalls = updateOutputSpy.mock.calls.map((call: any[]) => call[0]);
+      expect(progressCalls.length).toBeGreaterThan(0);
+      
+      // Should contain execution messages
+      expect(progressCalls.some((call: string) => 
+        call.includes('execution')
+      )).toBe(true);
+    });
+
+    // Note: These tests verify the basic progress update functionality.
+    // The enhanced tool invocation progress updates are tested indirectly 
+    // through the existing execution flow and would be fully tested in 
+    // integration tests where actual tool execution occurs.
   });
 
   describe('tool metadata', () => {

@@ -452,11 +452,12 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
       // Update progress for tool execution
       logger.debug(`Found ${toolCalls.length} tool calls to execute`, LogLevel.VERBOSE);
       if (onProgressUpdate) {
-        onProgressUpdate(`Round ${conversationRound}/${maxRounds}: Executing ${toolCalls.length} tools...`);
+        const toolNames = toolCalls.map(tc => tc.name).join(', ');
+        onProgressUpdate(`Round ${conversationRound}/${maxRounds}: Executing ${toolCalls.length} tools (${toolNames})...`);
       }
 
       // Execute tool calls using CoreToolScheduler
-      const toolResults = await this.executeToolCalls(toolCalls, signal);
+      const toolResults = await this.executeToolCalls(toolCalls, signal, onProgressUpdate);
       
       logger.debug(`Tool execution completed, got ${toolResults.length} results`, LogLevel.VERBOSE);
       
@@ -510,6 +511,7 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
   private async executeToolCalls(
     toolCalls: ToolCallRequestInfo[],
     signal: AbortSignal,
+    onProgressUpdate?: (progressText: string) => void,
   ): Promise<any[]> {
     // If no tool calls, return empty results immediately
     if (!toolCalls || toolCalls.length === 0) {
@@ -611,6 +613,22 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
           // Log tool call status updates for debugging
           const statusSummary = toolCalls.map(tc => `${tc.request.name}: ${tc.status}`).join(', ');
           logger.debug(`Tool status update: ${statusSummary}`, LogLevel.VERBOSE);
+          
+          // Send progress updates if callback is provided
+          if (onProgressUpdate) {
+            const executing = toolCalls.filter(tc => 
+              tc.status === 'validating' || 
+              tc.status === 'scheduled' || 
+              tc.status === 'executing' || 
+              tc.status === 'awaiting_approval'
+            );
+            const completed = toolCalls.filter(tc => tc.status === 'success' || tc.status === 'error' || tc.status === 'cancelled');
+            
+            if (executing.length > 0) {
+              const executingNames = executing.map(tc => tc.request.name).join(', ');
+              onProgressUpdate(`Executing tools: ${executingNames} (${completed.length}/${toolCalls.length} complete)`);
+            }
+          }
         },
       });
 
