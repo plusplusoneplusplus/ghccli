@@ -22,6 +22,11 @@ vi.mock('../core/prompts.js', () => ({
 // Mock the AgentLoader
 vi.mock('./agentLoader.js');
 
+// Mock the getFolderStructure utility
+vi.mock('../utils/getFolderStructure.js', () => ({
+  getFolderStructure: vi.fn(() => Promise.resolve('test-folder-structure')),
+}));
+
 describe('AgentChat', () => {
   let mockConfig: Config;
   let mockContentGenerator: ContentGenerator;
@@ -30,6 +35,16 @@ describe('AgentChat', () => {
   beforeEach(() => {
     mockConfig = {
       getUserMemory: vi.fn(() => null),
+      getWorkspaceContext: vi.fn(() => ({
+        getDirectories: vi.fn(() => ['/test/dir']),
+      })),
+      getFileService: vi.fn(() => ({
+        // Mock file service methods if needed
+      })),
+      getToolRegistry: vi.fn(() => ({
+        // Mock tool registry methods if needed
+      })),
+      getFullContext: vi.fn(() => false),
     } as any;
     mockContentGenerator = {} as ContentGenerator;
     
@@ -333,7 +348,10 @@ metadata:
       
       expect(systemPrompt).toBeDefined();
       expect(systemPrompt.role).toBe('system');
-      expect(systemPrompt.parts[0].text).toBe('You are a test agent');
+      expect(systemPrompt.parts[0].text).toContain('You are a test agent');
+      expect(systemPrompt.parts[0].text).toContain('This is the GHC CLI. We are setting up the context for our chat.');
+      expect(systemPrompt.parts[0].text).toContain('Today\'s date is');
+      expect(systemPrompt.parts[0].text).toContain('My operating system is: darwin');
     });
 
     it('should append agent information when no placeholder exists and multiple agents available', async () => {
@@ -431,7 +449,8 @@ metadata:
       const systemPrompt = await (chat as any).generateSystemPrompt();
       
       expect(systemPrompt).toBeDefined();
-      expect(systemPrompt.parts[0].text).toBe('You are a test agent');
+      expect(systemPrompt.parts[0].text).toContain('You are a test agent');
+      expect(systemPrompt.parts[0].text).toContain('This is the GHC CLI. We are setting up the context for our chat.');
       expect(systemPrompt.parts[0].text).not.toContain('Available sub-agents you can invoke:');
     });
 

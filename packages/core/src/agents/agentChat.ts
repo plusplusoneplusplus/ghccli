@@ -12,6 +12,7 @@ import { AgentConfig } from './agentTypes.js';
 import { AgentLoader } from './agentLoader.js';
 import { isModelAvailable } from '../config/supportedModels.js';
 import { createLogger, LogLevel } from '../utils/logging.js';
+import { getEnvironmentContext } from '../utils/environmentContext.js';
 
 import os from 'os';
 
@@ -49,9 +50,16 @@ export class AgentChat extends GeminiChat {
       // Handle variable resolution if enabled
       promptContent = await this.resolvePromptVariables(promptContent);
 
+      // Add environment context like the main agent receives
+      const envParts = await this.getEnvironmentContext();
+      const envText = envParts.map(part => part.text).join('\n');
+      
+      // Prepend environment context to the agent prompt
+      const fullPromptContent = `${envText}\n\n---\n\n${promptContent}`;
+
       return {
         role: 'system',
-        parts: [{ text: promptContent }],
+        parts: [{ text: fullPromptContent }],
       };
     }
 
@@ -104,7 +112,7 @@ export class AgentChat extends GeminiChat {
       let userName = '';
       try {
         userName = os.userInfo().username;
-      } catch (e) {
+      } catch (_e) {
         userName = process.env['USER'] || process.env['USERNAME'] || '';
       }
       promptContent = promptContent.replace(
@@ -158,7 +166,7 @@ export class AgentChat extends GeminiChat {
         if (!shell) {
           shell = 'unknown';
         }
-      } catch (e) {
+      } catch (_e) {
         shell = 'unknown';
       }
       promptContent = promptContent.replace(
@@ -186,14 +194,14 @@ export class AgentChat extends GeminiChat {
         try {
           const agentConfig = await this.agentLoader.loadAgentConfig(agentName);
           agentDetails.push(`- ${agentConfig.name}: ${agentConfig.description}`);
-        } catch (error) {
+        } catch (_error) {
           // Fallback to just the name if config can't be loaded
           agentDetails.push(`- ${agentName}`);
         }
       }
       
       return agentDetails.join('\n');
-    } catch (error) {
+    } catch (_error) {
       // Fallback to simple agent names if there's any error
       if (this.agentConfig.availableAgents && this.agentConfig.availableAgents.length > 0) {
         return this.agentConfig.availableAgents
@@ -298,6 +306,13 @@ export class AgentChat extends GeminiChat {
    */
   getBlockedToolsRegex(): string[] {
     return this.agentConfig.metadata.toolPreferences?.blockedToolsRegex || [];
+  }
+
+  /**
+   * Gets environment context for the agent
+   */
+  private async getEnvironmentContext() {
+    return await getEnvironmentContext(this.config);
   }
 
   /**
