@@ -390,7 +390,7 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
     let currentMessage = message;
     let fullResponseText = '';
     let conversationRound = 0;
-    const maxRounds = 10; // Prevent infinite loops
+    const maxRounds = agentChat.getMaxRounds(); // Use agent-specific max rounds from config
 
     logger.debug(`Starting agent execution with message: ${message.substring(0, 100)}...`, LogLevel.VERBOSE);
 

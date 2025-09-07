@@ -106,6 +106,7 @@ describe('AgentInvocationTool', () => {
       getHistory: vi.fn().mockReturnValue([]),
       supportsTools: vi.fn().mockReturnValue(true),
       supportsStreaming: vi.fn().mockReturnValue(true),
+      getMaxRounds: vi.fn().mockReturnValue(10),
     };
     
     // Setup AgentChat.fromAgentConfig static method mock
