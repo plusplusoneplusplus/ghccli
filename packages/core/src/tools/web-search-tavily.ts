@@ -127,7 +127,7 @@ export class TavilyWebSearchTool {
     }
 
     // Get Tavily API token
-    let tavilyToken = getTavilyToken();
+    const tavilyToken = getTavilyToken();
     if (!tavilyToken) {
       return {
         llmContent: `Error: Tavily API token not found. Please provide your Tavily API token.`,

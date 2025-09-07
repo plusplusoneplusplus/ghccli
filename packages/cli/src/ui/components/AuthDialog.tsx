@@ -123,7 +123,7 @@ export function AuthDialog({
     }
   };
 
-  const handleGitHubCopilotSuccess = (token: string) => {
+  const handleGitHubCopilotSuccess = (_token: string) => {
     // Token is already saved by the GitHubCopilotTokenManager
     setShowGitHubCopilotDialog(false);
     setErrorMessage(null);

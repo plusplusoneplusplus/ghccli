@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Yiheng Tao
+ * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 

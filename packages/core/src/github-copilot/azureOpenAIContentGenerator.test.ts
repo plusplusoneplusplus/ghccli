@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 Yiheng Tao
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -14,9 +14,9 @@ let createCalls: Array<{ params: any; options: any }> = [];
 // Mock the parent OpenAIContentGenerator to avoid importing the real one and its dependencies
 vi.mock('./openaiContentGenerator.js', () => {
   class MockParent {
-    public model: string;
-    public config: any;
-    public client: any;
+    model: string;
+    config: any;
+    client: any;
     constructor(apiKey: string, model: string, config: any) {
       openAIConstructorCalls.push({ apiKey, model });
       this.model = model;

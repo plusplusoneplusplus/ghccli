@@ -37,7 +37,7 @@ export async function runNonInteractive(
   const isJsonOutput = outputFormat === 'json';
   const jsonHandler = isJsonOutput ? new JsonOutputHandler(prettyPrint ?? true) : null;
   let contentBuffer = '';
-  let toolCallResults: ToolCallResult[] = [];
+  const toolCallResults: ToolCallResult[] = [];
 
   const consolePatcher = new ConsolePatcher({
     stderr: true,

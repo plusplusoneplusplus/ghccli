@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 Yiheng Tao
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -826,7 +826,7 @@ import {
                 );
               }
 
-              let normalizedFunctionName = func.name.replace('.', '_');
+              const normalizedFunctionName = func.name.replace('.', '_');
 
               openAITools.push({
                 type: 'function',

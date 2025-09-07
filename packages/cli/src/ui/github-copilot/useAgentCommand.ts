@@ -14,7 +14,7 @@ interface UseAgentCommandReturn {
   isAgentDialogOpen: boolean;
   openAgentDialog: () => void;
   handleAgentSelect: (agentName: string) => void;
-  availableAgents: { name: string; description: string }[];
+  availableAgents: Array<{ name: string; description: string }>;
 }
 
 export const useAgentCommand = (
@@ -23,7 +23,7 @@ export const useAgentCommand = (
   addItem: (item: Omit<HistoryItem, 'id'>, timestamp: number) => void,
 ): UseAgentCommandReturn => {
   const [isAgentDialogOpen, setIsAgentDialogOpen] = useState(false);
-  const [availableAgents, setAvailableAgents] = useState<{ name: string; description: string }[]>([]);
+  const [availableAgents, setAvailableAgents] = useState<Array<{ name: string; description: string }>>([]);
 
   const loadAvailableAgents = useCallback(async () => {
     if (!config) return;

@@ -11,7 +11,7 @@ import { AgentSelector } from './AgentSelector.js';
 interface AgentDialogProps {
   isOpen: boolean;
   onExit: () => void;
-  agents: { name: string; description: string }[];
+  agents: Array<{ name: string; description: string }>;
   currentAgent: string;
   onAgentSelect: (agent: string) => void;
 }

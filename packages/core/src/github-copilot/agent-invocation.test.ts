@@ -265,11 +265,9 @@ describe('AgentInvocationTool', () => {
 
       // Update the existing mockAgentChatInstance with execution-specific mocks
       mockAgentChatInstance.sendMessage = vi.fn().mockResolvedValue(mockResponse);
-      mockAgentChatInstance.sendMessageStream = vi.fn().mockImplementation(async function() {
-        return (async function* () {
+      mockAgentChatInstance.sendMessageStream = vi.fn().mockImplementation(async () => (async function* () {
           yield mockResponse;
-        })();
-      });
+        })());
       mockAgentChatInstance.getHistory = vi.fn().mockReturnValue(mockChatHistory);
 
       mockLoggerInstance = {

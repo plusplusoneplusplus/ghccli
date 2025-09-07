@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 Yiheng Tao
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -74,11 +74,11 @@ export const modelCommand: SlashCommand = {
   completion: async (
     _context: CommandContext,
     partialArg: string,
-  ): Promise<string[]> => {
+  ): Promise<string[]> => 
     // Provide autocompletion for model names
-    return AVAILABLE_MODELS.filter((model) =>
+     AVAILABLE_MODELS.filter((model) =>
       model.toLowerCase().startsWith(partialArg.toLowerCase()),
-    );
-  },
+    )
+  ,
 };
 
