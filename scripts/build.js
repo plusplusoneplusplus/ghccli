@@ -30,9 +30,30 @@ if (!existsSync(join(root, 'node_modules'))) {
   execSync('npm install', { stdio: 'inherit', cwd: root });
 }
 
-// build all workspaces/packages
+// build all workspaces/packages in dependency order
 execSync('npm run generate', { stdio: 'inherit', cwd: root });
-execSync('npm run build --workspaces', { stdio: 'inherit', cwd: root });
+
+// Build packages in dependency order to avoid import errors:
+// 1. test-utils (no dependencies)
+// 2. core (depends on test-utils) 
+// 3. cli (depends on core)
+// 4. vscode-ide-companion (depends on core)
+const buildOrder = [
+  '@google/gemini-cli-test-utils',
+  '@google/gemini-cli-core',
+  'ghccli', 
+  'gemini-cli-vscode-ide-companion'
+];
+
+for (const pkg of buildOrder) {
+  try {
+    console.log(`Building package: ${pkg}`);
+    execSync(`npm run build -w ${pkg}`, { stdio: 'inherit', cwd: root });
+  } catch (error) {
+    console.error(`Failed to build package: ${pkg}`);
+    throw error;
+  }
+}
 
 // also build container image if sandboxing is enabled
 // skip (-s) npm install + build since we did that above

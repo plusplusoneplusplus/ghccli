@@ -24,7 +24,11 @@ esbuild
     outfile: `bundle/${binaryName}`,
     platform: 'node',
     format: 'esm',
-    external: [],
+    external: [
+      'ajv-formats',
+      '@lvce-editor/ripgrep', 
+      '@xterm/headless'
+    ],
     alias: {
       'is-in-ci': path.resolve(
         __dirname,

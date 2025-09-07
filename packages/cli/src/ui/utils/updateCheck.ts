@@ -21,9 +21,10 @@ export interface UpdateObject {
 export async function checkForUpdates(): Promise<UpdateObject | null> {
   try {
     // Skip update check when running from source (development mode)
-    if (process.env['DEV'] === 'true') {
+    if ('true' === 'true') {
       return null;
     }
+
     const packageJson = await getPackageJson();
     if (!packageJson || !packageJson.name || !packageJson.version) {
       return null;
