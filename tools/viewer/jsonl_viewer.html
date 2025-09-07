@@ -30,6 +30,10 @@
                 <small style="color: #8b949e; display: block; margin-top: 4px;">
                     Hides repeated system prompts and shows only new content
                 </small>
+                <div class="divider" style="margin: 12px 0;"></div>
+                <button class="button secondary" onclick="reloadCurrentView()" id="reloadButton" disabled>
+                    🔄 Reload View
+                </button>
             </div>
 
             <div class="divider"></div>
@@ -49,7 +53,7 @@
                         <h4>Expected File Format</h4>
                         <p>The tool expects JSONL files from GitHub Copilot CLI sessions, typically found at:</p>
                         <ul style="margin-top: 12px; text-align: left; display: inline-block;">
-                            <li><strong>Windows:</strong> C:\Users\[username]\.ghccli\tmp\sessions\</li>
+                            <li><strong>Windows:</strong> C:\Users\[your-username]\.ghccli\tmp\sessions\</li>
                             <li><strong>macOS/Linux:</strong> ~/.ghccli/tmp/sessions/</li>
                         </ul>
                     </div>

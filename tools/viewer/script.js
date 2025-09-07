@@ -3,6 +3,7 @@ class JSONLViewer {
         this.filesData = {};
         this.sessionGroups = {};
         this.selectedFile = null;
+        this.selectedSessionId = null;
         this.incrementalMode = true; // Default to enabled
         this.lastMessages = {}; // Track previous messages for incremental view
         this.initializeDragAndDrop();
@@ -38,6 +39,7 @@ class JSONLViewer {
         this.buildSessionGroups();
         this.renderSessionGroups();
         this.updateSummary();
+        this.updateReloadButton();
         this.showMessage(`Loaded ${Object.keys(this.filesData).length} session files`, 'info');
     }
 
@@ -169,8 +171,10 @@ class JSONLViewer {
 
     selectFile(filename, sessionId) {
         this.selectedFile = filename;
+        this.selectedSessionId = sessionId;
         this.renderSessionGroups(); // Re-render to update selected state
         this.renderChatDetails(this.filesData[filename], filename);
+        this.updateReloadButton();
     }
 
     toggleIncrementalView() {
@@ -507,6 +511,7 @@ class JSONLViewer {
         this.filesData = {};
         this.sessionGroups = {};
         this.selectedFile = null;
+        this.selectedSessionId = null;
         
         document.getElementById('sessionGroups').innerHTML = '';
         document.getElementById('sessionSummary').textContent = '';
@@ -520,6 +525,7 @@ class JSONLViewer {
             </div>
         `;
         document.getElementById('fileInput').value = '';
+        this.updateReloadButton();
     }
 
     showMessage(message, type = 'info') {
@@ -614,6 +620,7 @@ class JSONLViewer {
         this.buildSessionGroups();
         this.renderSessionGroups();
         this.updateSummary();
+        this.updateReloadButton();
         this.showMessage(`Loaded ${Object.keys(this.filesData).length} session files`, 'info');
         
         // Clear the main content instructions
@@ -626,6 +633,9 @@ class JSONLViewer {
     showInitialInstructions() {
         // Add enhanced instructions with drag and drop info
         const mainContent = document.getElementById('mainContent');
+        const username = this.getCurrentUsername();
+        const windowsPath = `C:\\Users\\${username}\\.ghccli\\tmp\\sessions\\`;
+        
         mainContent.innerHTML = `
             <div class="no-data">
                 <h3>📁 Load JSONL Session Files</h3>
@@ -637,7 +647,7 @@ class JSONLViewer {
                     <h4>Expected File Locations</h4>
                     <p>GitHub Copilot CLI sessions are typically found at:</p>
                     <ul style="margin-top: 12px; text-align: left; display: inline-block;">
-                        <li><strong>Windows:</strong> C:\\Users\\[username]\\.ghccli\\tmp\\sessions\\</li>
+                        <li><strong>Windows:</strong> ${windowsPath}</li>
                         <li><strong>macOS/Linux:</strong> ~/.ghccli/tmp/sessions/</li>
                     </ul>
                 </div>
@@ -672,12 +682,54 @@ class JSONLViewer {
         }, 0);
     }
 
+    updateReloadButton() {
+        const reloadButton = document.getElementById('reloadButton');
+        if (reloadButton) {
+            reloadButton.disabled = !this.selectedFile;
+        }
+    }
+
+    reloadCurrentView() {
+        if (this.selectedFile && this.filesData[this.selectedFile]) {
+            this.renderChatDetails(this.filesData[this.selectedFile], this.selectedFile);
+            this.showMessage('View reloaded', 'info');
+        }
+    }
+
+    getCurrentUsername() {
+        // Try to extract username from previously loaded file paths
+        // This works if user has already loaded files from the sessions directory
+        for (const filename of Object.keys(this.filesData)) {
+            // Look for patterns like "C:\Users\john\.ghccli\" or similar
+            const match = filename.match(/(?:Users[\\\/]([^\\\/]+)[\\\/]|home[\\\/]([^\\\/]+)[\\\/])/i);
+            if (match) {
+                return match[1] || match[2];
+            }
+        }
+        
+        // Fallback: return placeholder that user can understand
+        return '[your-username]';
+    }
+
     async loadDefaultSessions() {
         // For browser-based app, we can't directly access file system
         // But we can provide a button to select the default directory
         try {
             if ('showDirectoryPicker' in window) {
-                const directoryHandle = await window.showDirectoryPicker();
+                // Show a message suggesting the default path before opening picker
+                const platform = navigator.platform.toLowerCase();
+                const isWindows = platform.includes('win');
+                const username = this.getCurrentUsername();
+                const defaultPath = isWindows 
+                    ? `C:\\Users\\${username}\\.ghccli\\tmp\\sessions\\`
+                    : `~/.ghccli/tmp/sessions/`;
+                
+                this.showMessage(`Please navigate to your sessions folder: ${defaultPath}`, 'info');
+                
+                const directoryHandle = await window.showDirectoryPicker({
+                    id: 'ghccli-sessions',
+                    mode: 'read'
+                });
                 const files = [];
                 
                 for await (const [name, fileHandle] of directoryHandle.entries()) {
@@ -712,6 +764,7 @@ class JSONLViewer {
                     this.buildSessionGroups();
                     this.renderSessionGroups();
                     this.updateSummary();
+                    this.updateReloadButton();
                     this.showMessage(`Auto-loaded ${Object.keys(this.filesData).length} recent session files`, 'info');
                 } else {
                     this.showMessage('No JSONL files found in selected directory', 'warning');
@@ -745,4 +798,8 @@ function loadDefaultSessions() {
 
 function toggleIncrementalView() {
     viewer.toggleIncrementalView();
+}
+
+function reloadCurrentView() {
+    viewer.reloadCurrentView();
 }
