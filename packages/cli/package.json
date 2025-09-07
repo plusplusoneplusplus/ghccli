@@ -1,5 +1,5 @@
 {
-  "name": "@google/gemini-cli",
+  "name": "ghccli",
   "version": "0.1.22",
   "description": "Gemini CLI",
   "repository": {
