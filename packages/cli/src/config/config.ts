@@ -23,9 +23,9 @@ import {
   FileDiscoveryService,
   TelemetryTarget,
   FileFilteringOptions,
-  ShellTool,
-  EditTool,
-  WriteFileTool,
+  // ShellTool,
+  // EditTool,
+  // WriteFileTool,
   MCPServerConfig,
 } from '@google/gemini-cli-core';
 import { Settings } from './settings.js';
