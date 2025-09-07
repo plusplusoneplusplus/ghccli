@@ -221,7 +221,8 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
 
         // Create progress update callback that sends live updates
         const onProgressUpdate = updateOutput ? (progressText: string) => {
-          const agentProgressText = `**Agent ${index + 1} (${agentConfig.agentName})**: ${progressText}`;
+          const modelInfo = loadedAgentConfig.metadata.languageModel.preferred;
+          const agentProgressText = `**Agent ${index + 1} (${agentConfig.agentName}) [${modelInfo}]**: ${progressText}`;
           updateOutput(agentProgressText);
         } : undefined;
 

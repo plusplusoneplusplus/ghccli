@@ -666,6 +666,12 @@ describe('AgentInvocationTool', () => {
     beforeEach(() => {
       // Setup updateOutput spy
       updateOutputSpy = vi.fn();
+      
+      // Ensure mock agent loader returns the correct config for progress update tests
+      const mockAgentLoaderInstance = {
+        loadAgentConfig: vi.fn().mockResolvedValue(mockAgentConfig),
+      };
+      mockAgentLoader.mockImplementation(() => mockAgentLoaderInstance as any);
     });
 
     it('should show basic progress updates during agent execution', async () => {
@@ -718,6 +724,27 @@ describe('AgentInvocationTool', () => {
       
       // Should have at least some progress calls
       expect(progressCalls.length).toBeGreaterThan(0);
+    });
+
+    it('should display model information in agent progress messages', async () => {
+      const params: IMultiAgentInvocationParameters = {
+        agents: [
+          {
+            agentName: 'test-agent',
+            message: 'Test message with model display',
+          },
+        ],
+      };
+
+      const invocation = tool.build(params);
+      await invocation.execute(mockAbortSignal, updateOutputSpy);
+
+      const progressCalls = updateOutputSpy.mock.calls.map((call: any[]) => call[0]);
+      
+      // Should show agent progress messages with model information
+      expect(progressCalls.some((call: string) => 
+        call.includes('**Agent 1 (test-agent) [gemini-pro]**:')
+      )).toBe(true);
     });
 
     it('should call updateOutput for multiple agents', async () => {
