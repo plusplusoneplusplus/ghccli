@@ -459,3 +459,117 @@ input[type="checkbox"] {
 .input-group small {
     margin-left: 24px;
 }
+
+/* Tool-related styles */
+.tool-section {
+    margin-top: 12px;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.tool-section h5 {
+    color: #58a6ff;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.tool-call {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 8px;
+}
+
+.tool-call:last-child {
+    margin-bottom: 0;
+}
+
+.tool-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.tool-header strong {
+    color: #ffa657;
+}
+
+.tool-id {
+    color: #8b949e;
+    font-size: 12px;
+    font-weight: normal;
+}
+
+.tool-args {
+    margin-top: 8px;
+}
+
+.tool-args strong {
+    color: #7c3aed;
+    font-size: 12px;
+}
+
+.json-display {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 8px;
+    margin-top: 4px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 11px;
+    color: #c9d1d9;
+    overflow-x: auto;
+    white-space: pre;
+}
+
+.tool-result {
+    margin-top: 8px;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.tool-result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.tool-result-header strong {
+    color: #238636;
+}
+
+.tool-result-content {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.tool-result-content.collapsible {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.tool-result-content.collapsible.expanded {
+    max-height: none;
+}
+
+.tool-output {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 8px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 11px;
+    color: #c9d1d9;
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-x: auto;
+}

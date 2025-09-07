@@ -383,6 +383,7 @@ class JSONLViewer {
                             ${content.trim() ? this.escapeHtml(content) : displayContent}
                         </div>
                         ${msg.tool_calls ? this.renderToolCalls(msg.tool_calls) : ''}
+                        ${msg.tool_call_id ? this.renderToolResult(msg) : ''}
                     </div>
                 `;
             });
@@ -418,12 +419,80 @@ class JSONLViewer {
     }
 
     renderToolCalls(toolCalls) {
-        let html = '<div style="margin-top: 8px;"><strong>Tool Calls:</strong>';
-        toolCalls.forEach(toolCall => {
+        let html = '<div style="margin-top: 8px;"><div class="tool-section"><h5>🔧 Tool Calls</h5>';
+        
+        toolCalls.forEach((toolCall, index) => {
             const functionName = toolCall.function?.name || 'Unknown';
-            html += `<div class="tool-calls">Function: ${functionName}</div>`;
+            const toolId = toolCall.id || `tool-${index}`;
+            const args = toolCall.function?.arguments;
+            
+            html += `
+                <div class="tool-call">
+                    <div class="tool-header">
+                        <strong>🛠️ ${functionName}</strong>
+                        <span class="tool-id">(ID: ${toolId})</span>
+                    </div>
+            `;
+            
+            // Show arguments if present
+            if (args) {
+                try {
+                    const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args;
+                    html += `
+                        <div class="tool-args">
+                            <strong>Parameters:</strong>
+                            <pre class="json-display">${JSON.stringify(parsedArgs, null, 2)}</pre>
+                        </div>
+                    `;
+                } catch (error) {
+                    html += `
+                        <div class="tool-args">
+                            <strong>Parameters (raw):</strong>
+                            <pre class="json-display">${this.escapeHtml(String(args))}</pre>
+                        </div>
+                    `;
+                }
+            }
+            
+            html += '</div>';
         });
-        html += '</div>';
+        
+        html += '</div></div>';
+        return html;
+    }
+
+    renderToolResult(msg) {
+        if (!msg.tool_call_id) return '';
+        
+        const toolCallId = msg.tool_call_id;
+        const content = msg.content || '';
+        const isLong = content.length > 1000;
+        const resultId = `result-${Math.random().toString(36).substr(2, 9)}`;
+        
+        let html = `
+            <div class="tool-result">
+                <div class="tool-result-header">
+                    <strong>📋 Tool Result</strong>
+                    <span class="tool-id">(for: ${toolCallId})</span>
+                    ${isLong ? `<button class="expand-btn" onclick="viewer.toggleMessageExpansion('${resultId}')">Expand</button>` : ''}
+                </div>
+                <div class="tool-result-content ${isLong ? 'collapsible' : ''}" id="${resultId}">
+        `;
+        
+        // Try to parse as JSON for better formatting
+        try {
+            const parsed = JSON.parse(content);
+            html += `<pre class="json-display">${JSON.stringify(parsed, null, 2)}</pre>`;
+        } catch (error) {
+            // Not JSON, display as text
+            html += `<pre class="tool-output">${this.escapeHtml(content)}</pre>`;
+        }
+        
+        html += `
+                </div>
+            </div>
+        `;
+        
         return html;
     }
 
