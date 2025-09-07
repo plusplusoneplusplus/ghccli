@@ -30,8 +30,10 @@ import { parseCommandWithQuotes } from '../utils/command-parser.js';
 import { spawn } from 'child_process';
 import { execa } from 'execa';
 import { summarizeToolOutput } from '../utils/summarizer.js';
+import { createLogger, LogLevel } from '../utils/logging.js';
 
 const OUTPUT_UPDATE_INTERVAL_MS = 1000;
+const logger = createLogger('ShellV2');
 
 export interface CommandBatch {
   command: string;
@@ -430,6 +432,11 @@ export class ShellToolInvocation extends BaseToolInvocation<
       GEMINI_CLI: '1',
     };
 
+    // Log command execution start
+    logger.debug(`Executing command: ${command}`, LogLevel.VERBOSE);
+    logger.debug(`Directory: ${this.params.directory || '(root)'}`, LogLevel.VERBOSE);
+    logger.debug(`Working directory: ${cwd}`, LogLevel.VERBOSE);
+
     let shell: any;
     
     if (isWindows) {
@@ -600,6 +607,17 @@ export class ShellToolInvocation extends BaseToolInvocation<
       }
     }
 
+    // Log command completion details
+    logger.debug(`Command completed: ${command}`, LogLevel.VERBOSE);
+    logger.debug(`Exit code: ${code ?? '(none)'}`, LogLevel.VERBOSE);
+    logger.debug(`Signal: ${processSignal ?? '(none)'}`, LogLevel.VERBOSE);
+    if (error) {
+      logger.debug(`Error: ${error.message}`, LogLevel.NORMAL);
+    }
+    if (backgroundPIDs.length > 0) {
+      logger.debug(`Background PIDs: ${backgroundPIDs.join(', ')}`, LogLevel.VERBOSE);
+    }
+
     return await this.formatSingleCommandResult(command, stdout, stderr, error, code, processSignal, backgroundPIDs, shell.pid, signal, output);
   }
 
@@ -624,6 +642,10 @@ export class ShellToolInvocation extends BaseToolInvocation<
     let totalOutput = '';
     let executedCount = 0;
 
+    // Log batch execution start
+    logger.debug(`Starting batch execution of ${commands.length} commands`, LogLevel.NORMAL);
+    logger.debug(`Stop on error: ${stopOnError}`, LogLevel.VERBOSE);
+
     for (let i = 0; i < commands.length; i++) {
       if (signal.aborted) {
         break;
@@ -631,6 +653,12 @@ export class ShellToolInvocation extends BaseToolInvocation<
 
       const cmdInfo = commands[i];
       const cmdStartTime = Date.now();
+
+      // Log individual command in batch
+      logger.debug(`Executing batch command ${i + 1}/${commands.length}: ${cmdInfo.command}`, LogLevel.NORMAL);
+      if (cmdInfo.description) {
+        logger.debug(`Description: ${cmdInfo.description}`, LogLevel.VERBOSE);
+      }
 
       let cmdOutput = '';
       const cmdUpdateOutput = (output: string) => {
@@ -670,11 +698,19 @@ export class ShellToolInvocation extends BaseToolInvocation<
 
         executedCount++;
 
+        // Log command completion
+        const cmdDurationSec = (cmdDuration / 1000).toFixed(1);
+        logger.debug(`Batch command ${i + 1} completed in ${cmdDurationSec}s, exit code: ${exitCode ?? '(none)'}`, LogLevel.NORMAL);
+        if (error) {
+          logger.debug(`Batch command ${i + 1} error: ${error.message}`, LogLevel.NORMAL);
+        }
+
         // Check if we should stop on error
         const shouldStop = error || (exitCode !== null && exitCode !== 0);
         const continueOnError = cmdInfo.continueOnError ?? !stopOnError;
         
         if (shouldStop && !continueOnError) {
+          logger.debug(`Stopping batch execution due to error in command ${i + 1}`, LogLevel.NORMAL);
           break;
         }
       } catch (err) {
@@ -700,6 +736,9 @@ export class ShellToolInvocation extends BaseToolInvocation<
     }
 
     const totalDuration = Date.now() - startTime;
+    const totalDurationSec = (totalDuration / 1000).toFixed(1);
+    logger.debug(`Batch execution completed: ${executedCount}/${commands.length} commands executed in ${totalDurationSec}s`, LogLevel.NORMAL);
+    
     return this.formatBatchResult(commands, results, totalDuration, signal, executedCount);
   }
 
