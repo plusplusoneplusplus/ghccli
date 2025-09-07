@@ -463,11 +463,11 @@ export async function loadCliConfig(
     switch (approvalMode) {
       case ApprovalMode.DEFAULT:
         // In default non-interactive mode, all tools that require approval are excluded.
-        extraExcludes.push(ShellTool.Name, EditTool.Name, WriteFileTool.Name);
+        // extraExcludes.push(ShellTool.Name, EditTool.Name, WriteFileTool.Name);
         break;
       case ApprovalMode.AUTO_EDIT:
         // In auto-edit non-interactive mode, only tools that still require a prompt are excluded.
-        extraExcludes.push(ShellTool.Name);
+        // extraExcludes.push(ShellTool.Name);
         break;
       case ApprovalMode.YOLO:
         // No extra excludes for YOLO mode.
