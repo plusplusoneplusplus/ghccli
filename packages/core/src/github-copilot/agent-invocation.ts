@@ -331,7 +331,11 @@ class AgentInvocationToolInvocation extends BaseToolInvocation<
             (result) =>
               `- **${result.agent}**: ${result.success ? '✅ Success' : '❌ Failed'} (${result.duration})${
                 result.error ? ` - ${result.error.message}` : ''
-              }${result.success ? ` - *Chat saved as: \`${result.childExecutionId}\`*` : ''}`
+              }${result.success ? ` - *Chat saved as: \`${result.childExecutionId}\`*` : ''}${
+                result.success && result.result?.response 
+                  ? `\n\n  **Raw Response:**\n  \`\`\`\n  ${result.result.response}\n  \`\`\`\n`
+                  : ''
+              }`
           )
           .join('\n')}`,
       };
