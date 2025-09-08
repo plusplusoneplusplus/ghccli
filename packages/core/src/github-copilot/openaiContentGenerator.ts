@@ -103,6 +103,15 @@ import {
         arguments: string;
       }
     > = new Map();
+  private functionNameMapping: Map<string, string> = new Map();
+
+  /**
+   * Clear both streaming tool calls and function name mapping
+   */
+  private clearToolCallState(): void {
+    this.streamingToolCalls.clear();
+    this.functionNameMapping.clear();
+  }
 
     /**
      * Override this method in subclasses to provide additional headers for API requests
@@ -199,6 +208,9 @@ import {
     async generateContent(
       request: GenerateContentParameters,
     ): Promise<GenerateContentResponse> {
+      // Clear any previous tool call state for fresh request
+      this.clearToolCallState();
+      
       const startTime = Date.now();
       const messages = this.convertToOpenAIFormat(request);
   
@@ -342,6 +354,9 @@ import {
     async generateContentStream(
       request: GenerateContentParameters,
     ): Promise<AsyncGenerator<GenerateContentResponse>> {
+      // Clear any previous tool call state for fresh request
+      this.clearToolCallState();
+      
       const startTime = Date.now();
       const messages = this.convertToOpenAIFormat(request);
   
@@ -826,7 +841,10 @@ import {
                 );
               }
 
-              const normalizedFunctionName = func.name.replace('.', '_');
+              const normalizedFunctionName = func.name.replace(/\./g, '_');
+              
+              // Store mapping from normalized name back to original name
+              this.functionNameMapping.set(normalizedFunctionName, func.name);
 
               openAITools.push({
                 type: 'function',
@@ -1229,10 +1247,13 @@ import {
               args = safeJsonParse(toolCall.function.arguments, {});
             }
   
+            // Reverse the function name normalization
+            const originalFunctionName = this.functionNameMapping.get(toolCall.function.name) || toolCall.function.name;
+            
             parts.push({
               functionCall: {
                 id: toolCall.id,
-                name: toolCall.function.name,
+                name: originalFunctionName,
                 args,
               },
             });
@@ -1342,10 +1363,13 @@ import {
                 args = safeJsonParse(accumulatedCall.arguments, {});
               }
   
+              // Reverse the function name normalization
+              const originalFunctionName = this.functionNameMapping.get(accumulatedCall.name) || accumulatedCall.name;
+              
               parts.push({
                 functionCall: {
                   id: accumulatedCall.id,
-                  name: accumulatedCall.name,
+                  name: originalFunctionName,
                   args,
                 },
               });
@@ -1810,11 +1834,14 @@ import {
           if ('text' in part && part.text) {
             textParts.push(part.text);
           } else if ('functionCall' in part && part.functionCall) {
+            // For logging, we need to normalize the function name again (reverse of what we do in response processing)
+            const normalizedNameForLogging = (part.functionCall.name || '').replace(/\./g, '_');
+            
             toolCalls.push({
               id: part.functionCall.id || `call_${toolCalls.length}`,
               type: 'function' as const,
               function: {
-                name: part.functionCall.name || '',
+                name: normalizedNameForLogging,
                 arguments: JSON.stringify(part.functionCall.args || {}),
               },
             });
